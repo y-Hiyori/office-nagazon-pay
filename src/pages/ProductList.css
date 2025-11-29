@@ -1,0 +1,112 @@
+/* 全体 */
+.plist-container {
+  padding: 16px;
+  padding-top: 70px; /* ヘッダー高さぶん余白 */
+}
+
+/* 固定ヘッダー */
+.plist-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #eee;
+  z-index: 100;
+}
+
+/* 戻るボタン */
+.plist-back {
+  position: absolute;
+  left: 16px;
+  padding: 8px 14px;
+  background: #f2f2f2;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+}
+
+/* タイトル */
+.plist-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* カートボタン */
+.plist-cart {
+  position: absolute;
+  right: 16px;
+  background: #007aff;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: none;
+  font-size: 20px;
+}
+
+/* 商品2列グリッド */
+.plist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* 商品カード */
+.plist-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  padding-bottom: 10px;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* 画像 */
+.plist-card img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 12px 12px 0 0;
+}
+
+/* 画像なし */
+.plist-noimg {
+  width: 100%;
+  height: 140px;
+  background: #ddd;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 価格 */
+.plist-price {
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+/* 🔥 SOLD OUT 用の半透明レイヤー */
+.plist-card.sold-out {
+  position: relative;
+  opacity: 0.5;
+  pointer-events: none; /* クリック無効 */
+}
+
+/* 🔥 SOLD OUT ラベル */
+.sold-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.8);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 5;
+}

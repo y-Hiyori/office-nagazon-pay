@@ -1,0 +1,89 @@
+/* 管理画面コンテナ */
+.admin-page {
+  padding: 16px;
+  padding-top: 70px; /* ヘッダー固定分 */
+}
+
+/* 固定ヘッダー（左右バランス◎） */
+.admin-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;   /* ここでタイトルが中央に来る */
+  border-bottom: 1px solid #eee;
+  z-index: 100;
+}
+
+/* 戻るボタン（左配置） */
+.admin-back {
+  position: absolute;
+  left: 16px;
+  background: #f2f2f2;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+/* 追加ボタン（右配置） */
+.admin-add {
+  position: absolute;
+  right: 16px;
+  background: #0A74FF;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* タイトル（中央に固定される） */
+.admin-title {
+  font-size: 22px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* ★ ここが2列グリッドの設定 */
+.admin-list {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+/* 商品カード */
+.admin-item {
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  cursor: pointer;
+}
+
+/* 商品画像（2列用サイズ） */
+.admin-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.admin-info h3 {
+  font-size: 16px;
+  margin: 6px 0 2px;
+}
+
+.admin-info p {
+  font-size: 14px;
+  margin: 2px 0;
+}

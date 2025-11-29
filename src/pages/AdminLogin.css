@@ -1,0 +1,67 @@
+.admin-login-container {
+  padding: 40px;
+  max-width: 400px;
+  margin: 80px auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  position: relative; /* ← 戻るボタンを絶対配置するため必要 */
+}
+
+/* ▼ 戻るボタン（デザイン統一） */
+.back-button {
+  position: absolute;       /* ← コンテナ内の固定位置（ズレない） */
+  top: 20px;
+  left: 20px;
+
+  font-size: 16px;
+  background: #f2f2f2;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: none;
+
+  cursor: pointer;
+}
+
+/* ▼ タイトル（戻ると高さを揃える） */
+.admin-login-title {
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+
+  margin-top: 40px;   /* ← 戻るボタンと重ならないように調整 */
+  margin-bottom: 25px;
+}
+
+/* ▼ 入力 */
+.admin-login-input {
+  width: 100%;
+  padding: 12px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin-bottom: 20px;
+}
+
+/* ▼ ボタン */
+.admin-login-button {
+  width: 100%;
+  padding: 12px;
+  background: #4a90e2;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.admin-login-button:hover {
+  opacity: 0.8;
+}
+
+/* ▼ エラー */
+.admin-error {
+  color: red;
+  margin-top: 10px;
+  text-align: center;
+}

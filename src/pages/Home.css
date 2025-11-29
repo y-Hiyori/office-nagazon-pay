@@ -1,0 +1,85 @@
+/* ====== 全体レイアウト ====== */
+.home-page {
+  height: calc(var(--vh, 1vh) * 100); /* iPhone バグ対策 */
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+
+  background: white;
+}
+
+/* ====== 固定ヘッダー ====== */
+.home-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+
+  background: white;
+  border-bottom: 1px solid #ddd;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  z-index: 1000;
+}
+
+.home-title {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.home-account-btn {
+  position: absolute;
+  right: 16px;
+  background: #007aff;
+  color: white;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 20px;
+}
+
+/* ====== 真ん中配置ブロック ====== */
+.home-center {
+  /* ヘッダーの下に来るように */
+  margin-top: 60px;
+
+  height: calc((var(--vh, 1vh) * 100) - 60px);
+
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+
+  justify-content: center; /* ← ★真ん中 */
+  align-items: center; /* ← ★中央寄せ */
+
+  gap: 30px; /* 画像とボタンの間隔 */
+}
+
+/* ====== ロゴ ====== */
+.home-logo {
+  width: 150px;
+  height: auto;
+}
+
+/* ====== ボタン ====== */
+.home-main-btn {
+  width: 70%;
+  max-width: 300px;
+  padding: 15px;
+
+  background: #5f85db;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: bold;
+
+  text-align: center;
+}

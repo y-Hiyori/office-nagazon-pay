@@ -1,0 +1,58 @@
+.auth-container {
+  padding: 40px;
+  max-width: 400px;
+  margin: 80px auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  position: relative;
+  text-align: center;
+}
+
+/* ← 戻る */
+.auth-back {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: #f2f2f2;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* タイトル */
+.auth-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-top: 40px;
+  margin-bottom: 30px;
+}
+
+/* ボタン共通デザイン */
+.auth-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: 10px;
+  border: none;
+  font-size: 18px;
+  margin-bottom: 15px;
+  cursor: pointer;
+}
+
+/* ログイン */
+.auth-btn.login {
+  background: #007aff;
+  color: white;
+}
+
+/* 新規作成 */
+.auth-btn.signup {
+  background: #4CAF50;
+  color: white;
+}
+
+.auth-btn:active {
+  opacity: 0.85;
+}

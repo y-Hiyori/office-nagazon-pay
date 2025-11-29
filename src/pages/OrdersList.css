@@ -1,0 +1,55 @@
+.orders-page {
+  padding: 20px;
+  max-width: 480px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.orders-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.back-btn {
+  background: #eee;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  margin-right: 10px;
+}
+
+.orders-title {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-item {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+}
+
+.order-item h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.order-item p {
+  margin: 4px 0;
+  color: #444;
+}
+
+.no-orders {
+  color: #777;
+  margin-top: 20px;
+  text-align: center;
+}

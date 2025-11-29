@@ -1,0 +1,150 @@
+/* 全体 */
+.cart-page {
+  padding-top: 60px;
+  padding-bottom: 120px;
+  background: #fafafa;
+  min-height: 100vh;
+}
+
+/* 固定ヘッダー */
+.cart-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: white;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.cart-back {
+  position: absolute;
+  left: 16px;
+  font-size: 22px;
+  border: none;
+  background: #f2f2f2;
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+
+/* 中身 */
+.cart-content {
+  padding: 16px;
+}
+
+.cart-empty {
+  text-align: center;
+  margin-top: 60px;
+  font-size: 18px;
+  color: gray;
+}
+
+/* 商品カード */
+.cart-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* 画像 */
+.cart-img img {
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.no-img {
+  width: 80px;
+  height: 80px;
+  background: #ddd;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+}
+
+/* 情報 */
+.cart-info {
+  flex: 1;
+  margin-left: 12px;
+}
+
+.cart-info .name {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.cart-info .price {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* 数量 */
+.qty-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.qty-row button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #eee;
+  font-size: 18px;
+}
+
+.qty-row span {
+  min-width: 24px;
+  text-align: center;
+}
+
+/* 削除 */
+.delete-btn {
+  border: none;
+  background: none;
+  font-size: 26px;
+  margin-left: 6px;
+  cursor: pointer;
+  color: red;
+}
+
+/* フッター */
+.cart-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: white;
+  padding: 14px;
+  border-top: 1px solid #ddd;
+}
+
+.total {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.buy-btn {
+  width: 100%;
+  padding: 16px;
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+}

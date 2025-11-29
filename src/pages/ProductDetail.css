@@ -1,0 +1,148 @@
+/* 全体レイアウト */
+.detail-page {
+  padding-bottom: 120px;
+}
+
+/* 固定ヘッダー */
+.detail-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #eee;
+  z-index: 100;
+}
+
+/* 戻るボタン */
+.detail-back {
+  position: absolute;
+  left: 16px;
+  font-size: 16px;
+  padding: 8px 14px;
+  background: #f2f2f2;
+  border-radius: 12px;
+  border: none;
+}
+
+/* 右上のカートボタン */
+.detail-cart-icon {
+  position: absolute;
+  right: 16px;
+  font-size: 20px;
+  padding: 8px 14px;
+  background: #007aff;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+/* タイトル */
+.detail-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* 画像 */
+.detail-image {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  margin-top: 60px; /* ヘッダー分 */
+  background: #eee;
+}
+
+/* 商品情報 */
+.detail-section {
+  padding: 20px;
+}
+
+.detail-name {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.detail-price {
+  font-size: 22px;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.detail-stock {
+  font-size: 16px;
+  margin-top: 6px;
+  color: #555;
+}
+
+.soldout {
+  color: red;
+  font-weight: bold;
+}
+
+/* 数量選択 */
+.detail-qty-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 20px 0;
+  font-size: 18px;
+}
+
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: #ddd;
+  font-size: 20px;
+}
+
+.qty-value {
+  width: 40px;
+  text-align: center;
+  font-size: 18px;
+}
+
+/* 小計 */
+.detail-subtotal {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* フッター */
+.detail-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #fff;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid #ddd;
+}
+
+.footer-buy {
+  flex: 1;
+  background: #ff7b00;
+  color: white;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  font-size: 18px;
+}
+
+.footer-cart {
+  flex: 1;
+  background: #007aff;
+  color: white;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  font-size: 18px;
+}

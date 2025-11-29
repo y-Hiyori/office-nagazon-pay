@@ -1,0 +1,124 @@
+.admin-user-detail-page {
+  padding: 16px;
+  padding-top: 70px;
+}
+
+/* 固定ヘッダー */
+.admin-user-detail-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  z-index: 100;
+}
+
+.admin-user-detail-back {
+  position: absolute;
+  left: 16px;
+  background: #f2f2f2;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.admin-user-detail-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* カード */
+.admin-user-detail-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-bottom: 16px;
+}
+
+/* 入力欄（名前変更 / パスワード変更） */
+.admin-user-detail-input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+  background: #fafafa;
+}
+
+/* 保存ボタン（青） */
+.admin-user-detail-save {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  background: #0a84ff;
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.admin-user-detail-save:hover {
+  opacity: 0.9;
+}
+
+/* 保存ボタン（赤・パスワード更新用） */
+.admin-user-detail-save-red {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  background: #ff3b30;
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.admin-user-detail-save-red:hover {
+  opacity: 0.9;
+}
+
+/* 購入履歴リスト */
+.admin-user-detail-orders {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-user-detail-orders li {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+
+  display: flex;
+  justify-content: space-between;
+}
+
+/* 削除ボタン */
+.admin-user-detail-delete {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: #ff3b30;
+  color: white;
+  font-size: 16px;
+  margin-top: 25px;
+  font-weight: bold;
+}
+
+.admin-user-detail-delete:hover {
+  opacity: 0.9;
+}

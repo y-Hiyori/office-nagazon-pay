@@ -1,0 +1,67 @@
+.detail-container {
+  padding: 16px;
+  padding-top: 70px;
+}
+
+.detail-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #eee;
+  z-index: 100;
+}
+
+.back-btn {
+  position: absolute;
+  left: 16px;
+  background: #f2f2f2;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+}
+
+.detail-title {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.detail-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.detail-buttons {
+  margin-top: 20px;
+  display: flex;
+  gap: 14px;
+}
+
+.edit-btn {
+  flex: 1;
+  background: #0A74FF;
+  color: #fff;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+}
+
+.delete-btn {
+  flex: 1;
+  background: red;
+  color: #fff;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+}
