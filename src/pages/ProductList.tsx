@@ -1,3 +1,4 @@
+// src/pages/ProductList.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -7,6 +8,12 @@ function ProductList() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 🔢 価格フォーマット関数（3桁ごとにカンマ）
+  const formatPrice = (value: number | string) => {
+    const num = Number(value ?? 0);
+    return num.toLocaleString("ja-JP");
+  };
 
   // 🔥 Supabase から商品取得
   useEffect(() => {
@@ -19,7 +26,7 @@ function ProductList() {
       if (error) {
         console.error(error);
       } else {
-        setProducts(data);
+        setProducts(data || []);
       }
       setLoading(false);
     };
@@ -70,7 +77,7 @@ function ProductList() {
                 {isSoldOut && <div className="sold-label">SOLD OUT</div>}
 
                 <h3>{p.name}</h3>
-                <p className="plist-price">{p.price}円</p>
+                <p className="plist-price">{formatPrice(p.price)}円</p>
               </div>
             );
           })

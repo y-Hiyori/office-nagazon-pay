@@ -30,6 +30,13 @@ function AdminDetail() {
     loadProduct();
   }, [id]);
 
+  // 金額を3桁区切りで表示するヘルパー
+  const formatPrice = (value: number | string) => {
+    const num = Number(value ?? 0);
+    if (Number.isNaN(num)) return String(value ?? "");
+    return num.toLocaleString("ja-JP");
+  };
+
   if (loading) return <p style={{ padding: 20 }}>読み込み中...</p>;
 
   if (!product)
@@ -72,7 +79,7 @@ function AdminDetail() {
       />
 
       <h2>{product.name}</h2>
-      <p>価格：{product.price}円</p>
+      <p>価格：{formatPrice(product.price)}円</p>
       <p>在庫：{product.stock}</p>
 
       <div className="detail-buttons">

@@ -1,4 +1,3 @@
-// src/pages/AdminUserOrders.tsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -40,7 +39,6 @@ function AdminUserOrders() {
   return (
     <div className="admin-orders-page">
       <div className="admin-orders-card">
-        {/* 戻るボタン（テキストは「戻る」だけにしてCSSで←を付ける） */}
         <button
           className="admin-orders-back"
           onClick={() => navigate(`/admin-user-detail/${id}`)}
@@ -61,7 +59,9 @@ function AdminUserOrders() {
                 onClick={() => navigate(`/orders/${o.id}`)}
               >
                 <p className="order-id">注文ID：{o.id}</p>
-                <p className="order-total">合計：{o.total}円</p>
+                <p className="order-total">
+                  合計：{Number(o.total).toLocaleString()}円
+                </p>
                 <p className="order-date">
                   日時：{new Date(o.created_at).toLocaleString()}
                 </p>

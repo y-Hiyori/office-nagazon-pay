@@ -1,13 +1,20 @@
-/* ========== デフォルトリセット ========== */
+/* ========== ベースリセット（ライト固定） ========== */
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* ❌ ダークモード前提をやめる */
+  /* color-scheme: light dark; */
+  /* color: rgba(255, 255, 255, 0.87); */
+  /* background-color: #242424; */
+
+  /* ✅ 常にライトモードっぽくする */
+  color-scheme: light;
+  color: #111827;            /* ベース文字色（ほぼ黒） */
+  background-color: #ffffff; /* 背景は白 */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -18,23 +25,31 @@
 body {
   margin: 0;
   min-width: 320px;
+
+  /* ページの背景も薄グレーにしておく（カードが映えるように） */
+  background-color: #f3f4f6;
+  color: inherit;
 }
 
+/* リンク */
 a {
   font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+  color: #2563eb;        /* ちょい濃いめの青 */
+  text-decoration: none;
 }
 
 a:hover {
-  color: #535bf2;
+  color: #1d4ed8;
+  text-decoration: underline;
 }
 
+/* 見出し */
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
 }
 
+/* ボタンのデフォルト（各画面で上書きしてるから最小限） */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -42,30 +57,24 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #f3f4f6;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, background-color 0.2s;
 }
 
 button:hover {
-  border-color: #646cff;
+  border-color: #d1d5db;
+  background-color: #e5e7eb;
 }
 
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
 }
 
-/* 🌞 ライトモード */
+/* ❌ ダーク／ライト切り替えメディアクエリは要らないので削除
 @media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+  ...
 }
+*/

@@ -25,30 +25,34 @@ function AdminPage() {
 
   const getThumb = (img: string) => (img ? img : "");
 
+  // 金額を3桁区切りで表示するヘルパー
+  const formatPrice = (value: number | string) => {
+    const num = Number(value ?? 0);
+    if (Number.isNaN(num)) return String(value ?? "");
+    return num.toLocaleString("ja-JP");
+  };
+
   if (loading) {
     return <p style={{ padding: 20 }}>読み込み中...</p>;
   }
 
   return (
     <div className="admin-page">
-
       {/* ヘッダー */}
       <header className="admin-header">
+        <button className="admin-back" onClick={() => navigate("/admin-menu")}>
+          ←
+        </button>
 
-  <button className="admin-back" onClick={() => navigate("/admin-menu")}>
-    ←
-  </button>
+        <h2 className="admin-title">商品管理</h2>
 
-  <h2 className="admin-title">商品管理</h2>
-
-  <button
-    className="admin-add"
-    onClick={() => navigate("/admin-add")}
-  >
-    ＋追加
-  </button>
-
-</header>
+        <button
+          className="admin-add"
+          onClick={() => navigate("/admin-add")}
+        >
+          ＋追加
+        </button>
+      </header>
 
       <div className="admin-list">
         {products.length === 0 ? (
@@ -72,7 +76,7 @@ function AdminPage() {
 
               <div className="admin-info">
                 <h3>{p.name}</h3>
-                <p>{p.price}円</p>
+                <p>{formatPrice(p.price)}円</p>
                 <p>在庫: {p.stock}</p>
               </div>
             </div>

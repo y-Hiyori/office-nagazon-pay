@@ -9,11 +9,16 @@ function CartPage() {
 
   const total = getTotalPrice();
 
+  // 💰 カンマ区切り
+  const formatPrice = (value: number | string) =>
+    Number(value || 0).toLocaleString("ja-JP");
+
   return (
     <div className="cart-page">
-
       <header className="cart-header">
-        <button className="cart-back" onClick={() => navigate(-1)}>←</button>
+        <button className="cart-back" onClick={() => navigate(-1)}>
+          ←
+        </button>
         <h2>カート</h2>
       </header>
 
@@ -26,7 +31,6 @@ function CartPage() {
 
             return (
               <div key={item.id} className="cart-item">
-
                 {/* 商品タップで詳細へ */}
                 <div
                   className="cart-img"
@@ -46,7 +50,8 @@ function CartPage() {
                 >
                   <p className="name">{item.product.name}</p>
                   <p className="price">
-                    {item.product.price}円 × {item.quantity}（在庫: {max}）
+                    {formatPrice(item.product.price)}円 × {item.quantity}
+                    （在庫: {max}）
                   </p>
 
                   {/* 数量変更：stopPropagation が重要 */}
@@ -75,7 +80,7 @@ function CartPage() {
                   </div>
                 </div>
 
-                {/* 削除ボタン（これも stopPropagation 必須） */}
+                {/* 削除ボタン */}
                 <button
                   className="delete-btn"
                   onClick={(e) => {
@@ -93,10 +98,10 @@ function CartPage() {
 
       {cart.length > 0 && (
         <footer className="cart-footer">
-          <p className="total">合計：{total}円</p>
+          <p className="total">合計：{formatPrice(total)}円</p>
           <button className="buy-btn" onClick={() => navigate("/checkout")}>
-  購入へ進む
-</button>
+            購入へ進む
+          </button>
         </footer>
       )}
     </div>

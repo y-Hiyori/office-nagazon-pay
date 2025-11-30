@@ -8,9 +8,15 @@ function OrdersList() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 金額フォーマット（3桁区切り）
+  const formatPrice = (value: any) =>
+    (Number(value) || 0).toLocaleString("ja-JP");
+
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         navigate("/login");
         return;
@@ -33,7 +39,6 @@ function OrdersList() {
 
   return (
     <div className="orders-page">
-
       <header className="orders-header">
         <button className="back-btn" onClick={() => navigate("/account")}>
           ← 戻る
@@ -52,7 +57,7 @@ function OrdersList() {
               onClick={() => navigate(`/orders/${o.id}`)}
             >
               <h3>注文ID：{o.id}</h3>
-              <p>合計：{o.total}円</p>
+              <p>合計：{formatPrice(o.total)}円</p>
               <p>日時：{new Date(o.created_at).toLocaleString()}</p>
             </div>
           ))}

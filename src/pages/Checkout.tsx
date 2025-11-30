@@ -16,6 +16,10 @@ function Checkout() {
   const [showPayGuide, setShowPayGuide] = useState(false);
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
 
+  // 💰 カンマ区切り
+  const formatPrice = (value: number | string) =>
+    Number(value || 0).toLocaleString("ja-JP");
+
   const state = location.state as
     | { buyNow?: { product: any; quantity: number } }
     | undefined;
@@ -138,10 +142,13 @@ function Checkout() {
             <div className="checkout-item-info">
               <p className="item-name">{item.product.name}</p>
               <p>
-                {item.product.price}円 × {item.quantity}
+                {formatPrice(item.product.price)}円 × {item.quantity}
               </p>
               <p className="item-subtotal">
-                小計：{item.product.price * item.quantity}円
+                小計：{formatPrice(
+                  (Number(item.product.price) || 0) * item.quantity
+                )}
+                円
               </p>
             </div>
           </div>
@@ -173,7 +180,7 @@ function Checkout() {
               <span className="pay-desc">
                 店舗のQRコードを読み取り
                 <br />
-                合計 {total}円 を入力して支払ってください。
+                合計 {formatPrice(total)}円 を入力して支払ってください。
               </span>
             </div>
             <div className="pay-check-area">
@@ -185,7 +192,7 @@ function Checkout() {
 
       {/* 画面下の合計＋購入ボタン（固定） */}
       <div className="checkout-bottom-fixed">
-        <p className="checkout-total">合計：{total}円</p>
+        <p className="checkout-total">合計：{formatPrice(total)}円</p>
         <button
           className="checkout-btn"
           onClick={handleClickConfirmButton}
@@ -202,7 +209,7 @@ function Checkout() {
             <h3>PayPayセルフ決済の手順</h3>
             <p>1. 店舗のQRコードを読み取る</p>
             <p>
-              2. 金額 <strong>{total}円</strong> を入力
+              2. 金額 <strong>{formatPrice(total)}円</strong> を入力
             </p>
             <p>3. 決済を完了</p>
 
@@ -233,7 +240,7 @@ function Checkout() {
           <div className="pay-modal">
             <h3>支払いは完了しましたか？</h3>
             <p>
-              金額 <strong>{total}円</strong> で間違いありませんか？
+              金額 <strong>{formatPrice(total)}円</strong> で間違いありませんか？
             </p>
 
             <div className="modal-buttons">

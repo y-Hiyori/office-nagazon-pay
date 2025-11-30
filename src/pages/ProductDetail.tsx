@@ -6,6 +6,10 @@ import "./ProductDetail.css";
 import { useCart } from "../context/CartContext";
 import { supabase } from "../lib/supabase";
 
+// 金額フォーマット関数
+const formatYen = (value: number) =>
+  (Number(value) || 0).toLocaleString("ja-JP");
+
 function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -87,7 +91,6 @@ function ProductDetail() {
   const handleBuyNow = () => {
     if (isSoldOut) return alert("在庫切れです。");
 
-    // 「すぐに購入」用の情報を state に乗せて遷移
     navigate("/checkout", {
       state: {
         buyNow: {
@@ -100,7 +103,6 @@ function ProductDetail() {
 
   return (
     <div className="detail-page">
-
       {/* ヘッダー */}
       <header className="detail-header">
         <button className="detail-back" onClick={() => navigate("/products")}>
@@ -121,7 +123,9 @@ function ProductDetail() {
 
       <div className="detail-section">
         <h1 className="detail-name">{product.name}</h1>
-        <p className="detail-price">{product.price}円</p>
+
+        {/* ★ 金額カンマ付き */}
+        <p className="detail-price">{formatYen(priceNum)}円</p>
 
         <p className="detail-stock">
           在庫：{stockNum}
@@ -148,7 +152,8 @@ function ProductDetail() {
           </button>
         </div>
 
-        <p className="detail-subtotal">小計：{subtotal}円</p>
+        {/* ★ 小計もカンマ付き */}
+        <p className="detail-subtotal">小計：{formatYen(subtotal)}円</p>
       </div>
 
       {/* 購入/カート */}
