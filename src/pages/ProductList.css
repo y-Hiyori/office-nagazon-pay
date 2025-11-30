@@ -75,17 +75,17 @@
   transform: translateY(-2px);
 }
 
-/* グリッド */
+/* グリッド（PC / タブレット） */
 .plist-grid {
   display: grid;
   gap: 18px;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
-/* 小さいスマホ：3列 */
+/* 📱 スマホは2列に固定 */
 @media (max-width: 480px) {
   .plist-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);  /* ← ここを3 → 2 に変更 */
   }
 }
 
