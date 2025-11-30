@@ -1,55 +1,127 @@
+/* ================================
+   購入履歴一覧（洗練デザイン・修正版）
+================================ */
+
 .orders-page {
-  padding: 20px;
-  max-width: 480px;
-  margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  width: min(480px, 100% - 32px);
+  margin: 80px auto 40px;
+  padding: 0 4px 24px;
+  box-sizing: border-box;
+
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", sans-serif;
 }
 
+/* ヘッダー行：タイトル中央＋戻る左固定 */
 .orders-header {
+  position: relative;              /* ← 戻るボタンを絶対配置するため */
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  justify-content: center;         /* タイトルを中央に */
+  margin-bottom: 18px;
 }
 
+/* 戻るボタン */
 .back-btn {
-  background: #eee;
+  position: absolute;              /* ← 左に固定 */
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);     /* 縦中央に揃える */
+
   border: none;
-  padding: 8px 14px;
-  border-radius: 10px;
-  margin-right: 10px;
+  padding: 6px 14px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 14px;
+  cursor: pointer;
+
+  transition: background 0.15s ease, transform 0.1s ease,
+    box-shadow 0.1s ease;
 }
 
+.back-btn:hover {
+  background: #e5e7eb;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  transform: translateY(-50%) translateY(-1px);
+}
+
+.back-btn:active {
+  box-shadow: none;
+  transform: translateY(-50%);
+}
+
+/* タイトル */
 .orders-title {
-  font-size: 24px;
-  font-weight: bold;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  color: #111827;
 }
 
+/* 一覧全体 */
 .orders-list {
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+/* 各注文カード */
 .order-item {
-  background: #fff;
-  padding: 16px;
-  border-radius: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #ffffff;
+
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.12);
+
+  transition: transform 0.1s ease, box-shadow 0.1s ease,
+    background 0.1s ease;
 }
 
+.order-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 40px rgba(15, 23, 42, 0.16);
+  background: #f9fafb;
+}
+
+.order-item:active {
+  transform: translateY(0);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+/* 注文ID（上段） */
 .order-item h3 {
-  margin: 0 0 6px;
-  font-size: 18px;
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
 }
 
+/* 合計・日時など */
 .order-item p {
-  margin: 4px 0;
-  color: #444;
+  margin: 2px 0;
+  font-size: 13px;
+  color: #4b5563;
 }
 
+/* 合計だけ少し強調 */
+.order-item .total {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111827;
+}
+
+/* 履歴がないとき */
 .no-orders {
-  color: #777;
-  margin-top: 20px;
+  margin-top: 24px;
   text-align: center;
+  font-size: 15px;
+  color: #9ca3af;
 }

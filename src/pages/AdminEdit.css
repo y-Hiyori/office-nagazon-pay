@@ -1,110 +1,172 @@
-/* === 編集画面全体 === */
+/* ===============================
+   商品編集ページ（洗練デザイン）
+   =============================== */
+
+/* ページ全体 */
 .edit-container {
-  padding: 20px;
-  padding-top: 90px;
+  padding-top: 90px;                     /* 固定ヘッダー分の余白 */
+  padding-inline: 16px;
+  padding-bottom: 32px;
+
   max-width: 480px;
   margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial;
-  color: #222;
+
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", Arial, sans-serif;
+  color: #111827;
+  background: #f3f4f6;
+  box-sizing: border-box;
 }
 
-/* === 固定ヘッダー === */
+/* ===== 固定ヘッダー ===== */
 .edit-header {
   position: fixed;
   top: 0;
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
+  max-width: 480px;
   height: 70px;
-  background: #fff;
-  border-bottom: 1px solid #eee;
+
+  background: #ffffffee;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e5e7eb;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   z-index: 200;
 }
 
-/* ← ボタン */
+/* ← 戻るボタン（JSXは「戻る」だけでも「← 戻る」でもOK） */
 .back-button {
   position: absolute;
   left: 16px;
-  padding: 8px 14px;
-  font-size: 15px;
-  border-radius: 10px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 7px 14px;
+  font-size: 14px;
+  border-radius: 999px;
   border: none;
-  background: #f3f3f3;
-  color: #333;
+  cursor: pointer;
+
+  color: #111827;
+  background: #f3f4f6;
+
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+  transition: background 0.15s ease, transform 0.1s ease,
+    box-shadow 0.1s ease;
+}
+
+.back-button:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.16);
+}
+
+.back-button:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.1);
 }
 
 /* タイトル */
 .edit-title {
-  font-size: 22px;
-  font-weight: bold;
+  font-size: 20px;
+  font-weight: 700;
   margin: 0;
 }
 
-/* === 入力フォーム === */
+/* ===== 入力フォーム ===== */
+
 .edit-input {
   width: 100%;
-  padding: 15px 16px;
+  padding: 14px 16px;
   margin-top: 16px;
-  border-radius: 12px;
-  border: 1px solid #dcdcdc;
-  font-size: 16px;
-  background: #fafafa;
-  transition: all 0.2s;
+
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 15px;
+
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
 }
 
-/* フォーカス時のiOS風アニメ */
 .edit-input:focus {
   outline: none;
-  border-color: #0A74FF;
-  box-shadow: 0 0 0 3px rgba(10, 116, 255, 0.2);
-  background: white;
+  border-color: #4f46e5;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
 }
 
-/* === 画像選択 === */
+/* ファイル入力 */
 .file-input {
   margin-top: 20px;
+  font-size: 14px;
 }
 
-/* === 現在 & 変更後画像 === */
+/* ===== プレビューエリア ===== */
+
 .preview-section {
-  margin-top: 30px;
+  margin-top: 26px;
 }
 
 .preview-label {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 10px;
 }
 
 .preview-images {
   width: 100%;
   display: flex;
   justify-content: center;
-  margin-bottom: 25px;
+  margin-bottom: 22px;
 }
 
-/* カード風の画像 */
+/* カード風の画像プレビュー */
 .preview-images img {
-  width: 70%;
+  width: 100%;
   max-width: 260px;
-  border-radius: 16px;
-  border: 1px solid #e5e5e5;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-  background: white;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+  background: #ffffff;
 }
 
-/* === 保存ボタン === */
+/* ===== 保存ボタン ===== */
+
 .save-button {
   width: 100%;
-  margin-top: 30px;
+  margin-top: 26px;
   padding: 15px;
-  background: #0A74FF;
-  color: white;
-  font-size: 18px;
-  font-weight: bold;
-  border-radius: 14px;
+
   border: none;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+  border-radius: 999px;
+  cursor: pointer;
+
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
+
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+}
+
+.save-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
+  opacity: 0.97;
+}
+
+.save-button:active {
+  transform: translateY(0);
+  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.28);
 }

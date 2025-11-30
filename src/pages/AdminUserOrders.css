@@ -1,0 +1,134 @@
+/* ================================
+   管理：ユーザー購入履歴（洗練版）
+================================ */
+
+.admin-orders-page {
+  min-height: 100vh;
+  padding: 40px 16px;
+  box-sizing: border-box;
+  background: radial-gradient(circle at top left, #f9fafb, #eef2ff);
+  display: flex;
+  justify-content: center;
+}
+
+/* 中央のカード */
+.admin-orders-card {
+  width: min(480px, 100%);
+  margin: 40px auto 24px;
+  padding: 32px 24px 26px;
+  box-sizing: border-box;
+
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", sans-serif;
+}
+
+/* 戻るボタン */
+.admin-orders-back {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 14px;
+
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* ← はCSSで1個だけ付ける */
+.admin-orders-back::before {
+  content: "←";
+  font-size: 16px;
+}
+
+.admin-orders-back:hover {
+  background: #e5e7eb;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.admin-orders-back:active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+/* タイトル */
+.admin-orders-title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 26px 0 22px;
+  color: #111827;
+}
+
+/* ローディング・空表示 */
+.admin-orders-loading,
+.admin-orders-empty {
+  text-align: center;
+  font-size: 15px;
+  color: #6b7280;
+}
+
+/* リスト全体 */
+.admin-orders-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 各注文カード */
+.admin-orders-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f9fafb;
+  cursor: pointer;
+
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.admin-orders-item:hover {
+  transform: translateY(-2px);
+  background: #f3f4ff;
+  box-shadow: 0 16px 32px rgba(79, 70, 229, 0.25);
+}
+
+.admin-orders-item:active {
+  transform: translateY(0);
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.18);
+}
+
+/* テキスト内訳 */
+.order-id {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 4px;
+}
+
+.order-total {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: #111827;
+}
+
+.order-date {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}

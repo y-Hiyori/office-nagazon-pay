@@ -1,67 +1,183 @@
+/* ===============================
+   商品詳細（管理画面） 洗練デザイン
+   =============================== */
+
+/* ページ全体 */
 .detail-container {
-  padding: 16px;
-  padding-top: 70px;
+  width: min(480px, 100% - 32px);
+  margin: 80px auto 40px;
+  padding: 0 4px 24px;
+  box-sizing: border-box;
+
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", sans-serif;
+  color: #111827;
 }
 
+/* 固定ヘッダー（共通っぽいトーン） */
 .detail-header {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 60px;
-  background: #fff;
+
+  background: #ffffffcc;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e5e7eb;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid #eee;
-  z-index: 100;
+
+  z-index: 200;
 }
 
+/* ← 戻るボタン（テキストは「← 戻る」のままでOK） */
 .back-btn {
   position: absolute;
   left: 16px;
-  background: #f2f2f2;
-  padding: 8px 14px;
-  border-radius: 12px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 6px 14px;
+  border-radius: 999px;
   border: none;
+
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 14px;
   cursor: pointer;
+
+  transition: background 0.15s ease, transform 0.1s ease,
+    box-shadow 0.1s ease;
 }
 
+.back-btn:hover {
+  background: #e5e7eb;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.back-btn:active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+/* タイトル */
 .detail-title {
   font-size: 22px;
-  font-weight: bold;
+  font-weight: 700;
+  margin: 0;
 }
 
+/* ===============================
+   商品情報カード
+   =============================== */
+
+.detail-card {
+  margin-top: 72px;                /* ヘッダーの高さぶん下げる */
+  padding: 16px 16px 20px;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.16);
+}
+
+/* 画像 */
 .detail-image {
   width: 100%;
-  height: 200px;
+  height: 220px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 18px;
   margin-bottom: 16px;
+  display: block;
 }
+
+/* 名前や価格などのテキスト用（pタグ想定） */
+.detail-card p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+/* 商品名だけ少し大きく */
+.detail-name {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* 価格・在庫などを少し強調したいとき用 */
+.detail-price,
+.detail-stock {
+  font-weight: 600;
+}
+
+/* ===============================
+   ボタンエリア
+   =============================== */
 
 .detail-buttons {
-  margin-top: 20px;
+  margin-top: 18px;
   display: flex;
-  gap: 14px;
+  gap: 12px;
 }
 
+/* 編集ボタン（メイン） */
 .edit-btn {
   flex: 1;
-  background: #0A74FF;
-  color: #fff;
-  padding: 12px;
-  border-radius: 10px;
   border: none;
-  font-size: 16px;
+  border-radius: 999px;
+  padding: 13px 0;
+
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+
+  color: #ffffff;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
 }
 
-.delete-btn {
+.edit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
+  opacity: 0.97;
+}
+
+.edit-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.28);
+}
+
+/* 削除ボタン（危険操作なので赤系） */
+/* cart用の .delete-btn とぶつからないように detail-buttons 内だけに適用 */
+.detail-buttons .delete-btn {
   flex: 1;
-  background: red;
-  color: #fff;
-  padding: 12px;
-  border-radius: 10px;
   border: none;
-  font-size: 16px;
+  border-radius: 999px;
+  padding: 13px 0;
+
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+
+  color: #ffffff;
+  background: linear-gradient(135deg, #ef4444, #f97373);
+  box-shadow: 0 16px 28px rgba(239, 68, 68, 0.4);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+}
+
+.detail-buttons .delete-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 20px 36px rgba(239, 68, 68, 0.5);
+  opacity: 0.97;
+}
+
+.detail-buttons .delete-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.35);
 }

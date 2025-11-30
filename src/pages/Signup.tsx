@@ -9,17 +9,24 @@ function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState(""); // ← 追加
   const [error, setError] = useState("");
 
   const handleSignup = async () => {
     setError("");
 
-    if (!name || !email || !password) {
+    // 入力チェック
+    if (!name || !email || !password || !passwordConfirm) {
       setError("すべて入力してください");
       return;
     }
 
-    // ① 既に同じメールのプロフィールがないか確認（任意だけどあった方が親切）
+    if (password !== passwordConfirm) {
+      setError("パスワードが一致しません");
+      return;
+    }
+
+    // ① 既に同じメールのプロフィールがないか確認
     const { data: existingProfile } = await supabase
       .from("profiles")
       .select("email")
@@ -37,7 +44,6 @@ function Signup() {
         email,
         password,
         options: {
-          // メールのリンクを開いたあと戻ってくるURL
           emailRedirectTo: `${window.location.origin}/login`,
         },
       });
@@ -59,12 +65,11 @@ function Signup() {
     const userId = signUpData.user?.id;
 
     if (!userId) {
-      // 基本ここには来ないはずだけど保険
       setError("ユーザー登録に失敗しました");
       return;
     }
 
-    // ③ profiles にも即保存（メール認証前でもOK）
+    // ③ profiles にも保存
     const { error: profileError } = await supabase.from("profiles").insert({
       id: userId,
       name,
@@ -111,6 +116,14 @@ function Signup() {
         placeholder="パスワード"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+      />
+
+      <input
+        type="password"
+        className="signup-input"
+        placeholder="パスワード（確認）"
+        value={passwordConfirm}
+        onChange={(e) => setPasswordConfirm(e.target.value)}
       />
 
       {error && <p className="signup-error">{error}</p>}

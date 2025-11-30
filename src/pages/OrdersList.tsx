@@ -36,7 +36,7 @@ function OrdersList() {
 
       <header className="orders-header">
         <button className="back-btn" onClick={() => navigate("/account")}>
-          ← マイページへ戻る
+          ← 戻る
         </button>
         <h2 className="orders-title">購入履歴</h2>
       </header>

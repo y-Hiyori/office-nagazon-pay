@@ -1,14 +1,22 @@
+/* =========================================
+   Home（ホーム画面）
+   ふんわりグラデーション背景＋シンプルヘッダー
+========================================= */
+
 /* ====== 全体レイアウト ====== */
 .home-page {
   height: calc(var(--vh, 1vh) * 100); /* iPhone バグ対策 */
   width: 100%;
+  box-sizing: border-box;
 
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
 
-  background: white;
+  /* ほんのりグラデーション背景 */
+  background: radial-gradient(circle at top left, #f5f7ff 0%, #ffffff 40%, #f3f6ff 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 }
 
 /* ====== 固定ヘッダー ====== */
@@ -19,8 +27,9 @@
   width: 100%;
   height: 60px;
 
-  background: white;
-  border-bottom: 1px solid #ddd;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid #e4e4e4;
+  backdrop-filter: blur(10px);
 
   display: flex;
   justify-content: center;
@@ -31,55 +40,96 @@
 
 .home-title {
   font-size: 22px;
-  font-weight: bold;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
+/* ====== アカウントボタン（右上） ====== */
+/* 青じゃなくて、落ち着いたグレーのフチだけ */
 .home-account-btn {
   position: absolute;
   right: 16px;
-  background: #007aff;
-  color: white;
-  border: none;
-  padding: 10px 14px;
-  border-radius: 14px;
-  font-size: 20px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  padding: 8px 12px;
+  border-radius: 999px;
+
+  background: #f7f7fa;
+  border: 1px solid #d0d3dd;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+/* アイコンだけにしたい場合の例（中身をイラスト1個にして使う想定） */
+.home-account-btn span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 押したときのちょっとした動き */
+.home-account-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 /* ====== 真ん中配置ブロック ====== */
 .home-center {
-  /* ヘッダーの下に来るように */
-  margin-top: 60px;
+  margin-top: 60px; /* ヘッダーぶん下げる */
 
   height: calc((var(--vh, 1vh) * 100) - 60px);
-
   width: 100%;
+
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
 
-  justify-content: center; /* ← ★真ん中 */
-  align-items: center; /* ← ★中央寄せ */
-
-  gap: 30px; /* 画像とボタンの間隔 */
+  gap: 28px; /* ロゴとボタンの間隔 */
 }
 
 /* ====== ロゴ ====== */
 .home-logo {
-  width: 150px;
+  width: 120px;
   height: auto;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12));
 }
 
-/* ====== ボタン ====== */
+/* ====== メインボタンたち ====== */
 .home-main-btn {
-  width: 70%;
-  max-width: 300px;
-  padding: 15px;
+  width: 76%;
+  max-width: 320px;
+  padding: 15px 18px;
 
-  background: #5f85db;
-  color: white;
+  background: linear-gradient(135deg, #4f6ee9, #5f85db);
+  color: #ffffff;
   border: none;
-  border-radius: 12px;
-  font-size: 18px;
-  font-weight: bold;
+  border-radius: 999px;
 
+  font-size: 18px;
+  font-weight: 700;
   text-align: center;
+
+  box-shadow: 0 14px 28px rgba(83, 120, 224, 0.35);
+
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+/* ２つめ以降のボタンの間隔 */
+.home-main-btn + .home-main-btn {
+  margin-top: 14px;
+}
+
+/* ホバー / タップ時のフィードバック */
+.home-main-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 8px 18px rgba(83, 120, 224, 0.25);
+  opacity: 0.95;
 }

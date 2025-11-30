@@ -1,26 +1,47 @@
 // src/pages/Checkout.tsx
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useCart } from "../context/CartContext";
 import "./Checkout.css";
 
 function Checkout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const cart = useCart();
 
   const [user, setUser] = useState<any>(null);
   const [method, setMethod] = useState<"paypay" | "self" | "">("");
-  const [isProcessing, setIsProcessing] = useState(false);      // 実際の購入処理中
-  const [showPayGuide, setShowPayGuide] = useState(false);      // 「QR読んでね」画面
-  const [showFinalConfirm, setShowFinalConfirm] = useState(false); // 「本当に払った？」画面
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPayGuide, setShowPayGuide] = useState(false);
+  const [showFinalConfirm, setShowFinalConfirm] = useState(false);
 
-  const total = cart.getTotalPrice();
+  const state = location.state as
+    | { buyNow?: { product: any; quantity: number } }
+    | undefined;
 
-  // 🔥 ユーザー取得
+  const buyNow = state?.buyNow;
+
+  const items = buyNow
+    ? [
+        {
+          id: buyNow.product.id,
+          product: buyNow.product,
+          quantity: buyNow.quantity,
+        },
+      ]
+    : cart.cart;
+
+  const total = buyNow
+    ? (Number(buyNow.product.price) || 0) * buyNow.quantity
+    : cart.getTotalPrice();
+
+  // --- ユーザー取得 ---
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         alert("ログインしてください");
         navigate("/login");
@@ -31,72 +52,63 @@ function Checkout() {
     load();
   }, [navigate]);
 
-  // ① 「購入を確定する」ボタンを押したときの処理（まだDBは触らない）
+  // --- 「購入を確定する」ボタン ---
   const handleClickConfirmButton = () => {
     if (!method) {
       alert("支払い方法を選択してください");
       return;
     }
 
-    if (cart.cart.length === 0) {
+    if (!buyNow && cart.cart.length === 0) {
       alert("カートが空です");
       return;
     }
 
     if (method === "paypay") {
-      alert("PayPay決済は現在準備中です");
+      alert("PayPay決済は準備中です");
       return;
     }
 
-    // method === "self" → PayPayセルフ決済
-    setShowPayGuide(true); // まず「QRコード読んでね」モーダルを表示
+    // モーダル① を表示
+    setShowPayGuide(true);
   };
 
-  // ③ 本当に購入を確定するときの処理（ここで初めて Supabase に保存）
+  // --- 最終購入処理 ---
   const finalizePurchase = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
 
     try {
-      // orders を作成
       const { data: order, error } = await supabase
         .from("orders")
-        .insert({
-          user_id: user.id,
-          total: total,
-        })
+        .insert({ user_id: user.id, total })
         .select()
         .single();
 
       if (error || !order) {
-        console.error(error);
         alert("注文作成に失敗しました");
-        setIsProcessing(false);
         return;
       }
 
-      // order_items を追加 & 在庫を減らす
-      for (const item of cart.cart) {
+      for (const item of items) {
         await supabase.from("order_items").insert({
-  order_id: order.id,
-  product_name: item.product.name,
-  price: item.product.price,
-  quantity: item.quantity,
-  imageData: item.product.imageData ?? null   // ← 追加！
-});
+          order_id: order.id,
+          product_name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+          imageData: item.product.imageData ?? null,
+        });
 
         await supabase
           .from("products")
-          .update({
-            stock: Number(item.product.stock) - item.quantity,
-          })
+          .update({ stock: Number(item.product.stock) - item.quantity })
           .eq("id", item.product.id);
       }
 
-      cart.clearCart();
-      setShowFinalConfirm(false); // モーダル閉じる
+      if (!buyNow) {
+        cart.clearCart();
+      }
 
-      // 完了画面へ
       navigate(`/purchase-complete/${order.id}`);
     } finally {
       setIsProcessing(false);
@@ -105,15 +117,18 @@ function Checkout() {
 
   return (
     <div className="checkout-page">
+      {/* ヘッダー */}
       <header className="checkout-header">
-        <button className="back" onClick={() => navigate(-1)}>←</button>
+        <button className="back" onClick={() => navigate(-1)}>
+          ←
+        </button>
         <h2 className="checkout-title">購入確認</h2>
       </header>
 
-      {/* 商品一覧 */}
+      {/* 購入商品一覧 */}
       <h3 className="section-title">購入商品</h3>
       <div className="checkout-items">
-        {cart.cart.map((item) => (
+        {items.map((item) => (
           <div className="checkout-item" key={item.id}>
             <img
               src={item.product.imageData ?? "/no-image.png"}
@@ -122,7 +137,9 @@ function Checkout() {
             />
             <div className="checkout-item-info">
               <p className="item-name">{item.product.name}</p>
-              <p>{item.product.price}円 × {item.quantity}</p>
+              <p>
+                {item.product.price}円 × {item.quantity}
+              </p>
               <p className="item-subtotal">
                 小計：{item.product.price * item.quantity}円
               </p>
@@ -131,63 +148,70 @@ function Checkout() {
         ))}
       </div>
 
-      <p className="checkout-total">合計：{total}円</p>
+      {/* 支払い方法（固定＋スクロール） */}
+      <div className="pay-method-fixed">
+        <h3 className="section-title pay-method-title">支払い方法</h3>
+        <div className="pay-method-scroll">
+          {/* まだ使えないPayPay */}
+          <div className="pay-card disabled">
+            <div className="pay-left">
+              <span className="pay-title">PayPay</span>
+              <span className="pay-desc">今後搭載予定</span>
+            </div>
+            <div className="pay-check-area">
+              <div className="pay-check"></div>
+            </div>
+          </div>
 
-      {/* 支払い方法 */}
-      <h3 className="section-title">支払い方法</h3>
-
-      {/* PayPay（通常決済・まだ準備中） */}
-      <div className="pay-card disabled">
-        <div className="pay-left">
-          <span className="pay-title">PayPay</span>
-          <span className="pay-desc">今後搭載予定</span>
-        </div>
-        <div className="pay-check-area">
-          <div className="pay-check"></div>
+          {/* 今回使うセルフ決済 */}
+          <div
+            className={`pay-card ${method === "self" ? "selected" : ""}`}
+            onClick={() => setMethod("self")}
+          >
+            <div className="pay-left">
+              <span className="pay-title">PayPayセルフ決済</span>
+              <span className="pay-desc">
+                店舗のQRコードを読み取り
+                <br />
+                合計 {total}円 を入力して支払ってください。
+              </span>
+            </div>
+            <div className="pay-check-area">
+              <div className="pay-check">{method === "self" && "✓"}</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* PayPayセルフ決済（今回使うほう） */}
-      <div
-        className={`pay-card ${method === "self" ? "selected" : ""}`}
-        onClick={() => setMethod("self")}
-      >
-        <div className="pay-left">
-          <span className="pay-title">PayPayセルフ決済</span>
-          <span className="pay-desc">
-  購入確定ボタンを押したあと、<br />
-  PayPayのQRコードを読み取り<br />
-  合計金額（{total}円）を入力し支払いを完了させてください。
-</span>
-        </div>
-        <div className="pay-check-area">
-          <div className="pay-check">{method === "self" && "✓"}</div>
-        </div>
+      {/* 画面下の合計＋購入ボタン（固定） */}
+      <div className="checkout-bottom-fixed">
+        <p className="checkout-total">合計：{total}円</p>
+        <button
+          className="checkout-btn"
+          onClick={handleClickConfirmButton}
+          disabled={isProcessing}
+        >
+          購入を確定する
+        </button>
       </div>
 
-      <button
-        className="checkout-btn"
-        onClick={handleClickConfirmButton}
-        disabled={isProcessing}
-      >
-        購入を確定する
-      </button>
-
-      {/* ② PayPayセルフ決済の手順モーダル */}
+      {/* モーダル①：PayPayセルフ決済の手順 */}
       {showPayGuide && (
         <div className="pay-modal-overlay">
           <div className="pay-modal">
             <h3>PayPayセルフ決済の手順</h3>
-            <p>1. 店舗に掲示されている PayPay のQRコードを読み取ってください。</p>
-            <p>2. この画面の合計金額 <strong>{total}円</strong> を入力してください。</p>
-            <p>3. PayPay上で支払いを完了させてください。</p>
+            <p>1. 店舗のQRコードを読み取る</p>
+            <p>
+              2. 金額 <strong>{total}円</strong> を入力
+            </p>
+            <p>3. 決済を完了</p>
 
             <div className="modal-buttons">
               <button
                 className="modal-main-btn"
                 onClick={() => {
                   setShowPayGuide(false);
-                  setShowFinalConfirm(true); // 次の確認へ
+                  setShowFinalConfirm(true);
                 }}
               >
                 完了しました
@@ -203,13 +227,14 @@ function Checkout() {
         </div>
       )}
 
-      {/* ③ 本当に支払いした？確認モーダル */}
+      {/* モーダル②：最終確認 */}
       {showFinalConfirm && (
         <div className="pay-modal-overlay">
           <div className="pay-modal">
             <h3>支払いは完了しましたか？</h3>
-            <p>本当に PayPay での支払いを完了させましたか？</p>
-            <p>合計金額 <strong>{total}円</strong> に間違いはありませんか？</p>
+            <p>
+              金額 <strong>{total}円</strong> で間違いありませんか？
+            </p>
 
             <div className="modal-buttons">
               <button

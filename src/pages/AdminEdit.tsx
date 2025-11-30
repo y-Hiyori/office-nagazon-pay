@@ -17,6 +17,9 @@ function AdminEdit() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
+  // ★ 追加：保存中フラグ
+  const [isSaving, setIsSaving] = useState(false);
+
   // 🔥 商品読み込み
   const loadProduct = async () => {
     const { data, error } = await supabase
@@ -58,8 +61,12 @@ function AdminEdit() {
 
   // 🔧 保存
   const handleSave = async () => {
+    if (isSaving) return; // ← 二重押し防止
+    setIsSaving(true);
+
     if (!name || !price || !stock) {
       alert("すべての項目を入力してください");
+      setIsSaving(false);
       return;
     }
 
@@ -84,6 +91,7 @@ function AdminEdit() {
         alert("商品を更新しました！");
         navigate("/admin-page");
       };
+
       reader.readAsDataURL(imageFile);
       return;
     }
@@ -108,7 +116,6 @@ function AdminEdit() {
   return (
     <div className="edit-container">
 
-      {/* 固定ヘッダー */}
       <header className="edit-header">
         <button className="back-button" onClick={() => navigate("/admin-page")}>
           ←
@@ -116,7 +123,6 @@ function AdminEdit() {
         <h2 className="edit-title">商品編集</h2>
       </header>
 
-      {/* 入力フォーム */}
       <input
         className="edit-input"
         value={name}
@@ -140,7 +146,6 @@ function AdminEdit() {
         type="number"
       />
 
-      {/* 🔥 ファイル選択（これ1つだけ） */}
       <input
         className="file-input"
         type="file"
@@ -148,7 +153,6 @@ function AdminEdit() {
         onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
       />
 
-      {/* プレビュー表示 */}
       <div className="preview-section">
         <p className="preview-label">現在の画像</p>
         <div className="preview-images">
@@ -165,8 +169,13 @@ function AdminEdit() {
         )}
       </div>
 
-      <button className="save-button" onClick={handleSave}>
-        保存する
+      {/* ★ 保存中は押せない */}
+      <button
+        className="save-button"
+        onClick={handleSave}
+        disabled={isSaving}
+      >
+        {isSaving ? "保存中..." : "保存する"}
       </button>
     </div>
   );

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase"; 
 import "./AdminAdd.css";
+
 function AdminAdd() {
   const navigate = useNavigate();
 
@@ -10,10 +11,13 @@ function AdminAdd() {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false); // ★ 送信中フラグ
 
   const handleAdd = async () => {
+    // ★ すでに送信中なら何もしない（連打完全防止）
     if (isSubmitting) return;
+
     setIsSubmitting(true);
 
     if (!name || !price || !stock) {
@@ -63,9 +67,9 @@ function AdminAdd() {
         <button
           className="add-submit-button"
           onClick={handleAdd}
-          disabled={isSubmitting}
+          disabled={isSubmitting} // ★ 送信中は押せない
         >
-          追加
+          {isSubmitting ? "送信中..." : "追加"} {/* ★ UX改善 */}
         </button>
       </header>
 

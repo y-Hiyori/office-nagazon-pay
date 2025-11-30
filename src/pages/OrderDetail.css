@@ -1,72 +1,216 @@
-.order-detail-page {
-  padding: 20px;
-  max-width: 480px;
-  margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+/* ================================
+   購入履歴一覧（AdminUserOrders）
+================================ */
+
+.orders-page {
+  width: min(480px, 100% - 32px);
+  margin: 80px auto 40px;
+  padding: 24px 20px 22px;
+  box-sizing: border-box;
+
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", sans-serif;
 }
 
-.order-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.back-btn {
-  background: #eee;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 10px;
-  margin-right: 10px;
-}
-
-.detail-title {
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.order-info {
-  background: #fff;
-  padding: 14px;
-  border-radius: 12px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-  margin-bottom: 20px;
-}
-
-.items-title {
-  font-size: 20px;
-  margin: 14px 0;
-}
-
-.order-item-box {
-  background: #fff;
-  padding: 12px;
-  border-radius: 10px;
-  margin-bottom: 12px;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.05);
-}
-
-.order-item-box p {
-  margin: 4px 0;
-}
-
-.order-item-image {
-  width: 100%;
-  height: 180px;             /* ← 統一したい高さ（自由に変更OK） */
-  object-fit: cover;         /* ← 画像を切り取りつつ綺麗に収める */
-  border-radius: 10px;
-  margin-bottom: 10px;
-  display: block;
-}
-
-.order-noimg {
-  width: 100%;
-  height: 180px;             /* ← 上の画像と同じ高さに揃える */
-  background: #eee;
-  border-radius: 10px;
-  margin-bottom: 10px;
+/* ヘッダー */
+.orders-header {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  color: #666;
+  margin-bottom: 18px;
+}
+
+/* 共通：戻るボタン（テキストは「← 戻る」でOK） */
+.back-btn {
+  position: absolute;
+  left: 0;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+
   font-size: 14px;
+  color: #111827;
+  background: #f3f4f6;
+
+  transition: background 0.15s ease, transform 0.1s ease,
+    box-shadow 0.1s ease, opacity 0.1s ease;
+}
+
+.back-btn:hover {
+  background: #e5e7eb;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.back-btn:active {
+  box-shadow: none;
+  transform: translateY(0);
+  opacity: 0.9;
+}
+
+/* タイトル */
+.orders-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* リスト本体 */
+.orders-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 各注文カード */
+.order-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  cursor: pointer;
+  background: #f9fafb;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+}
+
+.order-item:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+}
+
+.order-item h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.order-item p {
+  margin: 2px 0;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+/* 合計金額だけ少し強調 */
+.order-item .order-total {
+  font-weight: 700;
+}
+
+/* 履歴なし */
+.no-orders {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+/* ================================
+   購入履歴の詳細ページ
+================================ */
+
+.order-detail-page {
+  width: min(480px, 100% - 32px);
+  margin: 80px auto 40px;
+  padding: 24px 20px 26px;
+  box-sizing: border-box;
+
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", sans-serif;
+}
+
+/* ヘッダー（↑の .back-btn をそのまま再利用） */
+.order-header {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.detail-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* 注文情報のカード */
+.order-info {
+  background: #f9fafb;
+  padding: 14px 16px;
+  border-radius: 16px;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
+  margin-bottom: 22px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.order-info p {
+  margin: 4px 0;
+}
+
+/* 商品一覧タイトル */
+.items-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 4px 0 12px;
+  color: #111827;
+}
+
+/* 各商品カード */
+.order-item-box {
+  background: #ffffff;
+  padding: 12px 12px 14px;
+  border-radius: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.order-item-box p {
+  margin: 2px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+/* 商品画像（有り） */
+.order-item-image {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* 商品画像（無し） */
+.order-noimg {
+  width: 100%;
+  height: 180px;
+  border-radius: 14px;
+  margin-bottom: 8px;
+
+  background: #f3f4f6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #6b7280;
+  font-size: 13px;
 }

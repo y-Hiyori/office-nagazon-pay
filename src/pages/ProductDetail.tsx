@@ -83,15 +83,19 @@ function ProductDetail() {
     alert(`「${product.name}」を${quantity}個カートに追加しました`);
   };
 
-  // 🔥 即購入 → checkout へ遷移
+  // 🔥 即購入 → カートには入れずに checkout へ
   const handleBuyNow = () => {
     if (isSoldOut) return alert("在庫切れです。");
 
-    // 即購入も一旦カートに入れる
-    cart.addToCart(product, quantity);
-
-    // チェックアウトページへ
-    navigate("/checkout");
+    // 「すぐに購入」用の情報を state に乗せて遷移
+    navigate("/checkout", {
+      state: {
+        buyNow: {
+          product,
+          quantity,
+        },
+      },
+    });
   };
 
   return (

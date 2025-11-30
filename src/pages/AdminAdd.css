@@ -1,52 +1,158 @@
-/* 100% 反映させるために全て強制上書き（スマホ対応） */
+/* ===============================
+   商品追加ページ（洗練デザイン版）
+   =============================== */
 
+/* ページ全体（余裕があればルートに className="add-page" でもOK） */
+.add-page {
+  min-height: 100vh;
+  padding: 80px 16px 24px;
+  box-sizing: border-box;
+  background: radial-gradient(circle at top, #eef2ff 0, #f9fafb 45%, #ffffff 100%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* 中央のカードコンテナ */
 .add-container {
-  padding: 20px !important;
+  width: min(480px, 100% - 32px);
+  margin: 0 auto;
+  padding: 20px 20px 24px;
+  box-sizing: border-box;
+
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  animation: add-fade-in 0.2s ease;
 }
 
-/* ヘッダーを横一列に整列 */
+/* ヘッダー（戻る / タイトル / 追加ボタン） */
 .add-header {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 12px 0 !important;
-  margin-bottom: 20px !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
-/* 戻るボタン（商品管理と同じデザイン） */
-.back-button {
-  font-size: 16px !important;
-  background: #f2f2f2 !important;
-  padding: 8px 14px !important;
-  border-radius: 12px !important;
-  border: none !important;
+/* 戻るボタン
+   ※ すでに .back-button の共通スタイルがあるなら
+   ここはあってもなくてもOK（上書きしたい場合だけ残す） */
+.add-header .back-button {
+  background: #f3f4f6;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #111827;
+  transition: background 0.18s ease, transform 0.1s ease;
 }
 
-/* タイトル */
+.add-header .back-button:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+/* タイトルは中央寄せ＆残り幅いっぱい使う */
 .add-title {
-  font-size: 22px !important;
-  font-weight: bold !important;
-  margin: 0 !important;
+  flex: 1;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: #111827;
 }
 
-/* 右上の追加ボタン（青） */
+/* 右上の「追加」ボタン（送信ボタン） */
 .add-submit-button {
-  background: #0A74FF !important;
-  color: white !important;
-  font-size: 16px !important;
-  padding: 10px 18px !important;
-  border-radius: 10px !important;
-  border: none !important;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #fff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.35);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+  white-space: nowrap;
 }
 
-/* 入力欄 */
-input[type="text"],
-input[type="number"],
-input[type="file"] {
-  width: 100% !important;
-  padding: 12px !important;
-  margin-bottom: 14px !important;
-  border: 1px solid #ccc !important;
-  border-radius: 10px !important;
-  font-size: 16px !important;
+.add-submit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(79, 70, 229, 0.45);
+  opacity: 0.98;
+}
+
+.add-submit-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+}
+
+.add-submit-button:disabled {
+  background: linear-gradient(135deg, #9ca3ff, #a5b4fc);
+  box-shadow: none;
+  cursor: default;
+  opacity: 0.9;
+}
+
+/* ラベル（もし使ってたら） */
+.add-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+  margin: 10px 2px 4px;
+}
+
+/* 入力フィールド共通（テキスト・数値・ファイル） */
+.add-container input[type="text"],
+.add-container input[type="number"],
+.add-container input[type="file"] {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 13px 14px;
+  margin-bottom: 16px;
+
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+
+  font-size: 15px;
+  color: #111827;
+
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+/* フォーカス時の光り方 */
+.add-container input[type="text"]:focus,
+.add-container input[type="number"]:focus,
+.add-container input[type="file"]:focus {
+  border-color: #4f46e5;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.24);
+}
+
+/* ファイル入力はちょっとだけコンパクトに */
+.add-container input[type="file"] {
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+/* ふわっと登場アニメーション */
+@keyframes add-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

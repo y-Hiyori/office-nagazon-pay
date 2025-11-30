@@ -1,89 +1,185 @@
-/* 管理画面コンテナ */
+/* ================================
+   管理画面 全体レイアウト
+================================ */
 .admin-page {
-  padding: 16px;
-  padding-top: 70px; /* ヘッダー固定分 */
+  min-height: 100vh;
+  padding: 80px 16px 24px;   /* ヘッダー分＋下余白 */
+  box-sizing: border-box;
+
+  /* ほんのりグラデーション背景 */
+  background: radial-gradient(circle at top,
+    #f9fbff 0%,
+    #edf2ff 45%,
+    #f5f5f8 100%);
 }
 
-/* 固定ヘッダー（左右バランス◎） */
+/* ================================
+   固定ヘッダー
+================================ */
 .admin-header {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 60px;
-  background: #fff;
+
   display: flex;
   align-items: center;
-  justify-content: center;   /* ここでタイトルが中央に来る */
-  border-bottom: 1px solid #eee;
+  justify-content: center;
+
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
   z-index: 100;
 }
 
-/* 戻るボタン（左配置） */
+/* 戻るボタン（←はTSX側のテキストで1個だけ） */
 .admin-back {
   position: absolute;
   left: 16px;
-  background: #f2f2f2;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
   padding: 8px 14px;
-  border-radius: 12px;
+  border-radius: 999px;
   border: none;
+
+  font-size: 14px;
+  color: #111827;
+  background: #f3f4f6;
   cursor: pointer;
-  font-size: 16px;
+
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-/* 追加ボタン（右配置） */
+.admin-back:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+}
+
+/* 追加ボタン（ヘッダー右） */
 .admin-add {
   position: absolute;
   right: 16px;
-  background: #0A74FF;
-  color: white;
-  padding: 8px 14px;
-  border-radius: 12px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 8px 16px;
+  border-radius: 999px;
   border: none;
-  font-size: 16px;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
 }
 
-/* タイトル（中央に固定される） */
+.admin-add:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.45);
+  opacity: 0.96;
+}
+
+.admin-add:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.3);
+}
+
+/* タイトル */
 .admin-title {
-  font-size: 22px;
-  font-weight: bold;
   margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #111827;
 }
 
-/* ★ ここが2列グリッドの設定 */
+/* ================================
+   商品グリッド
+================================ */
 .admin-list {
-  margin-top: 10px;
+  margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);   /* 📱 初期：2列 */
 }
 
-/* 商品カード */
+/* 📱 ちょい大きめスマホ：3列 */
+@media (min-width: 480px) {
+  .admin-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 💻 小さめPC：4列 */
+@media (min-width: 768px) {
+  .admin-list {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 💻 中型PC：5列 */
+@media (min-width: 1024px) {
+  .admin-list {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* 🖥 大型PC：6列 */
+@media (min-width: 1400px) {
+  .admin-list {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* ================================
+   商品カード
+================================ */
 .admin-item {
-  background: #fff;
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 18px;
   padding: 10px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-/* 商品画像（2列用サイズ） */
+.admin-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.10);
+}
+
+/* 商品画像 */
 .admin-item img {
   width: 100%;
   height: 120px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 14px;
+  margin-bottom: 8px;
 }
 
+/* 商品名・価格など */
 .admin-info h3 {
-  font-size: 16px;
-  margin: 6px 0 2px;
+  font-size: 15px;
+  margin: 4px 0 2px;
+  font-weight: 600;
+  color: #111827;
 }
 
 .admin-info p {
-  font-size: 14px;
+  font-size: 13px;
   margin: 2px 0;
+  color: #6b7280;
 }

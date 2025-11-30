@@ -1,17 +1,15 @@
 /* =========================================
-   Checkout（購入確認）ページのスタイル
-   ※そのまま上書きコピペしてOK
+   Checkout（購入確認）
+   支払い方法（固定＋スクロール）
+   その下に 合計＋購入ボタン固定
 ========================================= */
 
-/* ====== 全体 ====== */
 .checkout-page {
   padding: 22px;
+  padding-bottom: 260px; /* ← ２つの固定エリアの分を空ける */
   max-width: 480px;
   margin: 0 auto;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  position: relative;
-  z-index: 1;
-  pointer-events: auto;
 }
 
 /* ===== ヘッダー ===== */
@@ -33,64 +31,145 @@
   font-weight: 700;
 }
 
-/* ===== 商品一覧 ===== */
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin-top: 18px;
-  margin-bottom: 10px;
-}
+/* ===== 商品カードまわり ===== */
 
-.checkout-items {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.checkout-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
+/* 商品画像固定 */
 .checkout-item-img {
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
+  width: 80px !important;
+  height: 80px !important;
+  object-fit: cover !important;
   border-radius: 10px;
 }
 
+/* カード本体：画像の横にテキストを並べる */
+.checkout-item {
+  display: flex;
+  align-items: center;          /* 画像とテキストを縦中央揃え */
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 右側テキスト */
+.checkout-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;      /* テキストを画像の高さの中で中央寄せ */
+}
+
+/* テキスト行の余白を詰める */
+.checkout-item-info p {
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* 商品名 */
 .item-name {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
+  margin-bottom: 4px;
 }
 
+/* 「単価 × 数量」行 */
+.item-price-line {
+  font-size: 13px;
+}
+
+/* 小計行 */
 .item-subtotal {
-  color: #444;
+  font-size: 13px;
+  color: #555;
+  margin-top: 2px;
 }
 
-/* ====== 合計 ====== */
-.checkout-total {
-  font-size: 22px;
-  font-weight: bold;
-  text-align: right;
-  margin: 16px 0;
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 20px;
+  margin-bottom: 10px;
 }
 
-/* ===== 支払い方法カード ===== */
+/* 支払い方法タイトル（ここを中央寄せ） */
+.pay-method-title {
+  margin-top: 0;
+  margin-bottom: 4px;
+  font-size: 18px;
+  text-align: center;
+}
+
+/* =========================================
+   🔥 支払い方法（上の固定エリア）
+   外枠だけふんわり / 中身（PayPayカード）はクッキリ
+========================================= */
+
+.pay-method-fixed {
+  position: fixed;
+  bottom: 100px;            /* ← ボタンに被らないように少し上 */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+
+  background: transparent;  /* 外側は透明のまま */
+  box-shadow: none;
+  border-top: none;
+  z-index: 900;
+}
+
+/* 中のスクロールボックス：ここが「枠」 */
+.pay-method-scroll {
+  max-height: 120px;                    /* ← 小さめ → 必ずスクロール領域になる */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  width: 92%;
+  margin: 0 auto;
+  padding: 10px 12px 20px;
+
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  border-top: 1px solid #ddd;
+  box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.12);
+
+  position: relative;                  /* ← 擬似要素用 */
+}
+
+/* ⬇ 外枠だけ上側をふんわりさせる（中のカードは影響なし） */
+.pay-method-scroll::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+
+  background: linear-gradient(
+    to bottom,
+    rgba(250, 250, 250, 0),
+    #ffffff
+  );
+
+  border-radius: 16px 16px 0 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 支払いカードたち（この中身はクッキリ表示される） */
 .pay-card {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
   border-radius: 14px;
-  background: #ffffff;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-  transition: 0.15s;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.06);
 }
 
 .pay-card.selected {
@@ -108,51 +187,78 @@
 }
 
 .pay-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
 }
 
 .pay-desc {
-  font-size: 14px;
+  font-size: 13px;
   color: #666;
 }
 
-/* チェックマークエリア */
 .pay-check-area {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: 2px solid #888;
   border-radius: 50%;
   display: flex;
-  justify-content: center;
   align-items: center;
-}
-
-.pay-card.selected .pay-check-area {
-  border-color: #5f85db;
+  justify-content: center;
 }
 
 .pay-check {
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 16px;
   color: #5f85db;
 }
 
-/* ===== 購入ボタン ===== */
-.checkout-btn {
+/* =========================================
+   🔥 下の固定（合計＋購入ボタン）
+   合計が左に寄りすぎないようバランス調整
+========================================= */
+
+.checkout-bottom-fixed {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
-  padding: 16px;
+  max-width: 480px;
+
+  display: flex;
+  justify-content: space-around;   /* ← space-between → space-around に変更 */
+  align-items: center;
+  gap: 12px;                       /* ← 少し余白を追加 */
+
+  padding: 14px 16px;
+  background: #fff;
+  border-top: 1px solid #ddd;
+  box-shadow: 0 -3px 12px rgba(0,0,0,0.15);
+  z-index: 1000;
+}
+
+.checkout-total {
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* ボタン幅をちょっとだけ縮めてバランス調整 */
+.checkout-btn {
+  flex: 0 0 55%;
+  padding: 14px;
   background: #5f85db;
   color: white;
   border: none;
-  border-radius: 14px;
-  font-size: 20px;
+  border-radius: 12px;
+  font-size: 18px;
   font-weight: bold;
-  margin-top: 20px;
-  position: relative;
-  z-index: 9999;
 }
-/* ===== モーダルの背景（黒い半透明） ===== */
+
+/* =========================================
+   🔥 モーダル（PayPayセルフ決済の手順・最終確認）
+========================================= */
+
 .pay-modal-overlay {
   position: fixed;
   top: 0;
@@ -163,19 +269,17 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 20000; /* ← 上に重ねる */
+  z-index: 20000;
 }
 
-/* ===== モーダル本体 ===== */
 .pay-modal {
   width: 90%;
   max-width: 380px;
-  background: white;
+  background: #fff;
   padding: 22px;
   border-radius: 16px;
   text-align: center;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-  z-index: 20001;
 }
 
 .pay-modal h3 {
@@ -190,7 +294,6 @@
   color: #444;
 }
 
-/* ===== モーダル内ボタン ===== */
 .modal-buttons {
   margin-top: 18px;
   display: flex;
