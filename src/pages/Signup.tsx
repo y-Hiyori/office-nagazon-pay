@@ -27,15 +27,13 @@ function Signup() {
 
     // ① Auth 登録（メール認証あり）
     const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        // 認証後に飛ばす先
-        emailRedirectTo: `${window.location.origin}/login`,
-        // raw_user_meta_data に name も一応入れておく（トリガー用）
-        data: { name },
-      },
-    });
+  email,
+  password,
+  options: {
+    // トップページに戻す
+    emailRedirectTo: `${window.location.origin}`,
+  },
+});
 
     // ② エラーの場合
     if (signUpError) {
