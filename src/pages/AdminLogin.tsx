@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./AdminLogin.css";
 
-const ADMIN_PASSWORD = "1234";
+const ADMIN_PASSWORD = "09091710";
 
 function AdminLogin() {
   const [password, setPassword] = useState("");

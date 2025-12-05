@@ -103,11 +103,9 @@ function ProductDetail() {
     const maxStock = stockNum;
 
     if (totalQty > maxStock) {
-      alert(
-        `在庫が足りません。\n現在のカート数量：${currentQty}\n在庫：${maxStock}`
-      );
-      return;
-    }
+  alert("在庫が足りません。");
+  return;
+}
 
     cart.addToCart(product, quantity);
     alert(`「${product.name}」を${quantity}個カートに追加しました`);
