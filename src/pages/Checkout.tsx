@@ -78,46 +78,50 @@ function Checkout() {
   };
 
   // --- 最終購入処理 ---
-  const finalizePurchase = async () => {
-    if (isProcessing) return;
-    setIsProcessing(true);
+ // --- 最終購入処理 ---
+const finalizePurchase = async () => {
+  if (isProcessing) return;
+  setIsProcessing(true);
 
-    try {
-      const { data: order, error } = await supabase
-        .from("orders")
-        .insert({ user_id: user.id, total })
-        .select()
-        .single();
+  try {
+    const { data: order, error } = await supabase
+      .from("orders")
+      .insert({ user_id: user.id, total })
+      .select()
+      .single();
 
-      if (error || !order) {
-        alert("注文作成に失敗しました");
-        return;
-      }
-
-      for (const item of items) {
-        await supabase.from("order_items").insert({
-          order_id: order.id,
-          product_name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          imageData: item.product.imageData ?? null,
-        });
-
-        await supabase
-          .from("products")
-          .update({ stock: Number(item.product.stock) - item.quantity })
-          .eq("id", item.product.id);
-      }
-
-      if (!buyNow) {
-        cart.clearCart();
-      }
-
-      navigate(`/purchase-complete/${order.id}`);
-    } finally {
-      setIsProcessing(false);
+    if (error || !order) {
+      alert("注文作成に失敗しました");
+      return;
     }
-  };
+
+    for (const item of items) {
+      // ⬇⬇⬇ ここを修正：imageData を送らず、product_id を保存
+      await supabase.from("order_items").insert({
+        order_id: order.id,
+        product_id: item.product.id,      // ← 追加
+        product_name: item.product.name,
+        price: item.product.price,
+        quantity: item.quantity,
+        // imageData: は送らない
+      });
+
+      // 在庫だけはこれまで通り Supabase 側で管理
+      await supabase
+        .from("products")
+        .update({ stock: Number(item.product.stock) - item.quantity })
+        .eq("id", item.product.id);
+    }
+
+    if (!buyNow) {
+      cart.clearCart();
+    }
+
+    navigate(`/purchase-complete/${order.id}`);
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   return (
     <div className="checkout-page">

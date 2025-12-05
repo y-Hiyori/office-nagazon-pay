@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./AdminPage.css";
+import { findProductImage } from "../data/products";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -10,11 +11,16 @@ function AdminPage() {
   const [loading, setLoading] = useState(true);
 
   const loadProducts = async () => {
-    const { data, error } = await supabase.from("products").select("*");
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, name, price, stock") // 👈 画像は取らない
+      .order("id", { ascending: true });
+
     if (error) {
       console.error("商品取得エラー:", error);
+      setProducts([]);
     } else {
-      setProducts(data);
+      setProducts(data ?? []);
     }
     setLoading(false);
   };
@@ -22,8 +28,6 @@ function AdminPage() {
   useEffect(() => {
     loadProducts();
   }, []);
-
-  const getThumb = (img: string) => (img ? img : "");
 
   // 金額を3桁区切りで表示するヘルパー
   const formatPrice = (value: number | string) => {
@@ -46,10 +50,7 @@ function AdminPage() {
 
         <h2 className="admin-title">商品管理</h2>
 
-        <button
-          className="admin-add"
-          onClick={() => navigate("/admin-add")}
-        >
+        <button className="admin-add" onClick={() => navigate("/admin-add")}>
           ＋追加
         </button>
       </header>
@@ -58,29 +59,33 @@ function AdminPage() {
         {products.length === 0 ? (
           <p>商品がありません</p>
         ) : (
-          products.map((p) => (
-            <div
-              key={p.id}
-              className="admin-item"
-              onClick={() => navigate(`/admin-detail/${p.id}`)}
-            >
-              {p.imageData ? (
-                <img
-                  src={getThumb(p.imageData)}
-                  alt={p.name}
-                  className="admin-product-image"
-                />
-              ) : (
-                <div className="admin-noimg">画像なし</div>
-              )}
+          products.map((p) => {
+            const imgSrc = findProductImage(p.id); // 👈 id → 画像
 
-              <div className="admin-info">
-                <h3>{p.name}</h3>
-                <p>{formatPrice(p.price)}円</p>
-                <p>在庫: {p.stock}</p>
+            return (
+              <div
+                key={p.id}
+                className="admin-item"
+                onClick={() => navigate(`/admin-detail/${p.id}`)}
+              >
+                {imgSrc ? (
+                  <img
+                    src={imgSrc}
+                    alt={p.name}
+                    className="admin-product-image"
+                  />
+                ) : (
+                  <div className="admin-noimg">画像なし</div>
+                )}
+
+                <div className="admin-info">
+                  <h3>{p.name}</h3>
+                  <p>{formatPrice(p.price)}円</p>
+                  <p>在庫: {p.stock}</p>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

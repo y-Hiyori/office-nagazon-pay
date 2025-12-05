@@ -5,34 +5,60 @@ import "./ProductDetail.css";
 
 import { useCart } from "../context/CartContext";
 import { supabase } from "../lib/supabase";
+import { findProductImage } from "../data/products";
+import type { Product } from "../types/Product"; // Cart の Product 型
 
-// 金額フォーマット関数
 const formatYen = (value: number) =>
   (Number(value) || 0).toLocaleString("ja-JP");
+
+// CartContext の Product と同じ型をそのまま使う
+type DetailProduct = Product;
 
 function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const cart = useCart();
 
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<DetailProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
 
-  // 🔥 Supabase から単体商品を取得
   useEffect(() => {
     const loadProduct = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      const productId = Number(id);
+
+      // ★ created_at を取らない（テーブルに無いので 400 になる）
       const { data, error } = await supabase
         .from("products")
-        .select("*")
-        .eq("id", id)
-        .single();
+        .select("id, name, price, stock")
+        .eq("id", productId)
+        .maybeSingle();
 
-      if (error) {
+      if (error || !data) {
         console.error("商品取得エラー:", error);
-      } else {
-        setProduct(data);
+        setProduct(null);
+        setLoading(false);
+        return;
       }
+
+      // ローカル画像を id から取得
+      const img = findProductImage(productId) ?? null;
+
+      setProduct({
+        id: data.id,
+        name: data.name,
+        price: data.price,
+        stock: Number(data.stock ?? 0),
+        imageData: img,               // string | null
+        // ★ 型合わせ用。created_at カラムが無いのでダミーを入れておく
+        created_at: (data as any).created_at ?? "",
+      });
+
       setLoading(false);
     };
 
@@ -57,7 +83,6 @@ function ProductDetail() {
   const priceNum = Number(product.price) || 0;
   const subtotal = priceNum * quantity;
 
-  // 数量変更
   const handleChangeQty = (delta: number) => {
     if (isSoldOut) return;
     setQuantity((prev) => {
@@ -68,7 +93,6 @@ function ProductDetail() {
     });
   };
 
-  // 🛒 カート追加
   const handleAddToCart = () => {
     if (isSoldOut) return alert("在庫切れです。");
 
@@ -76,10 +100,12 @@ function ProductDetail() {
     const currentQty = existing ? existing.quantity : 0;
 
     const totalQty = currentQty + quantity;
-    const maxStock = Number(product.stock) || 0;
+    const maxStock = stockNum;
 
     if (totalQty > maxStock) {
-      alert(`在庫が足りません。\n現在のカート数量：${currentQty}\n在庫：${maxStock}`);
+      alert(
+        `在庫が足りません。\n現在のカート数量：${currentQty}\n在庫：${maxStock}`
+      );
       return;
     }
 
@@ -87,7 +113,6 @@ function ProductDetail() {
     alert(`「${product.name}」を${quantity}個カートに追加しました`);
   };
 
-  // 🔥 即購入 → カートには入れずに checkout へ
   const handleBuyNow = () => {
     if (isSoldOut) return alert("在庫切れです。");
 
@@ -103,7 +128,6 @@ function ProductDetail() {
 
   return (
     <div className="detail-page">
-      {/* ヘッダー */}
       <header className="detail-header">
         <button className="detail-back" onClick={() => navigate("/products")}>
           ←
@@ -114,25 +138,22 @@ function ProductDetail() {
         </button>
       </header>
 
-      {/* 商品画像 */}
       <img
-        src={product.imageData}
+        src={product.imageData ?? ""}
         alt={product.name}
         className="detail-image"
       />
 
       <div className="detail-section">
         <h1 className="detail-name">{product.name}</h1>
-
-        {/* ★ 金額カンマ付き */}
         <p className="detail-price">{formatYen(priceNum)}円</p>
 
-        <p className="detail-stock">
-          在庫：{stockNum}
-          {isSoldOut && <span className="soldout">（売り切れ）</span>}
-        </p>
+        {isSoldOut && (
+          <p className="detail-stock">
+            <span className="soldout">売り切れ</span>
+          </p>
+        )}
 
-        {/* 数量 */}
         <div className="detail-qty-row">
           <span>数量：</span>
           <button
@@ -152,11 +173,9 @@ function ProductDetail() {
           </button>
         </div>
 
-        {/* ★ 小計もカンマ付き */}
         <p className="detail-subtotal">小計：{formatYen(subtotal)}円</p>
       </div>
 
-      {/* 購入/カート */}
       <div className="detail-footer">
         <button
           className="footer-buy"

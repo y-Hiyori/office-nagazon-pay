@@ -16,19 +16,22 @@
     "Helvetica Neue", sans-serif;
 }
 
-/* ヘッダー */
+/* ヘッダー行：タイトル中央＋戻る左固定 */
 .orders-header {
   position: relative;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;   /* タイトルを中央に */
+  padding: 12px 0 4px;       /* 好きなように微調整してOK */
   margin-bottom: 18px;
 }
 
-/* 共通：戻るボタン（テキストは「← 戻る」でOK） */
+/* 共通：購入履歴系の戻るボタン */
 .back-btn {
   position: absolute;
-  left: 0;
+  left: 16px;
+  top: 50%;                  /* ヘッダーの縦中央に置く */
+  transform: translateY(-50%);
 
   display: inline-flex;
   align-items: center;
@@ -39,24 +42,26 @@
   border: none;
   cursor: pointer;
 
-  font-size: 14px;
-  color: #111827;
   background: #f3f4f6;
+  color: #111827;
+  font-size: 14px;
 
-  transition: background 0.15s ease, transform 0.1s ease,
-    box-shadow 0.1s ease, opacity 0.1s ease;
+  transition: background 0.15s ease, box-shadow 0.1s ease;
+}
+
+/* ← は CSS で付ける */
+.back-btn::before {
+  content: "";
+  font-size: 16px;
 }
 
 .back-btn:hover {
   background: #e5e7eb;
   box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
 }
 
 .back-btn:active {
   box-shadow: none;
-  transform: translateY(0);
-  opacity: 0.9;
 }
 
 /* タイトル */

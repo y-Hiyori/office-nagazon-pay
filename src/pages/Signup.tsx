@@ -9,7 +9,7 @@ function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState(""); // ← 追加
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState("");
 
   const handleSignup = async () => {
@@ -20,41 +20,30 @@ function Signup() {
       setError("すべて入力してください");
       return;
     }
-
     if (password !== passwordConfirm) {
       setError("パスワードが一致しません");
       return;
     }
 
-    // ① 既に同じメールのプロフィールがないか確認
-    const { data: existingProfile } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
+    // ① Auth 登録（メール認証あり）
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // 認証後に飛ばす先
+        emailRedirectTo: `${window.location.origin}/login`,
+        // raw_user_meta_data に name も一応入れておく（トリガー用）
+        data: { name },
+      },
+    });
 
-    if (existingProfile) {
-      setError("このメールアドレスはすでに使用されています");
-      return;
-    }
-
-    // ② Auth 登録（メール認証あり）
-    const { data: signUpData, error: signUpError } =
-      await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/login`,
-        },
-      });
-
+    // ② エラーの場合
     if (signUpError) {
       console.error("signUpError:", signUpError);
 
-      if (
-        signUpError.message.includes("already") ||
-        signUpError.message.includes("registered")
-      ) {
+      // メール重複の典型メッセージ（環境によって少し違うこともある）
+      const msg = signUpError.message.toLowerCase();
+      if (msg.includes("already") || msg.includes("registered")) {
         setError("このメールアドレスはすでに使用されています");
       } else {
         setError(signUpError.message);
@@ -62,19 +51,26 @@ function Signup() {
       return;
     }
 
-    const userId = signUpData.user?.id;
+    // ③ ここからは error は出ていないケース
+    const user = data.user;
 
-    if (!userId) {
+    if (!user) {
       setError("ユーザー登録に失敗しました");
       return;
     }
 
-    // ③ profiles にも保存
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: userId,
-      name,
-      email,
-    });
+    // ⭐ 重要ポイント：
+    // user.identities が 0 件 = すでに登録されたメールアドレス
+    if (Array.isArray(user.identities) && user.identities.length === 0) {
+      setError("このメールアドレスはすでに使用されています");
+      return;
+    }
+
+    // ④ profiles に名前だけ反映（行自体は handle_new_user で作成済み想定）
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ name })
+      .eq("id", user.id);
 
     if (profileError) {
       console.error("profileError:", profileError);

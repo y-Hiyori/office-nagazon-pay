@@ -3,25 +3,34 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./AdminDetail.css";
+import { findProductImage } from "../data/products";
+
+type AdminProduct = {
+  id: number;
+  name: string;
+  price: number;
+  stock: number;
+};
 
 function AdminDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<AdminProduct | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadProduct = async () => {
     const { data, error } = await supabase
       .from("products")
-      .select("*")
+      .select("id, name, price, stock")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       console.error("商品取得エラー:", error);
+      setProduct(null);
     } else {
-      setProduct(data);
+      setProduct(data as AdminProduct);
     }
     setLoading(false);
   };
@@ -30,7 +39,6 @@ function AdminDetail() {
     loadProduct();
   }, [id]);
 
-  // 金額を3桁区切りで表示するヘルパー
   const formatPrice = (value: number | string) => {
     const num = Number(value ?? 0);
     if (Number.isNaN(num)) return String(value ?? "");
@@ -47,12 +55,16 @@ function AdminDetail() {
       </div>
     );
 
-  // 商品削除
+  const imgSrc = findProductImage(product.id) ?? "";
+
   const handleDelete = async () => {
     const ok = confirm("本当に削除しますか？");
     if (!ok) return;
 
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", product.id);
 
     if (error) {
       alert("削除に失敗しました: " + error.message);
@@ -72,11 +84,11 @@ function AdminDetail() {
         <h2 className="detail-title">商品詳細</h2>
       </header>
 
-      <img
-        src={product.imageData}
-        alt={product.name}
-        className="detail-image"
-      />
+      {imgSrc ? (
+        <img src={imgSrc} alt={product.name} className="detail-image" />
+      ) : (
+        <div className="admin-noimg detail-image">画像なし</div>
+      )}
 
       <h2>{product.name}</h2>
       <p>価格：{formatPrice(product.price)}円</p>

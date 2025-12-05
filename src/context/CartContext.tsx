@@ -3,7 +3,7 @@ import { createContext, useContext, useState } from "react";
 import type { Product } from "../types/Product";
 
 export interface CartItem {
-  id: string;
+  id: number;        // product.id と同じ number
   product: Product;
   quantity: number;
 }
@@ -11,8 +11,8 @@ export interface CartItem {
 interface CartContextValue {
   cart: CartItem[];
   addToCart: (product: Product, qty: number) => void;
-  removeFromCart: (id: string) => void;
-  updateQuantity: (id: string, qty: number) => void;
+  removeFromCart: (id: number) => void;
+  updateQuantity: (id: number, qty: number) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
 }
@@ -22,11 +22,9 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  // 🟦 在庫チェック共通ロジック
   const clampQty = (qty: number, stock: number) =>
     Math.min(Math.max(qty, 1), stock);
 
-  // 🟦 カート追加（在庫絶対超えない）
   const addToCart = (product: Product, qty: number) => {
     const stock = Number(product.stock) || 0;
 
@@ -40,34 +38,44 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      // 初追加も clamp
-      return [...prev, { id: product.id, product, quantity: clampQty(qty, stock) }];
+      return [
+        ...prev,
+        { id: product.id, product, quantity: clampQty(qty, stock) },
+      ];
     });
   };
 
-  // 🟦 数量変更
-  const updateQuantity = (id: string, qty: number) => {
+  const updateQuantity = (id: number, qty: number) => {
     setCart((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-
         const stock = Number(item.product.stock) || 0;
         return { ...item, quantity: clampQty(qty, stock) };
       })
     );
   };
 
-  const removeFromCart = (id: string) =>
+  const removeFromCart = (id: number) =>
     setCart((prev) => prev.filter((item) => item.id !== id));
 
   const clearCart = () => setCart([]);
 
   const getTotalPrice = () =>
-    cart.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
+    cart.reduce(
+      (sum, item) => sum + Number(item.product.price) * item.quantity,
+      0
+    );
 
   return (
     <CartContext.Provider
-      value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, getTotalPrice }}
+      value={{
+        cart,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        getTotalPrice,
+      }}
     >
       {children}
     </CartContext.Provider>

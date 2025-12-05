@@ -1,7 +1,9 @@
+// src/pages/OrderDetail.tsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./OrderDetail.css";
+import { findProductImage } from "../data/products"; // ← ここだけ変更
 
 function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -11,9 +13,13 @@ function OrderDetail() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 金額フォーマット（3桁区切り）
   const formatPrice = (value: any) =>
     (Number(value) || 0).toLocaleString("ja-JP");
+
+  const getImageByProductId = (productId: number | null | undefined) => {
+    if (productId == null) return "";
+    return findProductImage(Number(productId)) ?? "";
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -35,7 +41,7 @@ function OrderDetail() {
     };
 
     load();
-  }, []);
+  }, [id]);
 
   if (loading) return <p style={{ padding: 20 }}>読み込み中...</p>;
 
@@ -71,28 +77,32 @@ function OrderDetail() {
 
       <h3 className="items-title">購入した商品</h3>
 
-      {items.map((i) => (
-        <div key={i.id} className="order-item-box">
-          {i.imageData ? (
-            <img
-              src={i.imageData}
-              className="order-item-image"
-              alt={i.product_name}
-            />
-          ) : (
-            <div className="order-noimg">画像なし</div>
-          )}
+      {items.map((i) => {
+        const imgSrc = getImageByProductId(i.product_id);
 
-          <p>
-            <strong>商品名：</strong> {i.product_name}
-          </p>
-          <p>
-            <strong>単価：</strong> {formatPrice(i.price)}円
-          </p>
-          <p>
-            <strong>数量：</strong> {i.quantity}</p>
-        </div>
-      ))}
+        return (
+          <div key={i.id} className="order-item-box">
+            {imgSrc ? (
+              <img
+                src={imgSrc}
+                className="order-item-image"
+                alt={i.product_name}
+              />
+            ) : (
+              <div className="order-noimg">画像なし</div>
+            )}
+
+            <p>
+              <strong>商品名：</strong> {i.product_name}
+            </p>
+            <p>
+              <strong>単価：</strong> {formatPrice(i.price)}円
+            </p>
+            <p>
+              <strong>数量：</strong> {i.quantity}</p>
+          </div>
+        );
+      })}
     </div>
   );
 }

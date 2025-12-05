@@ -7,7 +7,7 @@ type ProductContextType = {
   products: Product[];
   addProduct: (p: Omit<Product, "id" | "created_at">) => Promise<void>;
   updateProduct: (p: Product) => Promise<void>;
-  deleteProduct: (id: string) => Promise<void>;
+  deleteProduct: (id: number) => Promise<void>; // ★ string → number に統一
   refresh: () => Promise<void>;
 };
 
@@ -43,7 +43,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
   const addProduct = async (p: Omit<Product, "id" | "created_at">) => {
     const insertData = {
       ...p,
-      created_at: new Date().toISOString(), // ← ★ ここが重要！
+      created_at: new Date().toISOString(), // ← ここで created_at を必ず付ける
     };
 
     const { data, error } = await supabase
@@ -56,8 +56,8 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
       return;
     }
 
-    if (data) {
-      setProducts((prev) => [...prev, data[0]]);
+    if (data && data.length > 0) {
+      setProducts((prev) => [...prev, data[0] as Product]);
     }
   };
 
@@ -71,7 +71,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
         name: p.name,
         price: p.price,
         stock: p.stock,
-        imageData: p.imageData,
+        imageData: p.imageData, // imageData カラム消してたらここも消す
       })
       .eq("id", p.id)
       .select();
@@ -83,7 +83,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
 
     if (data && data.length > 0) {
       setProducts((prev) =>
-        prev.map((item) => (item.id === p.id ? data[0] : item))
+        prev.map((item) => (item.id === p.id ? (data[0] as Product) : item))
       );
     }
   };
@@ -91,7 +91,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
   // ====================================
   // 🔥 商品削除
   // ====================================
-  const deleteProduct = async (id: string) => {
+  const deleteProduct = async (id: number) => {
     const { error } = await supabase.from("products").delete().eq("id", id);
 
     if (error) {
@@ -99,6 +99,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
       return;
     }
 
+    // ローカル状態からも削除
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 

@@ -1,7 +1,7 @@
 // src/pages/AdminAdd.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase"; 
+import { supabase } from "../lib/supabase";
 import "./AdminAdd.css";
 
 function AdminAdd() {
@@ -10,14 +10,10 @@ function AdminAdd() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-
-  const [isSubmitting, setIsSubmitting] = useState(false); // ★ 送信中フラグ
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAdd = async () => {
-    // ★ すでに送信中なら何もしない（連打完全防止）
     if (isSubmitting) return;
-
     setIsSubmitting(true);
 
     if (!name || !price || !stock) {
@@ -26,22 +22,20 @@ function AdminAdd() {
       return;
     }
 
-    // ▼ 画像をBase64に変換
-    let finalImage = "";
-    if (imageFile) {
-      finalImage = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(imageFile);
-      });
+    const priceNum = Number(price);
+    const stockNum = Number(stock);
+
+    if (Number.isNaN(priceNum) || Number.isNaN(stockNum)) {
+      alert("価格と在庫は数値で入力してください");
+      setIsSubmitting(false);
+      return;
     }
 
-    // ▼ Supabase に保存
+    // 👇 id は送らない！ Supabase 側で自動採番させる
     const { error } = await supabase.from("products").insert({
       name,
-      price: Number(price),
-      stock: Number(stock),
-      imageData: finalImage,
+      price: priceNum,
+      stock: stockNum,
     });
 
     if (error) {
@@ -67,9 +61,9 @@ function AdminAdd() {
         <button
           className="add-submit-button"
           onClick={handleAdd}
-          disabled={isSubmitting} // ★ 送信中は押せない
+          disabled={isSubmitting}
         >
-          {isSubmitting ? "送信中..." : "追加"} {/* ★ UX改善 */}
+          {isSubmitting ? "送信中..." : "追加"}
         </button>
       </header>
 
@@ -92,12 +86,6 @@ function AdminAdd() {
         placeholder="在庫数"
         value={stock}
         onChange={(e) => setStock(e.target.value)}
-      />
-
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
       />
     </div>
   );

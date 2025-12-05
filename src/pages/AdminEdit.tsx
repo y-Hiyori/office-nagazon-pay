@@ -13,23 +13,20 @@ function AdminEdit() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [imageData, setImageData] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
 
-  // ★ 追加：保存中フラグ
   const [isSaving, setIsSaving] = useState(false);
 
-  // 🔥 商品読み込み
+  // 🔥 商品読み込み（name / price / stock だけ使う）
   const loadProduct = async () => {
     const { data, error } = await supabase
       .from("products")
-      .select("*")
+      .select("name, price, stock")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
     if (error || !data) {
       alert("商品が見つかりません");
+      console.error(error);
       navigate("/admin-page");
       return;
     }
@@ -37,31 +34,17 @@ function AdminEdit() {
     setName(data.name);
     setPrice(String(data.price));
     setStock(String(data.stock));
-    setImageData(data.imageData);
-
     setLoading(false);
   };
 
   useEffect(() => {
     loadProduct();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // 🔥 画像プレビュー
-  const handleImageChange = (file: File | null) => {
-    setImageFile(file);
-    if (!file) {
-      setPreview(null);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  // 🔧 保存
+  // 🔧 保存（画像関連は一切ナシ）
   const handleSave = async () => {
-    if (isSaving) return; // ← 二重押し防止
+    if (isSaving) return;
     setIsSaving(true);
 
     if (!name || !price || !stock) {
@@ -70,42 +53,21 @@ function AdminEdit() {
       return;
     }
 
-    let finalImage = imageData;
-
-    // 画像変更時
-    if (imageFile) {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        finalImage = reader.result as string;
-
-        await supabase
-          .from("products")
-          .update({
-            name,
-            price: Number(price),
-            stock: Number(stock),
-            imageData: finalImage,
-          })
-          .eq("id", id);
-
-        alert("商品を更新しました！");
-        navigate("/admin-page");
-      };
-
-      reader.readAsDataURL(imageFile);
-      return;
-    }
-
-    // 画像変わらない時
-    await supabase
+    const { error } = await supabase
       .from("products")
       .update({
         name,
         price: Number(price),
         stock: Number(stock),
-        imageData: finalImage,
       })
       .eq("id", id);
+
+    if (error) {
+      alert("商品更新に失敗しました: " + error.message);
+      console.error(error);
+      setIsSaving(false);
+      return;
+    }
 
     alert("商品を更新しました！");
     navigate("/admin-page");
@@ -115,7 +77,6 @@ function AdminEdit() {
 
   return (
     <div className="edit-container">
-
       <header className="edit-header">
         <button className="back-button" onClick={() => navigate("/admin-page")}>
           ←
@@ -146,30 +107,8 @@ function AdminEdit() {
         type="number"
       />
 
-      <input
-        className="file-input"
-        type="file"
-        accept="image/*"
-        onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
-      />
+      {/* 画像アップロード＆プレビュー部分は全部削除 */}
 
-      <div className="preview-section">
-        <p className="preview-label">現在の画像</p>
-        <div className="preview-images">
-          <img src={imageData} alt="before" />
-        </div>
-
-        {preview && (
-          <>
-            <p className="preview-label">変更後の画像</p>
-            <div className="preview-images">
-              <img src={preview} alt="after" />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ★ 保存中は押せない */}
       <button
         className="save-button"
         onClick={handleSave}
