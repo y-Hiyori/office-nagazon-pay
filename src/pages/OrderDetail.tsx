@@ -67,9 +67,16 @@ function OrderDetail() {
           <strong>注文ID：</strong> {order.id}
         </p>
         <p>
-          <strong>日時：</strong>{" "}
-          {new Date(order.created_at).toLocaleString()}
-        </p>
+  <strong>日時：</strong>{" "}
+  {new Date(order.created_at).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}
+</p>
         <p>
           <strong>合計：</strong> {formatPrice(order.total)}円
         </p>

@@ -91,7 +91,7 @@ function AdminUserDetail() {
     <div className="admin-user-detail-page">
 
       {/* ヘッダー */}
-      <header className="admin-user-detail-header">
+<header className="admin-user-detail-header">
         <button
           className="admin-user-detail-back"
           onClick={() => navigate("/admin-users")}

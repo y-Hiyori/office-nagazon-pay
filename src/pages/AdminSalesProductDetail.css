@@ -1,0 +1,177 @@
+/* src/pages/AdminSalesProductDetail.css */
+
+.admin-sales-product-page {
+  min-height: 100vh;
+  padding: 20px 16px;
+  background: radial-gradient(circle at top, #eef2ff 0, #f9fafb 40%, #f5f5f7 100%);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* メインカード */
+.admin-sales-product-card {
+  max-width: 540px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 22px 20px 26px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+/* カードの上部にうっすらアクセント */
+.admin-sales-product-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(79, 70, 229, 0.08),
+    rgba(59, 130, 246, 0.02),
+    transparent 50%
+  );
+  pointer-events: none;
+}
+
+/* 戻るボタン */
+.admin-sales-product-back {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: none;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 13px;
+  color: #374151;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+}
+
+.admin-sales-product-back:hover {
+  background: #e5e7eb;
+  box-shadow: 0 4px 12px rgba(148, 163, 184, 0.6);
+  transform: translateY(-1px);
+}
+
+/* タイトル */
+.admin-sales-product-title {
+  text-align: center;
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 650;
+  color: #111827;
+  position: relative;
+  z-index: 1;
+}
+
+/* タイトル下に細いライン */
+.admin-sales-product-title::after {
+  content: "";
+  display: block;
+  width: 60px;
+  height: 2px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4f46e5, #8b5cf6);
+}
+
+/* 期間表示 */
+.admin-sales-product-range {
+  margin-top: 14px;
+  font-size: 13px;
+  color: #4b5563;
+  text-align: center;
+  z-index: 1;
+  position: relative;
+}
+
+.admin-sales-product-range span {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 500;
+}
+
+/* 状態表示（読み込み中 / エラー / 空） */
+.admin-sales-product-loading,
+.admin-sales-product-error,
+.admin-sales-product-empty {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.admin-sales-product-error {
+  color: #ef4444;
+}
+
+/* 一覧全体 */
+.admin-sales-product-list {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* 各ユーザーのカード */
+.admin-sales-product-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s;
+}
+
+.admin-sales-product-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  border-color: #c7d2fe;
+}
+
+/* ラベル＆値の見た目強弱 */
+.admin-sales-product-item p {
+  margin: 3px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.admin-sales-product-item strong {
+  color: #6b7280;
+  min-width: 70px;
+}
+
+/* 名前は少し太く */
+.admin-sales-product-item p:first-of-type strong + span,
+.admin-sales-product-item p:first-of-type {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* メールは小さめ＆グレー */
+.admin-sales-product-item p:nth-of-type(2) span {
+  font-size: 13px;
+  color: #4b5563;
+  word-break: break-all;
+}
+
+/* 金額・数量を少し目立たせる */
+.admin-sales-product-item p:last-of-type,
+.admin-sales-product-item p:nth-last-of-type(2) {
+  margin-top: 4px;
+  font-weight: 500;
+  color: #111827;
+}

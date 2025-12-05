@@ -58,7 +58,17 @@ function OrdersList() {
             >
               <h3>注文ID：{o.id}</h3>
               <p>合計：{formatPrice(o.total)}円</p>
-              <p>日時：{new Date(o.created_at).toLocaleString()}</p>
+             <p>
+  日時：
+  {new Date(o.created_at).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}
+</p>
             </div>
           ))}
         </div>

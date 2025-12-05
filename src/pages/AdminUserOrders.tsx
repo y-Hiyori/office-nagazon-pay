@@ -63,8 +63,16 @@ function AdminUserOrders() {
                   合計：{Number(o.total).toLocaleString()}円
                 </p>
                 <p className="order-date">
-                  日時：{new Date(o.created_at).toLocaleString()}
-                </p>
+  日時：
+  {new Date(o.created_at).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}
+</p>
               </div>
             ))}
           </div>

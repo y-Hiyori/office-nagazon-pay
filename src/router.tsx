@@ -1,3 +1,5 @@
+// src/router.tsx
+
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 
@@ -30,8 +32,14 @@ import AdminEdit from "./pages/AdminEdit";
 import AdminUsers from "./pages/AdminUsers";
 import AdminUserDetail from "./pages/AdminUserDetail";
 
-// ⭐ 新しく作る購入履歴ページ（管理者用）
+// 管理者：ユーザーの購入履歴一覧
 import AdminUserOrders from "./pages/AdminUserOrders";
+
+// 管理者：売上状況ページ
+import AdminSales from "./pages/AdminSales";
+
+// ⭐ 管理者：売上一覧から「この商品を買ったユーザー」ページ ← 追加
+import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
 
 import PurchaseComplete from "./pages/PurchaseComplete";
 
@@ -74,8 +82,14 @@ const router = createBrowserRouter([
       { path: "admin-users", element: <AdminUsers /> },
       { path: "admin-user-detail/:id", element: <AdminUserDetail /> },
 
-      // ⭐ 管理者：ユーザーの購入履歴一覧
+      // 管理者：ユーザーの購入履歴一覧
       { path: "admin-user-orders/:id", element: <AdminUserOrders /> },
+
+      // 管理者：売上状況確認ページ
+      { path: "admin-sales", element: <AdminSales /> },
+
+      // ⭐ 管理者：売上一覧からの「この商品を買ったユーザー」ページ
+      { path: "admin-sales-product/:name", element: <AdminSalesProductDetail /> },
 
       // 購入完了
       { path: "purchase-complete/:id", element: <PurchaseComplete /> },

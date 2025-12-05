@@ -99,9 +99,15 @@
   position: relative;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.plist-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+
+/* ★ 画像の有無に関係なく、必ず150px分の「画像枠」を作る */
+.plist-card::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 150px;
+  background: #f4f4f4;            /* 画像ない時に見えるグレー枠 */
+  border-radius: 14px 14px 0 0;
 }
 
 /* 商品画像 */
@@ -110,6 +116,8 @@
   height: 150px;
   object-fit: cover;
   border-radius: 14px 14px 0 0;
+  display: block;
+  margin-top: -150px;             /* ★ 擬似要素の上に重ねる */
 }
 
 /* 商品名 */
