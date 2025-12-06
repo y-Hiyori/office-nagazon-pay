@@ -241,7 +241,7 @@ function AdminSales() {
           className="admin-sales-back"
           onClick={() => navigate("/admin-menu")}
         >
-          ← 管理者メニューへ
+          ← 戻る
         </button>
 
         <h2 className="admin-sales-title">売上状況</h2>

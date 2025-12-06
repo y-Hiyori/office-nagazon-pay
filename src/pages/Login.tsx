@@ -1,3 +1,4 @@
+// src/pages/Login.tsx
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
@@ -29,9 +30,13 @@ function Login() {
     navigate("/account");
   };
 
+  // ★ パスワードを忘れた方 → 専用画面へ
+  const handleGoForgotPassword = () => {
+    navigate("/forgot-password");
+  };
+
   return (
     <div className="login-container">
-
       {/* ← 戻る */}
       <button className="login-back" onClick={() => navigate("/auth")}>
         ← 戻る
@@ -59,6 +64,15 @@ function Login() {
 
       <button className="login-button" onClick={handleLogin}>
         ログイン
+      </button>
+
+      {/* ★ ここだけ変更 */}
+      <button
+        className="login-link"
+        type="button"
+        onClick={handleGoForgotPassword}
+      >
+        パスワードをお忘れの方はこちら
       </button>
 
       <button className="login-link" onClick={() => navigate("/signup")}>

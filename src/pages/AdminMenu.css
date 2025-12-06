@@ -111,3 +111,26 @@
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
   opacity: 0.95;
 }
+/* ===== 真ん中のボタン（2番目）＝ アカウント管理（ニュートラル） ===== */
+.admin-menu-buttons .admin-menu-btn:nth-child(2) {
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb); /* 少し濃いグレーグラデ */
+  color: #111827;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.10);
+}
+
+.admin-menu-buttons .admin-menu-btn:nth-child(2):hover {
+  background: linear-gradient(135deg, #e5e7eb, #d1d5db); /* ホバーで少し濃く */
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.16);
+}
+
+/* ===== 一番下のボタン（3番目）＝ 売り上げ状況（オレンジ） ===== */
+.admin-menu-buttons .admin-menu-btn:nth-child(3) {
+  background: linear-gradient(135deg, #f97316, #ea580c); /* オレンジ系グラデ */
+  color: #ffffff;                                       /* 白文字でハッキリ */
+  box-shadow: 0 16px 30px rgba(234, 88, 12, 0.45);
+}
+
+.admin-menu-buttons .admin-menu-btn:nth-child(3):hover {
+  background: linear-gradient(135deg, #ea580c, #c2410c); /* 少し濃くしてホバー感 */
+  box-shadow: 0 20px 38px rgba(194, 65, 12, 0.6);
+}

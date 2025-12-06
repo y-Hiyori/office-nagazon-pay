@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useCart } from "../context/CartContext";
 import "./Checkout.css";
+import emailjs from "@emailjs/browser";
 
 function Checkout() {
   const navigate = useNavigate();
@@ -15,6 +16,10 @@ function Checkout() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPayGuide, setShowPayGuide] = useState(false);
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
+
+  // ★追加：店舗用パスワード入力モーダル
+  const [showStoreAuth, setShowStoreAuth] = useState(false);
+  const [storeCode, setStoreCode] = useState("");
 
   // 💰 カンマ区切り
   const formatPrice = (value: number | string) =>
@@ -56,72 +61,134 @@ function Checkout() {
     load();
   }, [navigate]);
 
-  // --- 「購入を確定する」ボタン ---
-  const handleClickConfirmButton = () => {
-    if (!method) {
-      alert("支払い方法を選択してください");
-      return;
+  // ★管理者にメール通知を送る（宛先はテンプレ側で nagazon.pay@gmail.com に固定）
+  const sendAdminMail = async (orderId: string) => {
+    if (!user) return;
+
+    // 商品一覧テキスト
+    const itemsText = items
+      .map((item) => {
+        const name = item.product.name;
+        const qty = item.quantity;
+        const price = Number(item.product.price) || 0;
+        return `${name} × ${qty}個（単価: ${formatPrice(price)}円）`;
+      })
+      .join("\n");
+
+    // ★プロフィールから購入者の「名前」を取得
+    let buyerName = "(名前未設定)";
+    try {
+      const { data: profile, error: profError } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", user.id)
+        .single();
+
+      if (!profError && profile?.name) {
+        buyerName = profile.name;
+      }
+    } catch (e) {
+      console.error("購入者名の取得に失敗:", e);
     }
 
+    try {
+      await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID as string,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string,
+        {
+          order_id: orderId,
+          buyer_name: buyerName,
+          items_text: itemsText,
+          total_text: `${formatPrice(total)}円`,
+        },
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY as string
+      );
+    } catch (e) {
+      console.error("管理者メール送信に失敗:", e);
+      // ここは失敗しても購入処理はそのまま進める
+    }
+  };
+
+  // --- 「購入を確定する」ボタン ---
+  const handleClickConfirmButton = () => {
+    // 支払い方法は関係なく、まずカートだけチェック
     if (!buyNow && cart.cart.length === 0) {
       alert("カートが空です");
       return;
     }
 
-    if (method === "paypay") {
-      alert("PayPay決済は準備中です");
+    // ★先に NAGAZON PAY ID 入力モーダルを出す
+    setShowStoreAuth(true);
+  };
+
+  // ★店舗パスワード確認
+  const handleStoreAuthConfirm = () => {
+    const correctCode = "20220114";
+
+    if (storeCode !== correctCode) {
+      alert("NAGAZON PAY ID が正しくありません。");
       return;
     }
 
-    // モーダル① を表示
+    // OK → モーダル閉じて支払い手順モーダルへ
+    setShowStoreAuth(false);
+    setStoreCode("");
+
+    // 今回使うのはセルフ決済なので自動で選択状態にしておく
+    setMethod("self");
     setShowPayGuide(true);
   };
 
+  const handleStoreAuthCancel = () => {
+    setShowStoreAuth(false);
+    setStoreCode("");
+  };
+
   // --- 最終購入処理 ---
- // --- 最終購入処理 ---
-const finalizePurchase = async () => {
-  if (isProcessing) return;
-  setIsProcessing(true);
+  const finalizePurchase = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
 
-  try {
-    const { data: order, error } = await supabase
-      .from("orders")
-      .insert({ user_id: user.id, total })
-      .select()
-      .single();
+    try {
+      const { data: order, error } = await supabase
+        .from("orders")
+        .insert({ user_id: user.id, total })
+        .select()
+        .single();
 
-    if (error || !order) {
-      alert("注文作成に失敗しました");
-      return;
+      if (error || !order) {
+        alert("注文作成に失敗しました");
+        return;
+      }
+
+      for (const item of items) {
+        await supabase.from("order_items").insert({
+          order_id: order.id,
+          product_id: item.product.id, // ← imageData ではなく product_id を保存
+          product_name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+        });
+
+        // 在庫更新
+        await supabase
+          .from("products")
+          .update({ stock: Number(item.product.stock) - item.quantity })
+          .eq("id", item.product.id);
+      }
+
+      if (!buyNow) {
+        cart.clearCart();
+      }
+
+      // ★ここで管理者へメール通知
+      await sendAdminMail(order.id);
+
+      navigate(`/purchase-complete/${order.id}`);
+    } finally {
+      setIsProcessing(false);
     }
-
-    for (const item of items) {
-      // ⬇⬇⬇ ここを修正：imageData を送らず、product_id を保存
-      await supabase.from("order_items").insert({
-        order_id: order.id,
-        product_id: item.product.id,      // ← 追加
-        product_name: item.product.name,
-        price: item.product.price,
-        quantity: item.quantity,
-        // imageData: は送らない
-      });
-
-      // 在庫だけはこれまで通り Supabase 側で管理
-      await supabase
-        .from("products")
-        .update({ stock: Number(item.product.stock) - item.quantity })
-        .eq("id", item.product.id);
-    }
-
-    if (!buyNow) {
-      cart.clearCart();
-    }
-
-    navigate(`/purchase-complete/${order.id}`);
-  } finally {
-    setIsProcessing(false);
-  }
-};
+  };
 
   return (
     <div className="checkout-page">
@@ -149,7 +216,8 @@ const finalizePurchase = async () => {
                 {formatPrice(item.product.price)}円 × {item.quantity}
               </p>
               <p className="item-subtotal">
-                小計：{formatPrice(
+                小計：
+                {formatPrice(
                   (Number(item.product.price) || 0) * item.quantity
                 )}
                 円
@@ -205,6 +273,38 @@ const finalizePurchase = async () => {
           購入を確定する
         </button>
       </div>
+
+      {/* ★ 店舗用：NAGAZON PAY ID 入力モーダル */}
+      {showStoreAuth && (
+        <div className="pay-modal-overlay">
+          <div className="pay-modal">
+            <h3>NAGAZON PAY ID </h3>
+            <input
+              type="password"
+              value={storeCode}
+              onChange={(e) => setStoreCode(e.target.value)}
+              placeholder="IDを入力してください"
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                marginTop: "8px",
+                borderRadius: "8px",
+                border: "1px solid #e5e7eb",
+                boxSizing: "border-box",
+              }}
+            />
+
+            <div className="modal-buttons">
+              <button className="modal-main-btn" onClick={handleStoreAuthConfirm}>
+                次へ進む
+              </button>
+              <button className="modal-sub-btn" onClick={handleStoreAuthCancel}>
+                戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* モーダル①：PayPayセルフ決済の手順 */}
       {showPayGuide && (

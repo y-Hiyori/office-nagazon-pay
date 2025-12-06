@@ -7,7 +7,7 @@ import "./AdminUsers.css";
 type Profile = {
   id: string;
   name: string;
-  email: string;
+  email: string; // ← ここは残してOK（詳細画面で使う想定）
 };
 
 function AdminUsers() {
@@ -19,7 +19,7 @@ function AdminUsers() {
     const loadProfiles = async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, name, email")
+        .select("id, name, email") // 取得はこのままでOK
         .order("created_at", { ascending: true });
 
       if (error) {
@@ -66,7 +66,8 @@ function AdminUsers() {
               <div className="admin-users-icon">👤</div>
               <div className="admin-users-info">
                 <p className="admin-users-name">{u.name}</p>
-                <p className="admin-users-email">{u.email}</p>
+                {/* メール表示は削除 */}
+                {/* <p className="admin-users-email">{u.email}</p> */}
               </div>
               <div className="admin-users-arrow">＞</div>
             </div>

@@ -7,7 +7,7 @@ import "./AdminSalesProductDetail.css";
 type BuyerRow = {
   userId: string;
   userName: string;
-  userEmail: string;
+  userEmail: string; // ← データとしては保持（必要なら後で使える）
   totalQuantity: number;
   totalSubtotal: number;
   orderCount: number;
@@ -198,7 +198,7 @@ function AdminSalesProductDetail() {
         </button>
 
         <h2 className="admin-sales-product-title">
-          「{productName}」購入者
+          「{productName}」<br />購入者
         </h2>
 
         {state.startIso && state.endIso && (
@@ -218,23 +218,23 @@ function AdminSalesProductDetail() {
           <p className="admin-sales-product-empty">
             この期間にこの商品を購入したユーザーはいません
           </p>
-        // src/pages/AdminSalesProductDetail.tsx
-// ...（上はそのままでOK）
-
         ) : (
           <div className="admin-sales-product-list">
             {buyers.map((b) => (
               <div
                 key={b.userId}
                 className="admin-sales-product-item"
-                onClick={() => navigate(`/admin-user-detail/${b.userId}`)} // ★ 追加
+                onClick={() => navigate(`/admin-user-detail/${b.userId}`)}
               >
                 <p>
                   <strong>名前：</strong> <span>{b.userName}</span>
                 </p>
+                {/* メールは表示しない */}
+                {/* 
                 <p>
                   <strong>メール：</strong> <span>{b.userEmail}</span>
                 </p>
+                */}
                 <p>
                   <strong>注文回数：</strong>{" "}
                   <span>{b.orderCount.toLocaleString()} 回</span>

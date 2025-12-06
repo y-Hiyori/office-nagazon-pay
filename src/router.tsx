@@ -9,6 +9,7 @@ import ProductList from "./pages/ProductList";
 import ProductDetail from "./pages/ProductDetail";
 import CartPage from "./pages/CartPage";
 import Checkout from "./pages/Checkout";
+import Contact from "./pages/Contact";
 
 // ▼ アカウントメニュー
 import AccountMenu from "./pages/AccountMenu";
@@ -20,6 +21,8 @@ import OrderDetail from "./pages/OrderDetail";
 import AuthSelect from "./pages/AuthSelect";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 // ▼ 管理者
 import AdminLogin from "./pages/AdminLogin";
@@ -57,6 +60,9 @@ const router = createBrowserRouter([
       // 購入フロー
       { path: "checkout", element: <Checkout /> },
 
+      // ★ お問い合わせページ
+      { path: "contact", element: <Contact /> },
+
       // アカウント
       { path: "account", element: <AccountMenu /> },
       { path: "account-edit", element: <AccountEdit /> },
@@ -69,6 +75,8 @@ const router = createBrowserRouter([
       { path: "auth", element: <AuthSelect /> },
       { path: "signup", element: <Signup /> },
       { path: "login", element: <Login /> },
+      { path: "forgot-password", element: <ForgotPassword /> },
+      { path: "reset-password", element: <ResetPassword /> },
 
       // 管理者
       { path: "admin-login", element: <AdminLogin /> },
