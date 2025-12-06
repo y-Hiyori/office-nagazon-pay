@@ -49,9 +49,9 @@ function CartPage() {
                   onClick={() => navigate(`/product/${item.id}`)}
                 >
                   <p className="name">{item.product.name}</p>
+                  {/* ★ 在庫表示を削除 */}
                   <p className="price">
                     {formatPrice(item.product.price)}円 × {item.quantity}
-                    （在庫: {max}）
                   </p>
 
                   {/* 数量変更：stopPropagation が重要 */}
@@ -73,7 +73,7 @@ function CartPage() {
                         e.stopPropagation();
                         updateQuantity(item.id, item.quantity + 1);
                       }}
-                      disabled={item.quantity >= max}
+                      disabled={max > 0 && item.quantity >= max}
                     >
                       ＋
                     </button>
