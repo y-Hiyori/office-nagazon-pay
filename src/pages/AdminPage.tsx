@@ -69,14 +69,12 @@ function AdminPage() {
                 onClick={() => navigate(`/admin-detail/${p.id}`)}
               >
                 {imgSrc ? (
-                  <img
-                    src={imgSrc}
-                    alt={p.name}
-                    className="admin-product-image"
-                  />
-                ) : (
-                  <div className="admin-noimg">画像なし</div>
-                )}
+  // 画像あり：普通の img（サイズは CSS の .admin-item img で統一）
+  <img src={imgSrc} alt={p.name} />
+) : (
+  // 画像なし：同じサイズのグレー枠
+  <div className="admin-no-img">画像なし</div>
+)}
 
                 <div className="admin-info">
                   <h3>{p.name}</h3>
