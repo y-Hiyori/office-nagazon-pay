@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
-import "./Login.css"; // とりあえずログイン画面と同じデザインを流用
+import "./Login.css"; // ログイン画面と同じデザインを流用
 
 function ForgotPassword() {
   const navigate = useNavigate();
@@ -19,11 +19,9 @@ function ForgotPassword() {
     setError("");
     setIsSending(true);
 
-    // src/pages/ForgotPassword.tsx の中
-
-const { error } = await supabase.auth.resetPasswordForEmail(email, {
-  redirectTo: "https://office-nagazon-pay.vercel.app/reset-password",
-});
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: "https://office-nagazon-pay.vercel.app/reset-password",
+    });
 
     if (error) {
       setError("パスワード再設定メールの送信に失敗しました: " + error.message);
