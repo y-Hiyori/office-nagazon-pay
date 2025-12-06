@@ -1,5 +1,4 @@
 // src/router.tsx
-
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 
@@ -10,6 +9,7 @@ import ProductDetail from "./pages/ProductDetail";
 import CartPage from "./pages/CartPage";
 import Checkout from "./pages/Checkout";
 import Contact from "./pages/Contact";
+import HowTo from "./pages/HowTo";          // ★ 追加：アプリの使い方
 
 // ▼ アカウントメニュー
 import AccountMenu from "./pages/AccountMenu";
@@ -59,6 +59,9 @@ const router = createBrowserRouter([
 
       // 購入フロー
       { path: "checkout", element: <Checkout /> },
+
+      // ★ アプリの使い方ページ
+      { path: "how-to", element: <HowTo /> },
 
       // ★ お問い合わせページ
       { path: "contact", element: <Contact /> },

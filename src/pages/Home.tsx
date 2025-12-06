@@ -57,7 +57,14 @@ function Home() {
           商品を見る
         </button>
 
-        {/* ★ お問い合わせを真ん中に */}
+        {/* ★ ここを追加：アプリの使い方 */}
+        <button
+  className="home-main-btn"
+  onClick={() => navigate("/how-to")}
+>
+  アプリの使い方
+</button>
+
         <button
           className="home-main-btn"
           onClick={() => navigate("/contact")}
@@ -65,7 +72,6 @@ function Home() {
           お問い合わせ
         </button>
 
-        {/* ★ 管理者ログインを一番下へ */}
         <button
           className="home-main-btn"
           onClick={() => navigate("/admin-login")}

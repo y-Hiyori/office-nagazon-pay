@@ -6,12 +6,11 @@ import "./ProductDetail.css";
 import { useCart } from "../context/CartContext";
 import { supabase } from "../lib/supabase";
 import { findProductImage } from "../data/products";
-import type { Product } from "../types/Product"; // Cart の Product 型
+import type { Product } from "../types/Product";
 
 const formatYen = (value: number) =>
   (Number(value) || 0).toLocaleString("ja-JP");
 
-// CartContext の Product と同じ型をそのまま使う
 type DetailProduct = Product;
 
 function ProductDetail() {
@@ -32,7 +31,6 @@ function ProductDetail() {
 
       const productId = Number(id);
 
-      // ★ created_at を取らない（テーブルに無いので 400 になる）
       const { data, error } = await supabase
         .from("products")
         .select("id, name, price, stock")
@@ -46,7 +44,6 @@ function ProductDetail() {
         return;
       }
 
-      // ローカル画像を id から取得
       const img = findProductImage(productId) ?? null;
 
       setProduct({
@@ -54,8 +51,7 @@ function ProductDetail() {
         name: data.name,
         price: data.price,
         stock: Number(data.stock ?? 0),
-        imageData: img,               // string | null
-        // ★ 型合わせ用。created_at カラムが無いのでダミーを入れておく
+        imageData: img,
         created_at: (data as any).created_at ?? "",
       });
 
@@ -98,14 +94,13 @@ function ProductDetail() {
 
     const existing = cart.cart.find((item) => item.id === product.id);
     const currentQty = existing ? existing.quantity : 0;
-
     const totalQty = currentQty + quantity;
     const maxStock = stockNum;
 
     if (totalQty > maxStock) {
-  alert("在庫が足りません。");
-  return;
-}
+      alert("在庫が足りません。");
+      return;
+    }
 
     cart.addToCart(product, quantity);
     alert(`「${product.name}」を${quantity}個カートに追加しました`);
@@ -136,42 +131,49 @@ function ProductDetail() {
         </button>
       </header>
 
-      <img
-        src={product.imageData ?? ""}
-        alt={product.name}
-        className="detail-image"
-      />
-
-      <div className="detail-section">
-        <h1 className="detail-name">{product.name}</h1>
-        <p className="detail-price">{formatYen(priceNum)}円</p>
-
-        {isSoldOut && (
-          <p className="detail-stock">
-            <span className="soldout">売り切れ</span>
-          </p>
+      {/* ★ 画像＋テキストをカードでまとめる */}
+      <div className="detail-card">
+        {product.imageData ? (
+          <img
+            src={product.imageData}
+            alt={product.name}
+            className="detail-image"
+          />
+        ) : (
+          <div className="detail-noimg">画像なし</div>
         )}
 
-        <div className="detail-qty-row">
-          <span>数量：</span>
-          <button
-            className="qty-btn"
-            onClick={() => handleChangeQty(-1)}
-            disabled={quantity <= 1 || isSoldOut}
-          >
-            －
-          </button>
-          <span className="qty-value">{isSoldOut ? 0 : quantity}</span>
-          <button
-            className="qty-btn"
-            onClick={() => handleChangeQty(1)}
-            disabled={quantity >= stockNum || isSoldOut}
-          >
-            ＋
-          </button>
-        </div>
+        <div className="detail-section">
+          <h1 className="detail-name">{product.name}</h1>
+          <p className="detail-price">{formatYen(priceNum)}円</p>
 
-        <p className="detail-subtotal">小計：{formatYen(subtotal)}円</p>
+          {isSoldOut && (
+            <p className="detail-stock">
+              <span className="soldout">売り切れ</span>
+            </p>
+          )}
+
+          <div className="detail-qty-row">
+            <span>数量：</span>
+            <button
+              className="qty-btn"
+              onClick={() => handleChangeQty(-1)}
+              disabled={quantity <= 1 || isSoldOut}
+            >
+              －
+            </button>
+            <span className="qty-value">{isSoldOut ? 0 : quantity}</span>
+            <button
+              className="qty-btn"
+              onClick={() => handleChangeQty(1)}
+              disabled={quantity >= stockNum || isSoldOut}
+            >
+              ＋
+            </button>
+          </div>
+
+          <p className="detail-subtotal">小計：{formatYen(subtotal)}円</p>
+        </div>
       </div>
 
       <div className="detail-footer">

@@ -2,22 +2,29 @@
    商品詳細ページ（洗練デザイン）
    =========================== */
 
-/* 全体レイアウト */
+/* 全体レイアウト（★ 480px にそろえて中央寄せ） */
 .detail-page {
-  padding-top: 60px;           /* ヘッダー分の余白 */
+  padding-top: 80px;           /* ヘッダーぶんの余白 */
   padding-bottom: 140px;       /* 下フッター分の余白 */
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   background: #f5f5f7;
+  min-height: 100vh;
+
+  max-width: 480px;
+  margin: 0 auto;
 }
 
-/* 固定ヘッダー */
+/* 固定ヘッダー（★ left:0 / right:0 + margin:auto でど真ん中に固定） */
 .detail-header {
   position: fixed;
   top: 0;
   left: 0;
+  right: 0;
+  margin: 0 auto;          /* ← これで中央寄せ */
   width: 100%;
-  height: 60px;
+  max-width: 480px;        /* ← 幅は 480px まで */
 
+  height: 60px;
   background: #ffffffcc;
   backdrop-filter: blur(8px);
   display: flex;
@@ -75,35 +82,66 @@
   font-weight: 600;
 }
 
+/* --- この下（画像・数量・フッター等）は今のままでOKだけど、
+   フッターだけ同じノリで中央寄せにしておくと安心 --- */
+
 /* ===========================
-   カード本体（画像＋情報をまとめる）
+   フッター（購入ボタン２つ）
+   =========================== */
+
+.detail-footer {
+  position: fixed;
+  bottom: 0;
+
+  /* ★ 画面のどれだけ広くなっても真ん中に固定 */
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 100%;
+  max-width: 480px;       /* 詳細ページと同じ幅 */
+  box-sizing: border-box;
+
+  background: #ffffffdd;
+  backdrop-filter: blur(6px);
+  padding: 12px 16px 20px;
+
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid #ddd;
+  z-index: 90;
+}
+/* ===========================
+   カード本体（画像＋情報）
    =========================== */
 
 .detail-card {
-  width: min(480px, 100% - 32px);
-  margin: 72px auto 20px;
+  width: 100%;               /* 親の 480px 幅いっぱい */
+  margin: 8px 0 20px;        /* ← 上の余白を小さく */
   background: #ffffff;
   border-radius: 24px;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.14);
   overflow: hidden;
-  position: relative;          /* ★ 追加：疑似要素の基準にする */
+  box-sizing: border-box;
 }
 
-/* ★ 画像の有無に関係なく、必ず260px分の枠を作る */
-.detail-card::before {
-  content: "";
-  display: block;
-  width: 100%;
-  height: 260px;                /* 画像と同じ高さ */
-  background: #f4f4f4;          /* 画像なしのときに見えるグレー */
-}
-
-/* 商品画像 */
+/* 商品画像（PC でも伸びすぎないように max-height） */
 .detail-image {
   width: 100%;
-  height: 260px;
+  max-height: 260px;
   object-fit: cover;
   display: block;
+}
+
+/* 画像なしのときのダミー */
+.detail-noimg {
+  width: 100%;
+  height: 260px;
+  background: #f4f4f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 14px;
 }
 
 /* 商品情報 */
@@ -121,7 +159,7 @@
   font-size: 20px;
   font-weight: 600;
   margin-top: 4px;
-  color: #111827;              /* ← 青じゃなくて濃いグレー（ほぼ黒） */
+  color: #111827;
 }
 
 .detail-stock {
@@ -166,7 +204,7 @@
 }
 
 .qty-btn:active {
-  background: #e5e7eb;
+  background: #e5e5eb;
   transform: scale(0.94);
 }
 
@@ -195,7 +233,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 480px;           /* ← 右側がはみ出さないように制限 */
+  max-width: 480px;
   box-sizing: border-box;
 
   background: #ffffffdd;
@@ -244,4 +282,43 @@
 .footer-cart:active {
   transform: scale(0.97);
   box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);
+}
+
+/* ===========================
+   レスポンシブ（小さいスマホだけちょい調整）
+   =========================== */
+
+@media (max-width: 360px) {
+  .detail-page {
+    padding-top: 64px;    /* 小さいときも同じくらいに */
+    padding-bottom: 130px;
+  }
+
+  .detail-card {
+    margin: 8px 0 16px;
+    border-radius: 0;
+  }
+
+  .detail-section {
+    padding: 16px 14px 20px;
+  }
+
+  .detail-name {
+    font-size: 19px;
+  }
+
+  .detail-price {
+    font-size: 18px;
+  }
+
+  .detail-footer {
+    padding: 10px 10px 16px;
+    gap: 8px;
+  }
+
+  .footer-buy,
+  .footer-cart {
+    padding: 12px;
+    font-size: 14px;
+  }
 }
