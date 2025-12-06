@@ -19,10 +19,11 @@ function ForgotPassword() {
     setError("");
     setIsSending(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // Supabase の Auth 設定でこのURLを許可しておくと◎
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    // src/pages/ForgotPassword.tsx の中
+
+const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  redirectTo: "https://office-nagazon-pay.vercel.app/reset-password",
+});
 
     if (error) {
       setError("パスワード再設定メールの送信に失敗しました: " + error.message);
