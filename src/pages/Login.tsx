@@ -60,21 +60,24 @@ function Login() {
         onChange={(e) => setPassword(e.target.value)}
       />
 
+      {/* ★ パスワードを忘れた方（右下に小さく表示） */}
+      <div className="login-forgot-row">
+        <button
+          type="button"
+          className="login-forgot-link"
+          onClick={handleGoForgotPassword}
+        >
+          パスワードをお忘れの方
+        </button>
+      </div>
+
       {error && <p className="login-error">{error}</p>}
 
       <button className="login-button" onClick={handleLogin}>
         ログイン
       </button>
 
-      {/* ★ ここだけ変更 */}
-      <button
-        className="login-link"
-        type="button"
-        onClick={handleGoForgotPassword}
-      >
-        パスワードをお忘れの方はこちら
-      </button>
-
+      {/* 新規登録ボタンは今まで通り大きいボタン */}
       <button className="login-link" onClick={() => navigate("/signup")}>
         新規アカウント作成はこちら
       </button>

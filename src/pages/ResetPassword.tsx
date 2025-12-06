@@ -49,7 +49,7 @@ function ResetPassword() {
     <div className="login-container">
       {/* ← 戻る */}
       <button className="login-back" onClick={() => navigate("/login")}>
-        ← ログインに戻る
+        ← 戻る
       </button>
 
       <h1 className="login-title">パスワード変更</h1>

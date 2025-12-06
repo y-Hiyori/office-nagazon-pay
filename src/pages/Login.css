@@ -155,3 +155,25 @@
   transform: translateY(0);
   box-shadow: 0 6px 12px rgba(15, 23, 42, 0.04);
 }
+/* パスワードを忘れた方リンク（右端に小さく） */
+.login-forgot-row {
+  width: 100%;
+  margin-top: -6px;      /* パスワード入力との距離を少し詰める */
+  margin-bottom: 6px;    /* エラー文との間に少しだけ余白 */
+  display: flex;
+  justify-content: flex-end;
+}
+
+.login-forgot-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  color: #6b7280;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.login-forgot-link:hover {
+  color: #4f46e5;
+}
