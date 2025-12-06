@@ -8,12 +8,12 @@ import "./Contact.css";
 function Contact() {
   const navigate = useNavigate();
 
-  const [user, setUser] = useState<any>(null);
+  // ★ user ステートは削除
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [detail, setDetail] = useState("");
-  const [orderId, setOrderId] = useState(""); // ★ 追加：注文ID（任意）
+  const [orderId, setOrderId] = useState(""); // 任意の注文ID
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -29,8 +29,6 @@ function Contact() {
         // そのままフォームは空でOK
         return;
       }
-
-      setUser(user);
 
       // profiles から名前・メール取得
       const { data: profile, error } = await supabase
@@ -54,7 +52,6 @@ function Contact() {
       alert("名前・メールアドレス・用件・詳細をすべて入力してください。");
       return;
     }
-    // 注文IDは任意なのでチェックしない
     setShowConfirm(true);
   };
 
@@ -72,8 +69,7 @@ function Contact() {
           contact_email: email,
           contact_subject: subject,
           contact_message: detail,
-          // ★ 追加：注文ID（空なら「未入力」にして送る）
-          contact_order_id: orderId || "(未入力)",
+          contact_order_id: orderId || "（未入力）",
         },
         import.meta.env.VITE_EMAILJS_PUBLIC_KEY as string
       );
@@ -84,7 +80,7 @@ function Contact() {
       // 用件と詳細だけリセット（名前・メールはそのまま残してもOK）
       setSubject("");
       setDetail("");
-      setOrderId(""); // 任意なのでここもリセット
+      setOrderId("");
 
       // ★ 送信完了後にホームへ戻る
       navigate("/");
@@ -126,17 +122,6 @@ function Contact() {
           />
         </div>
 
-        {/* ★ 追加：注文ID（任意） */}
-        <div className="contact-field">
-          <label>注文ID（任意）</label>
-          <input
-            type="text"
-            value={orderId}
-            onChange={(e) => setOrderId(e.target.value)}
-            placeholder="例）注文履歴に表示されているID／不明なら空欄でOK"
-          />
-        </div>
-
         <div className="contact-field">
           <label>用件</label>
           <input
@@ -144,6 +129,16 @@ function Contact() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="購入時、支払い時のトラブルなど"
+          />
+        </div>
+
+        <div className="contact-field">
+          <label>注文ID（任意）</label>
+          <input
+            type="text"
+            value={orderId}
+            onChange={(e) => setOrderId(e.target.value)}
+            placeholder="例: 9b5d3024-xxxx... （わかれば）"
           />
         </div>
 
