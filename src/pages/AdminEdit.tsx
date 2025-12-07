@@ -6,9 +6,12 @@ import "./AdminEdit.css";
 
 function AdminEdit() {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const { id: urlId } = useParams<{ id: string }>(); // URL の元のID
 
   const [loading, setLoading] = useState(true);
+
+  // 編集用の「商品ID」
+  const [editId, setEditId] = useState("");
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -16,12 +19,18 @@ function AdminEdit() {
 
   const [isSaving, setIsSaving] = useState(false);
 
-  // 🔥 商品読み込み（name / price / stock だけ使う）
+  // 商品読み込み（id / name / price / stock）
   const loadProduct = async () => {
+    if (!urlId) {
+      alert("商品のIDが不正です");
+      navigate("/admin-page");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("products")
-      .select("name, price, stock")
-      .eq("id", id)
+      .select("id, name, price, stock")
+      .eq("id", urlId)
       .maybeSingle();
 
     if (error || !data) {
@@ -31,6 +40,7 @@ function AdminEdit() {
       return;
     }
 
+    setEditId(String(data.id));
     setName(data.name);
     setPrice(String(data.price));
     setStock(String(data.stock));
@@ -40,15 +50,31 @@ function AdminEdit() {
   useEffect(() => {
     loadProduct();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [urlId]);
 
-  // 🔧 保存（画像関連は一切ナシ）
+  // 保存（ID も含めて更新）
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
 
-    if (!name || !price || !stock) {
+    if (!editId || !name || !price || !stock) {
       alert("すべての項目を入力してください");
+      setIsSaving(false);
+      return;
+    }
+
+    const idNum = Number(editId);
+    const priceNum = Number(price);
+    const stockNum = Number(stock);
+
+    if (Number.isNaN(idNum) || Number.isNaN(priceNum) || Number.isNaN(stockNum)) {
+      alert("ID・価格・在庫は数値で入力してください");
+      setIsSaving(false);
+      return;
+    }
+
+    if (!urlId) {
+      alert("商品のIDが不正です");
       setIsSaving(false);
       return;
     }
@@ -56,11 +82,12 @@ function AdminEdit() {
     const { error } = await supabase
       .from("products")
       .update({
+        id: idNum, // ID も更新
         name,
-        price: Number(price),
-        stock: Number(stock),
+        price: priceNum,
+        stock: stockNum,
       })
-      .eq("id", id);
+      .eq("id", urlId); // 元のIDで探す
 
     if (error) {
       alert("商品更新に失敗しました: " + error.message);
@@ -84,30 +111,50 @@ function AdminEdit() {
         <h2 className="edit-title">商品編集</h2>
       </header>
 
-      <input
-        className="edit-input"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="商品名"
-      />
+      {/* ▼ フローティングラベル付きフィールドたち */}
+      <div className="edit-field">
+        <input
+          className="edit-input"
+          value={editId}
+          onChange={(e) => setEditId(e.target.value)}
+          type="number"
+          placeholder=" "            // ← 空白1文字がポイント
+        />
+        <label className="edit-label">商品ID</label>
+      </div>
 
-      <input
-        className="edit-input"
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-        placeholder="価格"
-        type="number"
-      />
+      <div className="edit-field">
+        <input
+          className="edit-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          type="text"
+          placeholder=" "
+        />
+        <label className="edit-label">商品名</label>
+      </div>
 
-      <input
-        className="edit-input"
-        value={stock}
-        onChange={(e) => setStock(e.target.value)}
-        placeholder="在庫数"
-        type="number"
-      />
+      <div className="edit-field">
+        <input
+          className="edit-input"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          type="number"
+          placeholder=" "
+        />
+        <label className="edit-label">価格</label>
+      </div>
 
-      {/* 画像アップロード＆プレビュー部分は全部削除 */}
+      <div className="edit-field">
+        <input
+          className="edit-input"
+          value={stock}
+          onChange={(e) => setStock(e.target.value)}
+          type="number"
+          placeholder=" "
+        />
+        <label className="edit-label">在庫数</label>
+      </div>
 
       <button
         className="save-button"

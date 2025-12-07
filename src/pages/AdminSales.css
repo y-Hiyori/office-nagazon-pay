@@ -21,21 +21,30 @@
   backdrop-filter: blur(10px);
 }
 
-/* 戻るボタン */
+/* 戻るボタン（ヒットエリア広め） */
 .admin-sales-back {
   position: absolute;
   left: 16px;
   top: 16px;
-  padding: 6px 14px;
+
+  /* ← タップしやすいように大きめにする */
+  padding: 8px 18px;
+  min-width: 70px;
+  min-height: 40px;
+
   border-radius: 999px;
   border: none;
   background: #f3f4f6;
   cursor: pointer;
-  font-size: 13px;
+
+  font-size: 14px;
+  color: #4b5563;
+
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: #4b5563;
+  justify-content: center;
+  gap: 6px;
+
   transition: background 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
 }

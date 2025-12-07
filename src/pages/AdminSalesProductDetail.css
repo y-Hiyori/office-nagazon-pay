@@ -33,22 +33,31 @@
   pointer-events: none;
 }
 
-/* 戻るボタン */
+/* 戻るボタン（ヒットエリア広め） */
 .admin-sales-product-back {
   position: absolute;
   left: 14px;
   top: 14px;
-  padding: 6px 13px;
+
+  /* ← ここを広めに */
+  padding: 8px 18px;
+  min-width: 70px;
+  min-height: 40px;
+
   border-radius: 999px;
   border: none;
   background: #f3f4f6;
   cursor: pointer;
-  font-size: 13px;
+
+  font-size: 14px;
   color: #374151;
+
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  z-index: 1;
+  justify-content: center;
+  gap: 6px;
+
+  z-index: 2;
   transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
 }
 

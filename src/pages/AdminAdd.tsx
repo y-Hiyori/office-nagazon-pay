@@ -7,6 +7,9 @@ import "./AdminAdd.css";
 function AdminAdd() {
   const navigate = useNavigate();
 
+  // ★ 追加：商品IDを自分で入力する
+  const [productId, setProductId] = useState("");
+
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
@@ -16,14 +19,23 @@ function AdminAdd() {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    if (!name || !price || !stock) {
-      alert("すべての項目を入力してください");
+    // ★ IDも含めて全部チェック
+    if (!productId || !name || !price || !stock) {
+      alert("商品ID・商品名・価格・在庫をすべて入力してください");
       setIsSubmitting(false);
       return;
     }
 
+    const idNum = Number(productId);
     const priceNum = Number(price);
     const stockNum = Number(stock);
+
+    // ID は整数・1以上の数にする
+    if (!Number.isInteger(idNum) || idNum <= 0) {
+      alert("商品IDは1以上の整数で入力してください");
+      setIsSubmitting(false);
+      return;
+    }
 
     if (Number.isNaN(priceNum) || Number.isNaN(stockNum)) {
       alert("価格と在庫は数値で入力してください");
@@ -31,8 +43,9 @@ function AdminAdd() {
       return;
     }
 
-    // 👇 id は送らない！ Supabase 側で自動採番させる
+    // 👇 ここで id も一緒に渡す
     const { error } = await supabase.from("products").insert({
+      id: idNum,
       name,
       price: priceNum,
       stock: stockNum,
@@ -66,6 +79,14 @@ function AdminAdd() {
           {isSubmitting ? "送信中..." : "追加"}
         </button>
       </header>
+
+      {/* ★ 商品ID入力欄を追加 */}
+      <input
+        type="number"
+        placeholder="商品ID（例：101）"
+        value={productId}
+        onChange={(e) => setProductId(e.target.value)}
+      />
 
       <input
         type="text"

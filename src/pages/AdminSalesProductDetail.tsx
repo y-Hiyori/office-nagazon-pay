@@ -7,7 +7,7 @@ import "./AdminSalesProductDetail.css";
 type BuyerRow = {
   userId: string;
   userName: string;
-  userEmail: string; // ← データとしては保持（必要なら後で使える）
+  userEmail: string; // データとしては保持（必要なら後で使える）
   totalQuantity: number;
   totalSubtotal: number;
   orderCount: number;
@@ -31,6 +31,7 @@ function AdminSalesProductDetail() {
 
   const productName = name ? decodeURIComponent(name) : "";
 
+  // 開始側（そのまま表示）
   const formatDateJST = (iso: string) =>
     new Date(iso).toLocaleString("ja-JP", {
       timeZone: "Asia/Tokyo",
@@ -40,6 +41,20 @@ function AdminSalesProductDetail() {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  // 終了側（endIso は「その瞬間の手前まで」なので 1ミリ秒引いて表示）
+  const formatRangeEndJST = (iso: string) => {
+    const d = new Date(iso);
+    d.setMilliseconds(d.getMilliseconds() - 1); // 例: 14日 0:00 → 13日 23:59:59
+    return d.toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -54,7 +69,7 @@ function AdminSalesProductDetail() {
       setBuyers([]);
 
       try {
-        // 1️⃣ まず期間内の注文を取得
+        // 1️⃣ 期間内の注文を取得
         let query = supabase
           .from("orders")
           .select("id, user_id, created_at, total");
@@ -124,7 +139,7 @@ function AdminSalesProductDetail() {
           (profiles || []).map((p) => [p.id, p] as const)
         );
 
-        // 4️⃣ ユーザーごとに集計（同じアカウントをまとめる）
+        // 4️⃣ ユーザーごとに集計
         const map = new Map<string, BuyerRow>();
 
         for (const it of items) {
@@ -156,7 +171,6 @@ function AdminSalesProductDetail() {
           row.totalSubtotal += sub;
           row.orderCount += 1;
 
-          // 最も新しい購入日時を保持
           if (
             new Date(createdAt).getTime() >
             new Date(row.lastCreatedAt).getTime()
@@ -205,7 +219,8 @@ function AdminSalesProductDetail() {
           <p className="admin-sales-product-range">
             期間：
             <span>
-              {formatDateJST(state.startIso)} ～ {formatDateJST(state.endIso)}
+              {formatDateJST(state.startIso)} ～{" "}
+              {formatRangeEndJST(state.endIso)}
             </span>
           </p>
         )}
@@ -229,12 +244,6 @@ function AdminSalesProductDetail() {
                 <p>
                   <strong>名前：</strong> <span>{b.userName}</span>
                 </p>
-                {/* メールは表示しない */}
-                {/* 
-                <p>
-                  <strong>メール：</strong> <span>{b.userEmail}</span>
-                </p>
-                */}
                 <p>
                   <strong>注文回数：</strong>{" "}
                   <span>{b.orderCount.toLocaleString()} 回</span>

@@ -22,10 +22,13 @@ const formatWeekday = (dateStr: string) => {
   return weekdayLabels[d.getDay()];
 };
 
+/* ★ AdminSales の状態を保存しておくキー */
+const STORAGE_KEY = "admin-sales-state";
+
 function AdminSales() {
   const navigate = useNavigate();
 
-  // 今日（日本時間などローカル時間ベースでフォーマットする）
+  // 今日（ローカル時間ベースでフォーマット）
   const today = new Date();
 
   const formatYMD = (d: Date) => {
@@ -45,12 +48,49 @@ function AdminSales() {
   const defaultMonth = formatYM(today);
   const defaultYear = String(today.getFullYear());
 
-  const [mode, setMode] = useState<RangeMode>("day"); // 日 / 週 / 月 / 年
+  // ★ localStorage から前回の状態を読む
+  const loadInitialState = () => {
+    const fallback = {
+      mode: "day" as RangeMode,
+      day: defaultDay,
+      weekBase: defaultDay,
+      month: defaultMonth,
+      year: defaultYear,
+    };
 
-  const [day, setDay] = useState<string>(defaultDay);
-  const [weekBase, setWeekBase] = useState<string>(defaultDay); // 週の基準日
-  const [month, setMonth] = useState<string>(defaultMonth);
-  const [year, setYear] = useState<string>(defaultYear);
+    if (typeof window === "undefined") return fallback;
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return fallback;
+
+      const parsed = JSON.parse(raw) as Partial<{
+        mode: RangeMode;
+        day: string;
+        weekBase: string;
+        month: string;
+        year: string;
+      }>;
+
+      return {
+        mode: parsed.mode ?? fallback.mode,
+        day: parsed.day ?? fallback.day,
+        weekBase: parsed.weekBase ?? fallback.weekBase,
+        month: parsed.month ?? fallback.month,
+        year: parsed.year ?? fallback.year,
+      };
+    } catch {
+      return fallback;
+    }
+  };
+
+  const initial = loadInitialState();
+
+  const [mode, setMode] = useState<RangeMode>(initial.mode); // 日 / 週 / 月 / 年
+  const [day, setDay] = useState<string>(initial.day);
+  const [weekBase, setWeekBase] = useState<string>(initial.weekBase); // 週の基準日（その週のどの日でもOK）
+  const [month, setMonth] = useState<string>(initial.month);
+  const [year, setYear] = useState<string>(initial.year);
 
   const [totalSales, setTotalSales] = useState<number>(0);
   const [orderCount, setOrderCount] = useState<number>(0);
@@ -58,11 +98,22 @@ function AdminSales() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
-  /* ★ 追加：今表示している期間を覚えておく（商品クリック時に渡す用） */
+  /* ★ 今表示している期間を覚えておく（商品クリック時に渡す用） */
   const [currentRange, setCurrentRange] = useState<{
     startIso: string;
     endIso: string;
   } | null>(null);
+
+  // ★ 指定日の「その週の日曜日」を返す（週は日曜〜土曜）
+  const getWeekStartDate = (dateStr: string) => {
+    const base = new Date(dateStr + "T00:00:00");
+    if (Number.isNaN(base.getTime())) return null;
+
+    const dow = base.getDay(); // 0: 日, 1: 月, ... 6: 土
+    base.setDate(base.getDate() - dow); // その週の日曜日まで戻す
+
+    return base;
+  };
 
   // 指定範囲の売上データを読み込む
   const loadSales = async (
@@ -95,10 +146,17 @@ function AdminSales() {
           setLoading(false);
           return;
         }
-        // 週モード：選択した日から7日間
-        start = new Date(weekBase + "T00:00:00");
-        end = new Date(start);
-        end.setDate(end.getDate() + 7);
+
+        // ★ 週モード：選択した日が含まれる「週の日曜日」から7日間（日曜〜土曜）
+        const weekStart = getWeekStartDate(weekBase);
+        if (!weekStart) {
+          setLoading(false);
+          return;
+        }
+
+        start = weekStart; // 日曜
+        end = new Date(weekStart);
+        end.setDate(end.getDate() + 7); // 次の週の日曜(0:00)まで
       } else if (mode === "month") {
         if (!month) {
           setLoading(false);
@@ -212,15 +270,36 @@ function AdminSales() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, day, weekBase, month, year]);
 
-  // 週モード用のラベル（YYYY-MM-DD ~ YYYY-MM-DD）
+  // ★ モードや日付が変わったら localStorage に保存
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const data = {
+      mode,
+      day,
+      weekBase,
+      month,
+      year,
+    };
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }, [mode, day, weekBase, month, year]);
+
+  // 週モード用のラベル（日曜〜土曜）
   const getWeekLabel = () => {
     if (!weekBase) return "";
-    const start = new Date(weekBase + "T00:00:00");
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6); // 7日間の最後
 
-    const s = start.toISOString().slice(0, 10);
-    const e = end.toISOString().slice(0, 10);
+    const weekStart = getWeekStartDate(weekBase);
+    if (!weekStart) return "";
+
+    const start = weekStart; // その週の日曜（ローカル）
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6); // その週の土曜（ローカル）
+
+    // ローカル時間の年月日で文字列を作る
+    const s = formatYMD(start);
+    const e = formatYMD(end);
+
     return `${s} ～ ${e}`;
   };
 
@@ -246,7 +325,7 @@ function AdminSales() {
 
         <h2 className="admin-sales-title">売上状況</h2>
 
-        {/* ★ 日 / 週 / 月 / 年 切り替え */}
+        {/* 日 / 週 / 月 / 年 切り替え */}
         <div className="admin-sales-mode">
           <button
             className={mode === "day" ? "mode-btn active" : "mode-btn"}
@@ -274,7 +353,7 @@ function AdminSales() {
           </button>
         </div>
 
-        {/* ★ モードごとの入力 */}
+        {/* モードごとの入力 */}
         <div className="admin-sales-date-row">
           {mode === "day" && (
             <>
@@ -289,7 +368,7 @@ function AdminSales() {
 
           {mode === "week" && (
             <>
-              <label>週の開始日：</label>
+              <label>週の任意の日付：</label>
               <input
                 type="date"
                 value={weekBase}
@@ -352,7 +431,6 @@ function AdminSales() {
                   <div
                     key={item.product_name}
                     className="admin-sales-item"
-                    /* ★ ここをクリックすると「誰が買ったか」画面へ */
                     onClick={() => {
                       if (!currentRange) return;
                       navigate(
