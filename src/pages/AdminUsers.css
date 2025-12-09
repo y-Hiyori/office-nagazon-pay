@@ -110,7 +110,7 @@
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
 }
 
-/* 左のアイコン（丸いアバター風） */
+/* 左のアイコン（丸いアバター風・共通） */
 .admin-users-icon {
   width: 40px;
   height: 40px;
@@ -120,10 +120,34 @@
   align-items: center;
   justify-content: center;
 
-  background: #eef2ff;
-  color: #4f46e5;
   font-size: 20px;
   flex-shrink: 0;
+}
+
+/* 一般ユーザー用カラー */
+.admin-users-icon.normal {
+  background: #e5e7eb; /* グレー */
+  color: #4b5563;
+}
+
+/* 管理者用カラー（目立つオレンジ） */
+.admin-users-icon.admin {
+  background: #f97316;         /* オレンジ */
+  color: #ffffff;
+  box-shadow: 0 0 0 2px #fed7aa;
+}
+
+/* 「管理者」バッジ */
+.admin-users-role-badge {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: #f97316;
+  color: #ffffff;
 }
 
 /* 名前・メール */

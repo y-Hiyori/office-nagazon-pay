@@ -199,3 +199,83 @@
   margin: 2px 0;
   color: #6b7280;
 }
+
+/* 在庫表示まわり */
+.admin-stock-line {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.admin-stock-label {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+/* バッジ共通 */
+.admin-stock-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* 在庫切れバッジ */
+.admin-stock-badge.soldout {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* 残りわずかバッジ */
+.admin-stock-badge.low {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+/* 在庫切れカード全体の見た目 */
+.admin-item-soldout {
+  opacity: 0.55;
+  border: 1px solid #fecaca;
+}
+
+/* 残りわずかカードの枠色 */
+.admin-item-low {
+  border: 1px solid #fed7aa;
+}
+
+/* 並び替えボタン行 */
+.admin-sort-row {
+  margin-top: 70px;            /* ヘッダーの下に少し余白 */
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 並び替えボタン */
+.admin-sort-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.admin-sort-btn:hover {
+  background: #eef2ff;
+}
+
+/* 選択中 */
+.admin-sort-btn.active {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}

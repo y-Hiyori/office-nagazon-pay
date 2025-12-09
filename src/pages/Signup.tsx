@@ -11,8 +11,12 @@ function Signup() {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false); // ★ 連打防止フラグ
 
   const handleSignup = async () => {
+    // すでに送信中なら何もしない
+    if (submitting) return;
+
     setError("");
 
     // 入力チェック
@@ -21,7 +25,7 @@ function Signup() {
       return;
     }
 
-    // ★ パスワードの文字数チェックを追加（6文字未満ならエラー）
+    // ★ パスワードの文字数チェック（6文字未満）
     if (password.length < 6) {
       setError("パスワードは6文字以上で入力してください");
       return;
@@ -31,6 +35,9 @@ function Signup() {
       setError("パスワードが一致しません");
       return;
     }
+
+    // ここから本当にサインアップ処理を走らせるのでロック
+    setSubmitting(true);
 
     // ① Auth 登録（メール認証あり）
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -56,23 +63,27 @@ function Signup() {
       } else {
         setError(signUpError.message);
       }
+      setSubmitting(false); // ★ エラー時は解除
       return;
     }
 
     const user = data.user;
     if (!user) {
       setError("ユーザー登録に失敗しました");
+      setSubmitting(false); // ★ これも解除
       return;
     }
 
     // ★ 既存メールかどうかのチェックはそのまま
     if (Array.isArray(user.identities) && user.identities.length === 0) {
       setError("このメールアドレスはすでに使用されています");
+      setSubmitting(false);
       return;
     }
 
     // ★ ここでは profiles をいじらない（メール認証後の画面でやる）
     alert("確認メールを送信しました！メールのリンクから認証を完了してください。");
+    setSubmitting(false);
     navigate("/login");
   };
 
@@ -118,8 +129,12 @@ function Signup() {
 
       {error && <p className="signup-error">{error}</p>}
 
-      <button className="signup-button" onClick={handleSignup}>
-        登録する
+      <button
+        className="signup-button"
+        onClick={handleSignup}
+        disabled={submitting} // ★ 処理中は押せない
+      >
+        {submitting ? "登録中..." : "登録する"}
       </button>
 
       <button className="signup-link" onClick={() => navigate("/login")}>

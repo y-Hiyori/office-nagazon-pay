@@ -155,3 +155,19 @@
   letter-spacing: 1px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
+
+/* NEW バッジ（24時間だけ表示） */
+.new-label {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  /* 💚 黄緑グラデーションに変更 */
+  background: linear-gradient(135deg, #a3e635, #22c55e);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}

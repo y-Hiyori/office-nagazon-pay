@@ -8,6 +8,9 @@ import { supabase } from "../lib/supabase";
 import { findProductImage } from "../data/products";
 import type { Product } from "../types/Product";
 
+// ★ 説明用の画像マスタ（あとで作るファイル）
+import { findProductDetailImage } from "../data/productDetailImages";
+
 const formatYen = (value: number) =>
   (Number(value) || 0).toLocaleString("ja-JP");
 
@@ -21,6 +24,7 @@ function ProductDetail() {
   const [product, setProduct] = useState<DetailProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [detailImage, setDetailImage] = useState<string | null>(null); // ★ 説明画像用
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -33,7 +37,7 @@ function ProductDetail() {
 
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, price, stock")
+        .select("id, name, price, stock, created_at")
         .eq("id", productId)
         .maybeSingle();
 
@@ -45,6 +49,7 @@ function ProductDetail() {
       }
 
       const img = findProductImage(productId) ?? null;
+      const detailImg = findProductDetailImage(productId) ?? null; // ★ 説明画像
 
       setProduct({
         id: data.id,
@@ -55,6 +60,7 @@ function ProductDetail() {
         created_at: (data as any).created_at ?? "",
       });
 
+      setDetailImage(detailImg);
       setLoading(false);
     };
 
@@ -175,6 +181,20 @@ function ProductDetail() {
           <p className="detail-subtotal">小計：{formatYen(subtotal)}円</p>
         </div>
       </div>
+
+      {/* ★★★ ここが今回追加する「商品説明」ブロック ★★★ */}
+      <section className="detail-desc-section">
+        <h3 className="detail-desc-title">商品説明</h3>
+        {detailImage ? (
+          <img
+            src={detailImage}
+            alt={`${product.name} の説明画像`}
+            className="detail-desc-image"
+          />
+        ) : (
+          <p className="detail-desc-none">この商品の説明はありません。</p>
+        )}
+      </section>
 
       <div className="detail-footer">
         <button

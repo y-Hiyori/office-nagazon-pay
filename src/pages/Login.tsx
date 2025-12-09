@@ -9,12 +9,18 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loggingIn, setLoggingIn] = useState(false); // ★ 連打防止フラグ
 
   const handleLogin = async () => {
+    if (loggingIn) return; // すでにログイン処理中なら何もしない
+
     if (!email || !password) {
       setError("メールアドレスとパスワードを入力してください");
       return;
     }
+
+    setError("");
+    setLoggingIn(true); // ★ ログイン開始
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -23,15 +29,18 @@ function Login() {
 
     if (error) {
       setError("ログインできません: " + error.message);
+      setLoggingIn(false); // 失敗したら解除
       return;
     }
 
     alert("ログイン成功！");
+    setLoggingIn(false);
     navigate("/account");
   };
 
   // ★ パスワードを忘れた方 → 専用画面へ
   const handleGoForgotPassword = () => {
+    if (loggingIn) return; // 一応ここでもガードしておく
     navigate("/forgot-password");
   };
 
@@ -73,8 +82,12 @@ function Login() {
 
       {error && <p className="login-error">{error}</p>}
 
-      <button className="login-button" onClick={handleLogin}>
-        ログイン
+      <button
+        className="login-button"
+        onClick={handleLogin}
+        disabled={loggingIn} // ★ 処理中は押せない
+      >
+        {loggingIn ? "ログイン中..." : "ログイン"}
       </button>
 
       {/* 新規登録ボタンは今まで通り大きいボタン */}

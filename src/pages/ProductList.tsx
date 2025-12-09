@@ -5,12 +5,16 @@ import { supabase } from "../lib/supabase";
 import "./ProductList.css";
 import { findProductImage } from "../data/products";
 
+const NEW_PERIOD_MS = 24 * 60 * 60 * 1000; // 24時間
+
 type ProductRow = {
   id: number;
   name: string;
   price: number;
   stock: number;
   imageData: string | null;
+  createdAt: string | null;
+  isNew: boolean;
 };
 
 function ProductList() {
@@ -23,10 +27,10 @@ function ProductList() {
 
   useEffect(() => {
     const loadProducts = async () => {
-      // ★ Supabase から name / price / stock を取る
+      // ★ created_at も取得する
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, price, stock")
+        .select("id, name, price, stock, created_at")
         .order("id", { ascending: true });
 
       if (error) {
@@ -38,13 +42,58 @@ function ProductList() {
 
       const rows = (data ?? []) as any[];
 
-      const merged: ProductRow[] = rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        price: row.price,
-        stock: Number(row.stock ?? 0),
-        imageData: findProductImage(row.id) ?? null, // ★ 画像はコードから
-      }));
+      const now = Date.now();
+
+      const merged: ProductRow[] = rows.map((row) => {
+        const createdAt: string | null = row.created_at ?? null;
+        const createdDate = createdAt ? new Date(createdAt) : null;
+
+        const isNew =
+          createdDate != null && now - createdDate.getTime() < NEW_PERIOD_MS;
+
+        return {
+          id: row.id,
+          name: row.name,
+          price: row.price,
+          stock: Number(row.stock ?? 0),
+          imageData: findProductImage(row.id) ?? null, // 画像はコードから
+          createdAt,
+          isNew,
+        };
+      });
+
+      // 並び替えルール
+      // 1. 在庫ありが上、売切れは下
+      // 2. 在庫ありの中では NEW（24h以内）が上
+      // 3. それ以外は id 昇順
+      merged.sort((a, b) => {
+  const aSold = a.stock <= 0;
+  const bSold = b.stock <= 0;
+  if (aSold !== bSold) {
+    // 売り切れは下へ
+    return aSold ? 1 : -1;
+  }
+
+  const aNew = a.isNew;
+  const bNew = b.isNew;
+  if (aNew !== bNew) {
+    // NEW は上へ
+    return aNew ? -1 : 1;
+  }
+
+  // ★ どちらも NEW のときは createdAt の新しい順で並べる
+  if (aNew && bNew) {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    // 新しいほど上にしたいので「大きい方を先に」
+    if (aTime !== bTime) {
+      return bTime - aTime;
+    }
+  }
+
+  // 最後は id 昇順
+  return a.id - b.id;
+});
 
       setProducts(merged);
       setLoading(false);
@@ -90,9 +139,14 @@ function ProductList() {
                   <div className="plist-noimg">画像なし</div>
                 )}
 
+                {/* NEW は在庫ありの時だけ表示 */}
+                {p.isNew && !isSoldOut && (
+                  <div className="new-label">NEW</div>
+                )}
+
                 {isSoldOut && <div className="sold-label">SOLD OUT</div>}
 
-                <h3>{p.name}</h3>
+                <p className="plist-name">{p.name}</p>
                 <p className="plist-price">{formatPrice(p.price)}円</p>
               </div>
             );
