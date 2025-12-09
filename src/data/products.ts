@@ -2,14 +2,14 @@
 import img1 from "./商品画像/黒豆おにぎり.png";
 import img2 from "./商品画像/ハーバリウムペン.png";
 import img3 from "./商品画像/うるたばワックス.png";
-import img4 from "./商品画像/パスタ.png";
-import img5 from "./商品画像/抹茶モンブラン.png";
-import img6 from "./商品画像/雪だるま.png";
-import img7 from "./商品画像/カンデミーナ.png";
-import img8 from "./商品画像/ハリボーゴールドベア.png";
-import img9 from "./商品画像/しゃりもにグミグレープ.png";
-import img10 from "./商品画像/ポテトチップスうすしお.png";
-import img11 from "./商品画像/カップヌードル.png";
+import img4 from "./商品画像/パスタ.png";
+import img5 from "./商品画像/抹茶モンブラン.png";
+import img6 from "./商品画像/雪だるま.png";
+import img7 from "./商品画像/カンデミーナ.png";
+import img8 from "./商品画像/ハリボーゴールドベア.png";
+import img9 from "./商品画像/しゃりもにグミグレープ.png";
+import img10 from "./商品画像/ポテトチップスうすしお.png";
+import img11 from "./商品画像/カップヌードル.png";
 import img12 from "./商品画像/辛ラーメン.png";
 // 画像だけのマスタ
 export type ProductImageMaster = {
