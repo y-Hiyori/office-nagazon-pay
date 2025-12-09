@@ -23,6 +23,7 @@ import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AuthCallback from "./pages/AuthCallback"; // ★ 追加etPassword";
 
 // ▼ 管理者
 import AdminLogin from "./pages/AdminLogin";
@@ -74,12 +75,13 @@ const router = createBrowserRouter([
       { path: "orders", element: <OrdersList /> },
       { path: "orders/:id", element: <OrderDetail /> },
 
-      // 認証
+       // 認証
       { path: "auth", element: <AuthSelect /> },
       { path: "signup", element: <Signup /> },
       { path: "login", element: <Login /> },
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
+      { path: "auth/callback", element: <AuthCallback /> }, // ★ ここ追加
 
       // 管理者
       { path: "admin-login", element: <AdminLogin /> },

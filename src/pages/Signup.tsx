@@ -27,19 +27,22 @@ function Signup() {
 
     // ① Auth 登録（メール認証あり）
     const { data, error: signUpError } = await supabase.auth.signUp({
-  email,
-  password,
-  options: {
-    // トップページに戻す
-    emailRedirectTo: `${window.location.origin}`,
-  },
-});
+      email,
+      password,
+      options: {
+        // ★ 認証後に戻るURL（コールバック用のページを作る）
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // ★ 名前を user_metadata に一緒に入れておく
+        data: {
+          name,
+        },
+      },
+    });
 
     // ② エラーの場合
     if (signUpError) {
       console.error("signUpError:", signUpError);
 
-      // メール重複の典型メッセージ（環境によって少し違うこともある）
       const msg = signUpError.message.toLowerCase();
       if (msg.includes("already") || msg.includes("registered")) {
         setError("このメールアドレスはすでに使用されています");
@@ -49,33 +52,19 @@ function Signup() {
       return;
     }
 
-    // ③ ここからは error は出ていないケース
     const user = data.user;
-
     if (!user) {
       setError("ユーザー登録に失敗しました");
       return;
     }
 
-    // ⭐ 重要ポイント：
-    // user.identities が 0 件 = すでに登録されたメールアドレス
+    // ★ 既存メールかどうかのチェックはそのまま
     if (Array.isArray(user.identities) && user.identities.length === 0) {
       setError("このメールアドレスはすでに使用されています");
       return;
     }
 
-    // ④ profiles に名前だけ反映（行自体は handle_new_user で作成済み想定）
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ name })
-      .eq("id", user.id);
-
-    if (profileError) {
-      console.error("profileError:", profileError);
-      setError("プロフィール保存中にエラーが発生しました");
-      return;
-    }
-
+    // ★ ここでは profiles をいじらない（メール認証後の画面でやる）
     alert("確認メールを送信しました！メールのリンクから認証を完了してください。");
     navigate("/login");
   };
