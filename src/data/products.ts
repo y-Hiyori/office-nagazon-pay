@@ -1,7 +1,7 @@
 // src/data/products.ts
 import img1 from "./商品画像/黒豆おにぎり.png";
 import img2 from "./商品画像/ハーバリウムペン.png";
-import img3 from "./商品画像/うるたばワックス.png";
+import img3 from "./商品画像/うるたばワックス.png";
 import img4 from "./商品画像/パスタ.png";
 import img5 from "./商品画像/抹茶モンブラン.png";
 import img6 from "./商品画像/雪だるま.png";
