@@ -57,13 +57,13 @@ function Home() {
           商品を見る
         </button>
 
-        {/* ★ ここを追加：アプリの使い方 */}
+        {/* アプリの使い方 */}
         <button
-  className="home-main-btn"
-  onClick={() => navigate("/how-to")}
->
-  アプリの使い方
-</button>
+          className="home-main-btn"
+          onClick={() => navigate("/how-to")}
+        >
+          アプリの使い方
+        </button>
 
         <button
           className="home-main-btn"
@@ -72,12 +72,7 @@ function Home() {
           お問い合わせ
         </button>
 
-        <button
-          className="home-main-btn"
-          onClick={() => navigate("/admin-login")}
-        >
-          管理者ログイン
-        </button>
+        {/* ★ 管理者ログインボタンは削除 */}
       </div>
     </div>
   );

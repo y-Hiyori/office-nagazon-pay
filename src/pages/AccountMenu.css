@@ -95,3 +95,17 @@
 .acc-back:active {
   transform: translateY(0);
 }
+
+/* 管理者メニュー専用ボタン（オレンジ目立つやつ） */
+.acc-btn-admin {
+  background: linear-gradient(135deg, #f97316, #f59e0b); /* オレンジ〜黄色 */
+  box-shadow: 0 18px 30px rgba(245, 158, 11, 0.45);
+}
+
+.acc-btn-admin:hover {
+  box-shadow: 0 22px 40px rgba(245, 158, 11, 0.6);
+}
+
+.acc-btn-admin:active {
+  box-shadow: 0 12px 24px rgba(245, 158, 11, 0.4);
+}

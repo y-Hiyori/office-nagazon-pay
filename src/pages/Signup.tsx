@@ -20,6 +20,13 @@ function Signup() {
       setError("すべて入力してください");
       return;
     }
+
+    // ★ パスワードの文字数チェックを追加（6文字未満ならエラー）
+    if (password.length < 6) {
+      setError("パスワードは6文字以上で入力してください");
+      return;
+    }
+
     if (password !== passwordConfirm) {
       setError("パスワードが一致しません");
       return;

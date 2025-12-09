@@ -9,7 +9,7 @@ import ProductDetail from "./pages/ProductDetail";
 import CartPage from "./pages/CartPage";
 import Checkout from "./pages/Checkout";
 import Contact from "./pages/Contact";
-import HowTo from "./pages/HowTo";          // ★ 追加：アプリの使い方
+import HowTo from "./pages/HowTo";
 
 // ▼ アカウントメニュー
 import AccountMenu from "./pages/AccountMenu";
@@ -23,7 +23,7 @@ import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-import AuthCallback from "./pages/AuthCallback"; // ★ 追加etPassword";
+import AuthCallback from "./pages/AuthCallback";
 
 // ▼ 管理者
 import AdminLogin from "./pages/AdminLogin";
@@ -32,27 +32,23 @@ import AdminPage from "./pages/AdminPage";
 import AdminAdd from "./pages/AdminAdd";
 import AdminDetail from "./pages/AdminDetail";
 import AdminEdit from "./pages/AdminEdit";
-
 import AdminUsers from "./pages/AdminUsers";
 import AdminUserDetail from "./pages/AdminUserDetail";
-
-// 管理者：ユーザーの購入履歴一覧
 import AdminUserOrders from "./pages/AdminUserOrders";
-
-// 管理者：売上状況ページ
 import AdminSales from "./pages/AdminSales";
-
-// ⭐ 管理者：売上一覧から「この商品を買ったユーザー」ページ ← 追加
 import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
 
 import PurchaseComplete from "./pages/PurchaseComplete";
+
+// ★ 管理者専用ルートガード
+import AdminRoute from "./components/AdminRoute";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
     children: [
-      // 一般ユーザー
+      // ===== 一般ユーザー =====
       { index: true, element: <Home /> },
       { path: "products", element: <ProductList /> },
       { path: "product/:id", element: <ProductDetail /> },
@@ -61,10 +57,8 @@ const router = createBrowserRouter([
       // 購入フロー
       { path: "checkout", element: <Checkout /> },
 
-      // ★ アプリの使い方ページ
+      // 使い方・問い合わせ
       { path: "how-to", element: <HowTo /> },
-
-      // ★ お問い合わせページ
       { path: "contact", element: <Contact /> },
 
       // アカウント
@@ -75,34 +69,102 @@ const router = createBrowserRouter([
       { path: "orders", element: <OrdersList /> },
       { path: "orders/:id", element: <OrderDetail /> },
 
-       // 認証
+      // 認証
       { path: "auth", element: <AuthSelect /> },
       { path: "signup", element: <Signup /> },
       { path: "login", element: <Login /> },
       { path: "forgot-password", element: <ForgotPassword /> },
       { path: "reset-password", element: <ResetPassword /> },
-      { path: "auth/callback", element: <AuthCallback /> }, // ★ ここ追加
+      { path: "auth/callback", element: <AuthCallback /> },
 
-      // 管理者
+      // ===== 管理者 =====
+      // ログイン画面だけはガードなし
       { path: "admin-login", element: <AdminLogin /> },
-      { path: "admin-menu", element: <AdminMenu /> },
-      { path: "admin-page", element: <AdminPage /> },
-      { path: "admin-add", element: <AdminAdd /> },
-      { path: "admin-detail/:id", element: <AdminDetail /> },
-      { path: "admin-edit/:id", element: <AdminEdit /> },
+
+      {
+        path: "admin-menu",
+        element: (
+          <AdminRoute>
+            <AdminMenu />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-page",
+        element: (
+          <AdminRoute>
+            <AdminPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-add",
+        element: (
+          <AdminRoute>
+            <AdminAdd />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-detail/:id",
+        element: (
+          <AdminRoute>
+            <AdminDetail />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-edit/:id",
+        element: (
+          <AdminRoute>
+            <AdminEdit />
+          </AdminRoute>
+        ),
+      },
 
       // 管理者：ユーザー管理
-      { path: "admin-users", element: <AdminUsers /> },
-      { path: "admin-user-detail/:id", element: <AdminUserDetail /> },
+      {
+        path: "admin-users",
+        element: (
+          <AdminRoute>
+            <AdminUsers />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-user-detail/:id",
+        element: (
+          <AdminRoute>
+            <AdminUserDetail />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-user-orders/:id",
+        element: (
+          <AdminRoute>
+            <AdminUserOrders />
+          </AdminRoute>
+        ),
+      },
 
-      // 管理者：ユーザーの購入履歴一覧
-      { path: "admin-user-orders/:id", element: <AdminUserOrders /> },
-
-      // 管理者：売上状況確認ページ
-      { path: "admin-sales", element: <AdminSales /> },
-
-      // ⭐ 管理者：売上一覧からの「この商品を買ったユーザー」ページ
-      { path: "admin-sales-product/:name", element: <AdminSalesProductDetail /> },
+      // 管理者：売上
+      {
+        path: "admin-sales",
+        element: (
+          <AdminRoute>
+            <AdminSales />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-sales-product/:name",
+        element: (
+          <AdminRoute>
+            <AdminSalesProductDetail />
+          </AdminRoute>
+        ),
+      },
 
       // 購入完了
       { path: "purchase-complete/:id", element: <PurchaseComplete /> },
