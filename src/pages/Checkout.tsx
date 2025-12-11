@@ -12,12 +12,13 @@ function Checkout() {
   const cart = useCart();
 
   const [user, setUser] = useState<any>(null);
+  // ★ PayPay / セルフ決済 / 未選択
   const [method, setMethod] = useState<"paypay" | "self" | "">("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPayGuide, setShowPayGuide] = useState(false);
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
 
-  // ★追加：店舗用パスワード入力モーダル
+  // ★ 店舗用パスワード入力モーダル
   const [showStoreAuth, setShowStoreAuth] = useState(false);
   const [storeCode, setStoreCode] = useState("");
 
@@ -61,7 +62,7 @@ function Checkout() {
     load();
   }, [navigate]);
 
-  // ★管理者にメール通知を送る（宛先はテンプレ側で nagazon.pay@gmail.com に固定）
+  // ★管理者にメール通知を送る
   const sendAdminMail = async (orderId: string) => {
     if (!user) return;
 
@@ -75,7 +76,7 @@ function Checkout() {
       })
       .join("\n");
 
-    // ★プロフィールから購入者の「名前」を取得
+    // プロフィールから購入者名
     let buyerName = "(名前未設定)";
     try {
       const { data: profile, error: profError } = await supabase
@@ -111,33 +112,84 @@ function Checkout() {
 
   // --- 「購入を確定する」ボタン ---
   const handleClickConfirmButton = () => {
-    // 支払い方法は関係なく、まずカートだけチェック
+    // カートチェック
     if (!buyNow && cart.cart.length === 0) {
       alert("カートが空です");
       return;
     }
 
-    // ★先に NAGAZON PAY ID 入力モーダルを出す
-    setShowStoreAuth(true);
-  };
-
-  // ★店舗パスワード確認
-  const handleStoreAuthConfirm = () => {
-    const correctCode = "20220114";
-
-    if (storeCode !== correctCode) {
-      alert("NAGAZON PAY ID が正しくありません。");
+    // ★ 支払い方法が未選択ならエラー
+    if (!method) {
+      alert("支払い方法を選択してください");
       return;
     }
 
-    // OK → モーダル閉じて支払い手順モーダルへ
-    setShowStoreAuth(false);
-    setStoreCode("");
-
-    // 今回使うのはセルフ決済なので自動で選択状態にしておく
-    setMethod("self");
-    setShowPayGuide(true);
+    // ★ PayPay でも セルフ決済でも、まず NAGAZON PAY ID モーダルを出す
+    setShowStoreAuth(true);
   };
+
+// ★店舗パスワード確認（PayPay / セルフ共通）
+const handleStoreAuthConfirm = async () => {
+  const correctCode = "20220114";
+
+  if (storeCode !== correctCode) {
+    alert("NAGAZON PAY ID が正しくありません。");
+    return;
+  }
+
+  setShowStoreAuth(false);
+  setStoreCode("");
+
+  // ★ PayPay のときだけ Vercel の API を呼ぶ
+  if (method === "paypay") {
+    try {
+      setIsProcessing(true);
+
+      // 開発中( localhost ) のときも Vercel 本番 URL を叩く
+      const apiBase = import.meta.env.DEV
+        ? "https://office-nagazon-pay.vercel.app"
+        : "";
+
+      const res = await fetch(`${apiBase}/api/create-paypay-order`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          total,
+          // 必要なら items も送れる
+          // items,
+        }),
+      });
+
+      if (!res.ok) {
+        console.error("PayPay API error:", res.status, res.statusText);
+        throw new Error("PayPay注文作成に失敗しました");
+      }
+
+      const data = (await res.json()) as {
+        redirectUrl: string;
+        deeplink?: string;
+        merchantPaymentId?: string;
+      };
+
+      // API から返ってきた PayPay の決済ページへリダイレクト
+      window.location.href = data.redirectUrl;
+    } catch (e) {
+      console.error(e);
+      alert("PayPay決済の開始に失敗しました。時間をおいてお試しください。");
+      setIsProcessing(false);
+    }
+    return;
+  }
+
+  // セルフ決済のときは今まで通り
+  if (method === "self") {
+    setShowPayGuide(true);
+  } else {
+    alert("支払い方法を選択してください");
+  }
+};
 
   const handleStoreAuthCancel = () => {
     setShowStoreAuth(false);
@@ -164,7 +216,7 @@ function Checkout() {
       for (const item of items) {
         await supabase.from("order_items").insert({
           order_id: order.id,
-          product_id: item.product.id, // ← imageData ではなく product_id を保存
+          product_id: item.product.id,
           product_name: item.product.name,
           price: item.product.price,
           quantity: item.quantity,
@@ -181,7 +233,7 @@ function Checkout() {
         cart.clearCart();
       }
 
-      // ★ここで管理者へメール通知
+      // 管理者へメール通知
       await sendAdminMail(order.id);
 
       navigate(`/purchase-complete/${order.id}`);
@@ -231,18 +283,23 @@ function Checkout() {
       <div className="pay-method-fixed">
         <h3 className="section-title pay-method-title">支払い方法</h3>
         <div className="pay-method-scroll">
-          {/* まだ使えないPayPay */}
-          <div className="pay-card disabled">
+          {/* ★ PayPay（テスト用） */}
+          <div
+            className={`pay-card ${method === "paypay" ? "selected" : ""}`}
+            onClick={() => setMethod("paypay")}
+          >
             <div className="pay-left">
               <span className="pay-title">PayPay</span>
-              <span className="pay-desc">今後搭載予定</span>
+              <span className="pay-desc">
+                今後搭載予定（テスト用画面でシミュレーション）
+              </span>
             </div>
             <div className="pay-check-area">
-              <div className="pay-check"></div>
+              <div className="pay-check">{method === "paypay" && "✓"}</div>
             </div>
           </div>
 
-          {/* 今回使うセルフ決済 */}
+          {/* セルフ決済（今まで通りのフロー） */}
           <div
             className={`pay-card ${method === "self" ? "selected" : ""}`}
             onClick={() => setMethod("self")}
@@ -274,7 +331,7 @@ function Checkout() {
         </button>
       </div>
 
-      {/* ★ 店舗用：NAGAZON PAY ID 入力モーダル */}
+      {/* 店舗用：NAGAZON PAY ID 入力モーダル（全支払い共通） */}
       {showStoreAuth && (
         <div className="pay-modal-overlay">
           <div className="pay-modal">
@@ -295,10 +352,16 @@ function Checkout() {
             />
 
             <div className="modal-buttons">
-              <button className="modal-main-btn" onClick={handleStoreAuthConfirm}>
+              <button
+                className="modal-main-btn"
+                onClick={handleStoreAuthConfirm}
+              >
                 次へ進む
               </button>
-              <button className="modal-sub-btn" onClick={handleStoreAuthCancel}>
+              <button
+                className="modal-sub-btn"
+                onClick={handleStoreAuthCancel}
+              >
                 戻る
               </button>
             </div>

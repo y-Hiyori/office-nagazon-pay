@@ -43,6 +43,10 @@ import PurchaseComplete from "./pages/PurchaseComplete";
 // ★ 管理者専用ルートガード
 import AdminRoute from "./components/AdminRoute";
 
+// ▼ PayPay
+import PayPaySim from "./pages/PayPaySim";
+
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -57,6 +61,9 @@ const router = createBrowserRouter([
       // 購入フロー
       { path: "checkout", element: <Checkout /> },
 
+      // ★ PayPay決済テスト画面
+      { path: "paypay-sim", element: <PayPaySim /> },
+      
       // 使い方・問い合わせ
       { path: "how-to", element: <HowTo /> },
       { path: "contact", element: <Contact /> },
