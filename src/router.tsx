@@ -45,7 +45,8 @@ import AdminRoute from "./components/AdminRoute";
 
 // ▼ PayPay
 import PayPaySim from "./pages/PayPaySim";
-
+// ★ 決済完了後に戻ってくるページ（これから作る用）
+import PayPayReturn from "./pages/PayPayReturn";
 
 const router = createBrowserRouter([
   {
@@ -63,7 +64,10 @@ const router = createBrowserRouter([
 
       // ★ PayPay決済テスト画面
       { path: "paypay-sim", element: <PayPaySim /> },
-      
+
+      // ★ PayPay 決済完了後の戻り先
+      { path: "paypay-return", element: <PayPayReturn /> },
+
       // 使い方・問い合わせ
       { path: "how-to", element: <HowTo /> },
       { path: "contact", element: <Contact /> },

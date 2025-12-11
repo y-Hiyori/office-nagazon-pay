@@ -128,75 +128,101 @@ function Checkout() {
     setShowStoreAuth(true);
   };
 
-// ★店舗パスワード確認（PayPay / セルフ共通）
-const handleStoreAuthConfirm = async () => {
-  const correctCode = "20220114";
+  // ★店舗パスワード確認（PayPay / セルフ共通）
+  const handleStoreAuthConfirm = async () => {
+    const correctCode = "20220114";
 
-  if (storeCode !== correctCode) {
-    alert("NAGAZON PAY ID が正しくありません。");
-    return;
-  }
-
-  setShowStoreAuth(false);
-  setStoreCode("");
-
-  // ★ PayPay のときだけ Vercel の API を呼ぶ
-  if (method === "paypay") {
-    try {
-      setIsProcessing(true);
-
-      // 開発中( localhost ) のときも Vercel 本番 URL を叩く
-      const apiBase = import.meta.env.DEV
-        ? "https://office-nagazon-pay.vercel.app"
-        : "";
-
-      const res = await fetch(`${apiBase}/api/create-paypay-order`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          total,
-          // 必要なら items も送れる
-          // items,
-        }),
-      });
-
-      if (!res.ok) {
-        console.error("PayPay API error:", res.status, res.statusText);
-        throw new Error("PayPay注文作成に失敗しました");
-      }
-
-      const data = (await res.json()) as {
-        redirectUrl: string;
-        deeplink?: string;
-        merchantPaymentId?: string;
-      };
-
-      // API から返ってきた PayPay の決済ページへリダイレクト
-      window.location.href = data.redirectUrl;
-    } catch (e) {
-      console.error(e);
-      alert("PayPay決済の開始に失敗しました。時間をおいてお試しください。");
-      setIsProcessing(false);
+    if (storeCode !== correctCode) {
+      alert("NAGAZON PAY ID が正しくありません。");
+      return;
     }
-    return;
-  }
 
-  // セルフ決済のときは今まで通り
-  if (method === "self") {
-    setShowPayGuide(true);
-  } else {
-    alert("支払い方法を選択してください");
-  }
-};
+    setShowStoreAuth(false);
+    setStoreCode("");
+
+    // ★ PayPay のときだけ Vercel の API を呼ぶ
+    if (method === "paypay") {
+      try {
+        setIsProcessing(true);
+
+        // Supabase に登録するためのデータを一旦保存しておく
+        const itemsForStorage = items.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          price: Number(item.product.price) || 0,
+          quantity: item.quantity,
+          stock: Number(item.product.stock ?? 0),
+        }));
+
+        // とりあえず保存（後で merchantPaymentId を上書きする）
+        sessionStorage.setItem(
+          "paypayCheckout",
+          JSON.stringify({
+            total,
+            items: itemsForStorage,
+          })
+        );
+
+        // 開発中( localhost ) のときも Vercel 本番 URL を叩く
+        const apiBase = import.meta.env.DEV
+          ? "https://office-nagazon-pay.vercel.app"
+          : "";
+
+        const res = await fetch(`${apiBase}/api/create-paypay-order`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            total,
+          }),
+        });
+
+        if (!res.ok) {
+          console.error("PayPay API error:", res.status, res.statusText);
+          throw new Error("PayPay注文作成に失敗しました");
+        }
+
+        const data = (await res.json()) as {
+          redirectUrl: string;
+          deeplink?: string;
+          merchantPaymentId?: string;
+        };
+
+        // merchantPaymentId も保存しておくと、後で突合しやすい
+        sessionStorage.setItem(
+          "paypayCheckout",
+          JSON.stringify({
+            total,
+            items: itemsForStorage,
+            merchantPaymentId: data.merchantPaymentId,
+          })
+        );
+
+        // API から返ってきた PayPay の決済ページへリダイレクト
+        window.location.href = data.redirectUrl;
+      } catch (e) {
+        console.error(e);
+        alert("PayPay決済の開始に失敗しました。時間をおいてお試しください。");
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // セルフ決済のときは今まで通り
+    if (method === "self") {
+      setShowPayGuide(true);
+    } else {
+      alert("支払い方法を選択してください");
+    }
+  };
 
   const handleStoreAuthCancel = () => {
     setShowStoreAuth(false);
     setStoreCode("");
   };
 
-  // --- 最終購入処理 ---
+  // --- 最終購入処理（セルフ決済で使う） ---
   const finalizePurchase = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -401,7 +427,7 @@ const handleStoreAuthConfirm = async () => {
         </div>
       )}
 
-      {/* モーダル②：最終確認 */}
+      {/* モーダル②：最終確認（セルフ決済） */}
       {showFinalConfirm && (
         <div className="pay-modal-overlay">
           <div className="pay-modal">

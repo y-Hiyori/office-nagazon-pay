@@ -6,7 +6,7 @@ PAYPAY.Configure({
   clientId: process.env.PAYPAY_API_KEY,
   clientSecret: process.env.PAYPAY_API_SECRET,
   merchantId: process.env.PAYPAY_MERCHANT_ID,
-  productionMode: false, // ← sandbox 環境
+  productionMode: false, // sandbox 環境
 });
 
 export default async function handler(req, res) {
@@ -36,18 +36,20 @@ export default async function handler(req, res) {
 
     const merchantPaymentId = `nagazon-${Date.now()}`;
 
-    const payload = {
-      merchantPaymentId,
-      amount: {
-        amount,
-        currency: "JPY",
-      },
-      codeType: "ORDER_QR",
-      orderDescription: "NAGAZON テスト注文",
-      isAuthorization: false,
-      redirectUrl: "https://paypay.ne.jp/",
-      redirectType: "WEB_LINK",
-    };
+    // api/create-paypay-order.js  の payload の中
+const payload = {
+  merchantPaymentId,
+  amount: {
+    amount,
+    currency: "JPY",
+  },
+  codeType: "ORDER_QR",
+  orderDescription: "NAGAZON テスト注文",
+  isAuthorization: false,
+  // ★ 決済完了後に戻ってくる URL（本番ドメイン）
+  redirectUrl: "https://office-nagazon-pay.vercel.app/paypay-return",
+  redirectType: "WEB_LINK",
+};
 
     const body = await new Promise((resolve, reject) => {
       PAYPAY.QRCodeCreate(payload, (response) => {
@@ -68,8 +70,8 @@ export default async function handler(req, res) {
     }
 
     res.status(200).json({
-      redirectUrl: data.url,          // ブラウザで開ける QR ページ
-      deeplink: data.deeplink,        // paypay:// のアプリ用リンク
+      redirectUrl: data.url,   // ブラウザで開ける QR ページ
+      deeplink: data.deeplink, // paypay:// のアプリ用リンク
       merchantPaymentId: data.merchantPaymentId,
     });
   } catch (err) {
