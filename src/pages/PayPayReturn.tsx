@@ -1,5 +1,5 @@
 // src/pages/PayPayReturn.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useCart } from "../context/CartContext";
@@ -17,7 +17,7 @@ type CheckoutData = {
   total: number;
   items: StoredItem[];
   merchantPaymentId?: string;
-  redirectUrl?: string; // ★Checkoutで保存したPayPayの支払いURL
+  redirectUrl?: string;
 };
 
 function PayPayReturn() {
@@ -28,36 +28,69 @@ function PayPayReturn() {
   const [showActions, setShowActions] = useState(false);
   const [retryUrl, setRetryUrl] = useState<string | null>(null);
 
+  // ✅ StrictMode等で useEffect が2回走っても、処理は1回だけにする
+  const ranRef = useRef(false);
+
+  // ✅ setTimeout を使うなら必ず掃除（途中で checkout に戻る事故の原因になる）
+  const timersRef = useRef<number[]>([]);
+  const setNavTimer = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timersRef.current.push(id);
+  };
+
   useEffect(() => {
+    if (ranRef.current) return;
+    ranRef.current = true;
+
     const run = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
 
         if (!user) {
           setMessage("ログイン情報が見つかりません。もう一度ログインしてください。");
-          setTimeout(() => navigate("/login"), 1500);
+          setNavTimer(() => navigate("/login", { replace: true }), 1500);
           return;
         }
 
         const raw = sessionStorage.getItem("paypayCheckout");
         if (!raw) {
+          // ✅ 勝手に checkout に飛ばさない（戻る事故防止）
           setMessage("決済情報が見つかりませんでした。");
-          setTimeout(() => navigate("/checkout"), 1500);
+          setShowActions(true);
           return;
         }
 
-        const data: CheckoutData = JSON.parse(raw);
-        if (!data.total || !data.items?.length || !data.merchantPaymentId) {
+        const dataCheckout: CheckoutData = JSON.parse(raw);
+        if (
+          !dataCheckout.total ||
+          !dataCheckout.items?.length ||
+          !dataCheckout.merchantPaymentId
+        ) {
           setMessage("決済情報が不完全です。");
-          setTimeout(() => navigate("/checkout"), 1500);
+          setShowActions(true);
           return;
         }
 
-        setRetryUrl(data.redirectUrl ?? null);
+        setRetryUrl(dataCheckout.redirectUrl ?? null);
 
-        // ① PayPayに「支払い完了した？」を確認
+        const { total, items, merchantPaymentId } = dataCheckout;
+
+        // ✅ 同じ merchantPaymentId の注文が既に作られてたら、二重作成せず完了画面へ
+        const { data: existing } = await supabase
+          .from("orders")
+          .select("id")
+          .eq("paypay_merchant_payment_id", merchantPaymentId)
+          .limit(1);
+
+        if (existing?.[0]?.id) {
+          sessionStorage.removeItem("paypayCheckout");
+          cart.clearCart();
+          navigate(`/purchase-complete/${existing[0].id}`, { replace: true });
+          return;
+        }
+
+        // ① PayPayに「支払い完了した？」を確認（あなたの /api/paypay-status ）
         const apiBase = import.meta.env.DEV
           ? "https://office-nagazon-pay.vercel.app"
           : "";
@@ -65,7 +98,7 @@ function PayPayReturn() {
         const statusRes = await fetch(`${apiBase}/api/paypay-status`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ merchantPaymentId: data.merchantPaymentId }),
+          body: JSON.stringify({ merchantPaymentId }),
         });
 
         if (!statusRes.ok) {
@@ -77,17 +110,15 @@ function PayPayReturn() {
         const statusJson = (await statusRes.json()) as { status?: string | null };
         const status = statusJson.status ?? null;
 
-        // ★ ここが「決済せずに戻ってきた」対処
+        // ✅ 未完了なら注文を作らず、戻る or 支払いに戻る
         if (status !== "COMPLETED") {
           setMessage("お支払いが完了していません。");
           setShowActions(true);
           return;
         }
 
-        // ② ここから「支払い完了した」時だけ注文処理
+        // ② 支払い完了した時だけ注文処理
         setMessage("お支払いを確認しました。注文を確定しています…");
-
-        const { total, items, merchantPaymentId } = data;
 
         const { data: order, error: orderErr } = await supabase
           .from("orders")
@@ -95,7 +126,7 @@ function PayPayReturn() {
             user_id: user.id,
             total,
             payment_method: "paypay",
-            paypay_merchant_payment_id: merchantPaymentId ?? null,
+            paypay_merchant_payment_id: merchantPaymentId,
           })
           .select()
           .single();
@@ -121,7 +152,7 @@ function PayPayReturn() {
             .eq("id", item.productId);
         }
 
-        // ③ 管理者メール通知（完了時のみ）
+        // ③ 管理者メール（完了時のみ）
         try {
           let buyerName = "(名前未設定)";
           const { data: profile, error: profError } = await supabase
@@ -135,9 +166,7 @@ function PayPayReturn() {
           const itemsText = items
             .map(
               (i) =>
-                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString(
-                  "ja-JP"
-                )}円）`
+                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
             )
             .join("\n");
 
@@ -156,23 +185,30 @@ function PayPayReturn() {
           console.error("管理者メール送信に失敗:", e);
         }
 
+        // 後片付け
         sessionStorage.removeItem("paypayCheckout");
         cart.clearCart();
 
-        navigate(`/purchase-complete/${order.id}`);
+        // ✅ replace で「戻る」で戻りにくくする
+        navigate(`/purchase-complete/${order.id}`, { replace: true });
       } catch (e) {
         console.error(e);
         setMessage("エラーが発生しました。店員にお知らせください。");
-        setTimeout(() => navigate("/checkout"), 2000);
+        setShowActions(true);
       }
     };
 
     run();
+
+    return () => {
+      timersRef.current.forEach((id) => clearTimeout(id));
+      timersRef.current = [];
+    };
   }, [navigate, cart]);
 
   const handleCancel = () => {
     sessionStorage.removeItem("paypayCheckout");
-    navigate("/checkout");
+    navigate("/checkout", { replace: true });
   };
 
   const handleRetry = () => {
@@ -195,7 +231,15 @@ function PayPayReturn() {
       <div style={{ fontSize: "16px" }}>{message}</div>
 
       {showActions && (
-        <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 360,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
           <button
             onClick={handleRetry}
             disabled={!retryUrl}
