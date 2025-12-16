@@ -309,7 +309,7 @@ function Checkout() {
       <div className="pay-method-fixed">
         <h3 className="section-title pay-method-title">支払い方法</h3>
         <div className="pay-method-scroll">
-          {/* ★ PayPay（テスト用） */}
+          {/* ★ PayPay */}
           <div
             className={`pay-card ${method === "paypay" ? "selected" : ""}`}
             onClick={() => setMethod("paypay")}
@@ -317,7 +317,6 @@ function Checkout() {
             <div className="pay-left">
               <span className="pay-title">PayPay</span>
               <span className="pay-desc">
-                今後搭載予定（テスト用画面でシミュレーション）
               </span>
             </div>
             <div className="pay-check-area">
