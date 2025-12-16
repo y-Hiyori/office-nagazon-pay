@@ -17,6 +17,7 @@ type CheckoutData = {
   total: number;
   items: StoredItem[];
   merchantPaymentId?: string;
+  redirectUrl?: string; // ★Checkoutで保存したPayPayの支払いURL
 };
 
 function PayPayReturn() {
@@ -24,88 +25,77 @@ function PayPayReturn() {
   const cart = useCart();
 
   const [message, setMessage] = useState("決済結果を確認しています…");
-  const [showButtons, setShowButtons] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+  const [retryUrl, setRetryUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const run = async () => {
       try {
-        // ① ログインユーザー確認
         const {
           data: { user },
         } = await supabase.auth.getUser();
 
         if (!user) {
           setMessage("ログイン情報が見つかりません。もう一度ログインしてください。");
-          setTimeout(() => navigate("/login"), 2500);
+          setTimeout(() => navigate("/login"), 1500);
           return;
         }
 
-        // ② Checkout で保存しておいたデータを取得
         const raw = sessionStorage.getItem("paypayCheckout");
         if (!raw) {
-          setMessage("決済情報が見つかりませんでした。カートに戻ってやり直してください。");
-          setShowButtons(true);
+          setMessage("決済情報が見つかりませんでした。");
+          setTimeout(() => navigate("/checkout"), 1500);
           return;
         }
 
         const data: CheckoutData = JSON.parse(raw);
-        if (!data.total || !data.items?.length) {
-          setMessage("決済情報の形式が不正です。カートに戻ってやり直してください。");
-          setShowButtons(true);
+        if (!data.total || !data.items?.length || !data.merchantPaymentId) {
+          setMessage("決済情報が不完全です。");
+          setTimeout(() => navigate("/checkout"), 1500);
           return;
         }
 
-        const { total, items } = data;
+        setRetryUrl(data.redirectUrl ?? null);
 
-        // merchantPaymentId は sessionStorage から
-        const merchantPaymentId = data.merchantPaymentId;
-
-        if (!merchantPaymentId) {
-          setMessage("決済IDが取得できませんでした。カートに戻ってやり直してください。");
-          setShowButtons(true);
-          return;
-        }
-
-        // ③ PayPayに「支払い完了した？」を確認（未決済なら注文作らない）
+        // ① PayPayに「支払い完了した？」を確認
         const apiBase = import.meta.env.DEV
           ? "https://office-nagazon-pay.vercel.app"
           : "";
 
-        const checkRes = await fetch(
-          `${apiBase}/api/get-paypay-payment?merchantPaymentId=${encodeURIComponent(
-            merchantPaymentId
-          )}`,
-          { method: "GET" }
-        );
+        const statusRes = await fetch(`${apiBase}/api/paypay-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ merchantPaymentId: data.merchantPaymentId }),
+        });
 
-        if (!checkRes.ok) {
+        if (!statusRes.ok) {
+          console.error("paypay-status error:", statusRes.status);
           setMessage("決済状況の確認に失敗しました。店員にお知らせください。");
-          setShowButtons(true);
           return;
         }
 
-        const check = (await checkRes.json()) as { status?: string };
-        const status = check.status;
+        const statusJson = (await statusRes.json()) as { status?: string | null };
+        const status = statusJson.status ?? null;
 
-        // ★ 未決済 / キャンセル扱い（注文作成しない・在庫減らさない・メール送らない）
+        // ★ ここが「決済せずに戻ってきた」対処
         if (status !== "COMPLETED") {
-          // ここで古いデータを消しておく（やり直し時に新しく作り直すため）
-          sessionStorage.removeItem("paypayCheckout");
-          setMessage("支払いが完了していません（キャンセル / 未決済）。購入は確定していません。");
-          setShowButtons(true);
+          setMessage("お支払いが完了していません。");
+          setShowActions(true);
           return;
         }
 
-        // ④ ここから先は「決済完了」の時だけ
+        // ② ここから「支払い完了した」時だけ注文処理
+        setMessage("お支払いを確認しました。注文を確定しています…");
 
-        // 4-1) orders 作成
+        const { total, items, merchantPaymentId } = data;
+
         const { data: order, error: orderErr } = await supabase
           .from("orders")
           .insert({
             user_id: user.id,
             total,
             payment_method: "paypay",
-            paypay_merchant_payment_id: merchantPaymentId,
+            paypay_merchant_payment_id: merchantPaymentId ?? null,
           })
           .select()
           .single();
@@ -113,11 +103,9 @@ function PayPayReturn() {
         if (orderErr || !order) {
           console.error(orderErr);
           setMessage("注文の登録に失敗しました。店員にお知らせください。");
-          setShowButtons(true);
           return;
         }
 
-        // 4-2) order_items & 在庫更新
         for (const item of items) {
           await supabase.from("order_items").insert({
             order_id: order.id,
@@ -133,7 +121,7 @@ function PayPayReturn() {
             .eq("id", item.productId);
         }
 
-        // 4-3) 管理者メール通知（決済完了後に送る）
+        // ③ 管理者メール通知（完了時のみ）
         try {
           let buyerName = "(名前未設定)";
           const { data: profile, error: profError } = await supabase
@@ -147,7 +135,9 @@ function PayPayReturn() {
           const itemsText = items
             .map(
               (i) =>
-                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
+                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString(
+                  "ja-JP"
+                )}円）`
             )
             .join("\n");
 
@@ -166,21 +156,28 @@ function PayPayReturn() {
           console.error("管理者メール送信に失敗:", e);
         }
 
-        // 4-4) 後片付け
         sessionStorage.removeItem("paypayCheckout");
         cart.clearCart();
 
-        // 完了画面へ
         navigate(`/purchase-complete/${order.id}`);
       } catch (e) {
         console.error(e);
-        setMessage("エラーが発生しました。カートに戻ってやり直してください。");
-        setShowButtons(true);
+        setMessage("エラーが発生しました。店員にお知らせください。");
+        setTimeout(() => navigate("/checkout"), 2000);
       }
     };
 
     run();
   }, [navigate, cart]);
+
+  const handleCancel = () => {
+    sessionStorage.removeItem("paypayCheckout");
+    navigate("/checkout");
+  };
+
+  const handleRetry = () => {
+    if (retryUrl) window.location.href = retryUrl;
+  };
 
   return (
     <div
@@ -191,38 +188,39 @@ function PayPayReturn() {
         gap: "14px",
         alignItems: "center",
         justifyContent: "center",
-        padding: "20px",
+        padding: "24px",
         textAlign: "center",
-        fontSize: "16px",
       }}
     >
-      <div>{message}</div>
+      <div style={{ fontSize: "16px" }}>{message}</div>
 
-      {showButtons && (
-        <div style={{ display: "flex", gap: "10px" }}>
+      {showActions && (
+        <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 10 }}>
           <button
-            onClick={() => navigate("/cart")}
+            onClick={handleRetry}
+            disabled={!retryUrl}
             style={{
-              padding: "12px 14px",
-              borderRadius: "10px",
-              border: "1px solid #ddd",
-              background: "#fff",
-            }}
-          >
-            カートに戻る
-          </button>
-          <button
-            onClick={() => navigate("/")}
-            style={{
-              padding: "12px 14px",
-              borderRadius: "10px",
+              padding: "14px",
+              borderRadius: "12px",
               border: "none",
-              background: "#5f85db",
-              color: "#fff",
               fontWeight: 700,
+              fontSize: "16px",
             }}
           >
-            ホームへ
+            支払いに戻る
+          </button>
+
+          <button
+            onClick={handleCancel}
+            style={{
+              padding: "12px",
+              borderRadius: "12px",
+              border: "none",
+              fontWeight: 600,
+              fontSize: "15px",
+            }}
+          >
+            購入をやめる（戻る）
           </button>
         </div>
       )}

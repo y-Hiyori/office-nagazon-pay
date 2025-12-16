@@ -5,16 +5,21 @@ import { supabase } from "../lib/supabase";
 import { useCart } from "../context/CartContext";
 import "./Checkout.css";
 
+type StoredItem = {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  stock: number;
+};
+
 function Checkout() {
   const navigate = useNavigate();
   const location = useLocation();
   const cart = useCart();
 
-  const [user, setUser] = useState<any>(null);
-
   // ★ PayPay / 未選択（セルフ決済は削除）
   const [method, setMethod] = useState<"paypay" | "">("");
-
   const [isProcessing, setIsProcessing] = useState(false);
 
   // ★ 店舗用パスワード入力モーダル
@@ -44,7 +49,7 @@ function Checkout() {
     ? (Number(buyNow.product.price) || 0) * buyNow.quantity
     : cart.getTotalPrice();
 
-  // --- ユーザー取得 ---
+  // --- ユーザー取得（ログインチェックだけ） ---
   useEffect(() => {
     const load = async () => {
       const {
@@ -55,7 +60,6 @@ function Checkout() {
         navigate("/login");
         return;
       }
-      setUser(user);
     };
     load();
   }, [navigate]);
@@ -66,19 +70,16 @@ function Checkout() {
       alert("カートが空です");
       return;
     }
-
     if (!method) {
       alert("支払い方法を選択してください");
       return;
     }
-
     setShowStoreAuth(true);
   };
 
   // ★店舗パスワード確認（PayPayのみ）
   const handleStoreAuthConfirm = async () => {
     const correctCode = "20220114";
-
     if (storeCode !== correctCode) {
       alert("NAGAZON PAY ID が正しくありません。");
       return;
@@ -95,8 +96,7 @@ function Checkout() {
     try {
       setIsProcessing(true);
 
-      // PayPayReturn で使うため保存
-      const itemsForStorage = items.map((item) => ({
+      const itemsForStorage: StoredItem[] = items.map((item) => ({
         productId: item.product.id,
         name: item.product.name,
         price: Number(item.product.price) || 0,
@@ -104,6 +104,7 @@ function Checkout() {
         stock: Number(item.product.stock ?? 0),
       }));
 
+      // 先に保存（PayPayReturnで使う）
       sessionStorage.setItem(
         "paypayCheckout",
         JSON.stringify({
@@ -112,7 +113,7 @@ function Checkout() {
         })
       );
 
-      // 開発中(localhost)でも Vercel 本番URL を叩く
+      // 開発中( localhost ) のときも Vercel 本番 URL を叩く
       const apiBase = import.meta.env.DEV
         ? "https://office-nagazon-pay.vercel.app"
         : "";
@@ -133,13 +134,14 @@ function Checkout() {
         merchantPaymentId?: string;
       };
 
-      // merchantPaymentId も保存（PayPayReturnで照合する）
+      // merchantPaymentId / redirectUrl を保存（未決済で戻った時に「支払いに戻る」ができる）
       sessionStorage.setItem(
         "paypayCheckout",
         JSON.stringify({
           total,
           items: itemsForStorage,
           merchantPaymentId: data.merchantPaymentId,
+          redirectUrl: data.redirectUrl,
         })
       );
 
@@ -183,14 +185,16 @@ function Checkout() {
                 {formatPrice(item.product.price)}円 × {item.quantity}
               </p>
               <p className="item-subtotal">
-                小計：{formatPrice((Number(item.product.price) || 0) * item.quantity)}円
+                小計：
+                {formatPrice((Number(item.product.price) || 0) * item.quantity)}
+                円
               </p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* 支払い方法（固定＋スクロール） ※消さない */}
+      {/* 支払い方法（固定＋スクロール） ※表示は残す */}
       <div className="pay-method-fixed">
         <h3 className="section-title pay-method-title">支払い方法</h3>
         <div className="pay-method-scroll">
@@ -241,6 +245,7 @@ function Checkout() {
                 boxSizing: "border-box",
               }}
             />
+
             <div className="modal-buttons">
               <button className="modal-main-btn" onClick={handleStoreAuthConfirm}>
                 次へ進む
