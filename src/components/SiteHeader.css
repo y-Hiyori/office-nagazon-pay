@@ -1,0 +1,185 @@
+:root{
+  --site-header-max: 1100px;
+  --site-bg: #f5f5f7;
+  --card: #ffffff;
+  --line: rgba(148, 163, 184, 0.18);
+  --btn: #ffffff;           /* ✅ ボタン背景 白 */
+  --text: #111827;
+}
+
+/* ヘッダー全体 */
+.site-header{
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: var(--site-bg);
+  border-bottom: 1px solid var(--line);
+}
+
+/* 中身の横幅を統一 */
+.site-header-inner{
+  max-width: var(--site-header-max);
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+/* ✅ 1段だけの行 */
+.site-header-row{
+  padding: 10px 0 12px;
+}
+
+/* 左=1fr / 中央=auto / 右=1fr にしてロゴを真ん中固定 */
+.site-header-row-inner{
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ロゴ */
+.site-header-brand{
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.site-header-logoimg{
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
+/* 三本線 */
+.site-header-burger{
+  justify-self: start;
+
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(148, 163, 184, 0.25); /* ✅ 白だと沈むので枠だけ */
+  border-radius: 12px;
+  background: var(--btn);
+  cursor: pointer;
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.site-header-burger span{
+  width: 20px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 999px;
+  display: block;
+}
+
+/* 右側アイコン群 */
+.site-header-actions{
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.site-header-iconbtn{
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(148, 163, 184, 0.25); /* ✅ 白背景用の枠 */
+  border-radius: 12px;
+  background: var(--btn);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+
+  font-size: 18px;
+}
+
+/* ==============
+   ドロワー
+============== */
+.site-drawer-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 5000;
+
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* ✅ ドロワー幅の“箱”（ここ基準で×を配置する） */
+.site-drawer-shell{
+  position: relative;
+  width: min(320px, 86vw);
+  height: 100%;
+}
+
+/* ドロワー本体は箱いっぱいに */
+.site-drawer{
+  width: 100%;
+  background: var(--card);
+  height: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  padding: 14px;
+  box-sizing: border-box;
+}
+
+/* ✅ ×ボタン：右上にピタッ、背景透明 */
+.site-drawer-close{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+
+  width: 44px;
+  height: 44px;
+
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+
+  color: var(--text);
+  font-size: 40px;
+  line-height: 1;
+  cursor: pointer;
+
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.site-drawer-close:active{
+  transform: scale(0.95);
+}
+/* ✅ メニューを縦並びに戻す */
+.site-drawer-nav{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 64px; /* ×ボタンと被らないように */
+}
+
+/* ✅ ボタンを1行100%のカードっぽく */
+.site-drawer-item{
+  width: 100%;
+  text-align: left;
+  padding: 18px 16px;
+
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  background: #fff;
+
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 20px;
+  color: var(--text);
+}

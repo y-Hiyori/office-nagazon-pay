@@ -1,74 +1,52 @@
-/* ===========================
-   カートページ（洗練デザイン）
-   =========================== */
+/* src/pages/CartPage.css */
 
-/* 全体（★ 幅を480pxにそろえる） */
-.cart-page {
-  padding-top: 60px;
-  padding-bottom: 140px;
-  background: #fafafa;
+/* 全体 */
+/* 追加/置き換え（重要） */
+.cart-page{
   min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-
-  max-width: 480px;   /* ← ここ追加 */
-  margin: 0 auto;     /* ← ここ追加 */
-}
-
-/* 固定ヘッダー（★ 中央の480pxに固定） */
-.cart-header {
-  position: fixed;
-  top: 0;
-  left: 50%;                 /* ← 画面中央基準 */
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;          /* ← ここで幅を統一 */
-
-  height: 60px;
-  background: #ffffffcc;
-  backdrop-filter: blur(8px);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 1px solid #eee;
-  z-index: 100;
+  flex-direction: column;
+  background: #fafafa;
 }
 
-.cart-back {
-  position: absolute;
-  left: 14px;
-  background: #f4f4f4;
-  border: none;
-  padding: 7px 14px;
-  border-radius: 999px;
+/* main を伸ばす（フッターを下へ） */
+.cart-wrap{
+  flex: 1;                 /* ←これが超重要 */
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 80px 16px 28px;
+  box-sizing: border-box;
+}
+
+/* 空のときの文字を見やすく（任意） */
+.cart-empty{
+  text-align: center;
+  margin-top: 40px;
   font-size: 16px;
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
+  color: #64748b;
+}
+.cart-title {
+  margin: 0 0 14px;
+  font-size: 20px;
+  font-weight: 900;
+  color: #111827;
 }
 
-.cart-back:hover {
-  background: #e5e5e5;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-}
-
-/* コンテンツ（★ 中身も同じ列の中に） */
+/* コンテンツ */
 .cart-content {
-  padding: 16px;
+  padding: 0;
   box-sizing: border-box;
 }
 
 /* からのとき */
 .cart-empty {
   text-align: center;
-  margin-top: 60px;
-  font-size: 18px;
-  color: gray;
+  margin-top: 40px;
+  font-size: 16px;
+  color: #64748b;
 }
 
-/* ===========================
-   商品カード
-   =========================== */
-
-/* カード本体：画像 / 情報 / 削除 を3列で並べる */
+/* 商品カード */
 .cart-item {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -79,16 +57,16 @@
   background: #ffffff;
   border-radius: 18px;
   margin-bottom: 16px;
-  box-shadow: 0 10px 30px rgba(15,23,42,0.10);
-  box-sizing: border-box;   /* ← はみ出し防止 */
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+  box-sizing: border-box;
 }
 
-/* 画像 */
 .cart-img img {
   width: 80px;
   height: 80px;
   border-radius: 12px;
   object-fit: cover;
+  display: block;
 }
 
 .no-img {
@@ -103,20 +81,16 @@
   font-size: 12px;
 }
 
-/* 商品情報（中央カラム） */
-.cart-info {
-  flex: 1;
-}
-
 .cart-info .name {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
+  margin: 0;
 }
 
 .cart-info .price {
   font-size: 14px;
   color: #666;
-  margin-top: 4px;
+  margin: 4px 0 0;
 }
 
 /* 数量 */
@@ -149,11 +123,11 @@
 .qty-row span {
   min-width: 24px;
   text-align: center;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 16px;
 }
 
-/* 削除ボタン（固定サイズ） */
+/* 削除 */
 .delete-btn {
   width: 44px;
   height: 44px;
@@ -183,32 +157,21 @@
   box-shadow: 0 4px 10px rgba(255,59,48,0.35);
 }
 
-/* ===========================
-   フッター（★ ここも480pxに合わせる）
-   =========================== */
-
-.cart-footer {
-  position: fixed;
-  bottom: 0;
-  left: 50%;                 /* ← 中央固定 */
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
-
-  background: #ffffffdd;
-  backdrop-filter: blur(6px);
-  padding: 14px 18px 20px;
-  border-top: 1px solid #ddd;
-  box-sizing: border-box;
+/* 下の合計＋購入ボタン（固定じゃない版） */
+.cart-summary {
+  margin-top: 10px;
+  padding: 14px 16px 16px;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
 }
 
 .total {
   font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 10px;
+  font-weight: 800;
+  margin: 0 0 10px;
 }
 
-/* 購入ボタン（右が切れないよう 100% 幅） */
 .buy-btn {
   width: 100%;
   padding: 16px;
@@ -217,7 +180,7 @@
   border: none;
   border-radius: 999px;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   box-shadow: 0 18px 32px rgba(79,70,229,0.35);
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;

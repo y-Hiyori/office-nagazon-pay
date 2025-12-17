@@ -22,6 +22,14 @@ function AdminMenu() {
           商品管理
         </button>
 
+   {/* ✅ 追加：クーポン管理 */}
+        <button
+          className="admin-menu-btn"
+          onClick={() => navigate("/admin-coupons")}
+        >
+          クーポン管理
+        </button>
+        
         <button
           className="admin-menu-btn"
           onClick={() => navigate("/admin-users")}
@@ -29,13 +37,14 @@ function AdminMenu() {
           アカウント管理
         </button>
 
-        {/* ★ 追加：売上状況確認ボタン */}
         <button
           className="admin-menu-btn"
           onClick={() => navigate("/admin-sales")}
         >
           売上状況確認
         </button>
+
+     
       </div>
     </div>
   );

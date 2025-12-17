@@ -1,0 +1,195 @@
+/* src/pages/AdminCoupons.css */
+
+:root{
+  --site-bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #64748b;
+  --muted2: #475569;
+  --line: rgba(148, 163, 184, 0.18);
+  --line-strong: rgba(148, 163, 184, 0.35);
+}
+
+.admin-coupons-page{
+  padding: 24px 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+  color: var(--text);
+}
+
+/* ヘッダー */
+.admin-coupons-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.admin-coupons-head h2{
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.admin-coupons-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap: wrap;
+}
+
+/* フィルター */
+.admin-coupons-filter{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  margin:14px 0;
+  flex-wrap: wrap;
+}
+
+/* ✅ 共通 input / btn / check */
+.admin-coupons-page .input{
+  width: min(520px, 100%);
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text);
+  outline: none;
+}
+
+.admin-coupons-page .input:focus{
+  border-color: rgba(79,110,233,.45);
+  box-shadow: 0 0 0 4px rgba(79,110,233,.10);
+}
+
+.admin-coupons-page .check{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  font-weight: 900;
+  color: var(--text);
+  user-select: none;
+}
+
+.admin-coupons-page .check input{
+  width: 18px;
+  height: 18px;
+}
+
+/* ボタン */
+.admin-coupons-page .btn{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  font-weight: 900;
+  cursor: pointer;
+  color: var(--text);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.admin-coupons-page .btn:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+}
+
+.admin-coupons-page .btn.ghost{
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-coupons-page .btn.tiny{
+  padding: 8px 10px;
+  font-size: 12px;
+  margin-left: 8px;
+  box-shadow: none;
+}
+
+.admin-coupons-page .btn.danger{
+  border-color: rgba(239, 68, 68, .35);
+}
+
+/* テーブル */
+.admin-coupons-tableWrap{
+  overflow:auto;
+  border: 1px solid rgba(148,163,184,.25);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+}
+
+.admin-coupons-table{
+  width:100%;
+  border-collapse: collapse;
+  min-width: 900px;
+  background:#fff;
+}
+
+.admin-coupons-table th,
+.admin-coupons-table td{
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.admin-coupons-table th{
+  background: #f7f7fb;
+  font-size: 13px;
+  font-weight: 900;
+  color: #0f172a;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.small{
+  font-size: 12px;
+  color: var(--muted2);
+}
+
+.right{
+  text-align: right;
+  white-space: nowrap;
+}
+
+.empty{
+  text-align: center;
+  padding: 18px;
+  color: var(--muted);
+}
+
+/* ON/OFF */
+.pill{
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.pill.on{
+  background: #111827;
+  color: #fff;
+  border-color: rgba(17,24,39,.35);
+}
+
+.pill.off{
+  background: transparent;
+  color: #111827;
+  opacity: .55;
+}
+
+.admin-coupons-titleRow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}

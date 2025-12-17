@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./Home.css";
 
+import SiteHeader from "../components/SiteHeader";
+import SiteFooter from "../components/SiteFooter";
+
 function Home() {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -21,59 +24,33 @@ function Home() {
         `${window.innerHeight * 0.01}px`
       );
     };
-
     setVh();
     window.addEventListener("resize", setVh);
     return () => window.removeEventListener("resize", setVh);
   }, []);
 
-  const handleAccount = () => {
-    if (user) {
-      navigate("/account");
-    } else {
-      navigate("/auth");
-    }
-  };
-
   return (
     <div className="home-page">
-      {/* 固定ヘッダー */}
-      <header className="home-header">
-        <h2 className="home-title">ホーム</h2>
+      {/* ✅ 共通ヘッダー */}
+      <SiteHeader accountHref={user ? "/account" : "/auth"} />
 
-        <button className="home-account-btn" onClick={handleAccount}>
-          👤
-        </button>
-      </header>
-
-      {/* ⭐ 中央に配置するブロック */}
-      <div className="home-center">
+      <main className="home-center">
         <img src="/assets/logo.png" alt="Logo" className="home-logo" />
 
-        <button
-          className="home-main-btn"
-          onClick={() => navigate("/products")}
-        >
+        <button className="home-main-btn" onClick={() => navigate("/products")}>
           商品を見る
         </button>
 
-        {/* アプリの使い方 */}
-        <button
-          className="home-main-btn"
-          onClick={() => navigate("/how-to")}
-        >
+        <button className="home-main-btn" onClick={() => navigate("/how-to")}>
           アプリの使い方
         </button>
 
-        <button
-          className="home-main-btn"
-          onClick={() => navigate("/contact")}
-        >
+        <button className="home-main-btn" onClick={() => navigate("/contact")}>
           お問い合わせ
         </button>
+      </main>
 
-        {/* ★ 管理者ログインボタンは削除 */}
-      </div>
+      <SiteFooter />
     </div>
   );
 }

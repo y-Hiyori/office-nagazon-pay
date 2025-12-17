@@ -1,274 +1,337 @@
-/* =========================================
-   Checkout（購入確認）
-   支払い方法（固定＋スクロール）
-   その下に 合計＋購入ボタン固定
-========================================= */
+/* ===========================
+   Checkout（スマホ縦 / PCで2カラム）
+=========================== */
 
-.checkout-page {
-  padding: 22px;
-  padding-bottom: 260px; /* ← ２つの固定エリアの分を空ける */
-  max-width: 480px;
-  margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+:root {
+  --checkout-max-mobile: 480px;
+  --checkout-max-desktop: 1100px;
+
+  /* ✅ 固定バーの高さ（ボタンだけ） */
+  --bottom-bar-space: 78px;
 }
 
-/* ===== ヘッダー ===== */
-.checkout-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
+/* 表示切り替え */
+.only-mobile { display: block; }
+.only-desktop { display: none; }
+@media (min-width: 901px) {
+  .only-mobile { display: none; }
+  .only-desktop { display: block; }
 }
 
-.back {
-  font-size: 22px;
-  margin-right: 12px;
-  background: none;
-  border: none;
-}
-
-.checkout-title {
-  font-size: 26px;
-  font-weight: 700;
-}
-
-/* ===== 商品カードまわり ===== */
-
-/* 商品画像固定 */
-.checkout-item-img {
-  width: 80px !important;
-  height: 80px !important;
-  object-fit: cover !important;
-  border-radius: 10px;
-}
-
-/* カード本体：画像の横にテキストを並べる */
-.checkout-item {
-  display: flex;
-  align-items: center;          /* 画像とテキストを縦中央揃え */
-  gap: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-/* 右側テキスト */
-.checkout-item-info {
-  flex: 1;
+.checkout-page-wrap {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  justify-content: center;      /* テキストを画像の高さの中で中央寄せ */
+  background: #f5f5f7;
 }
 
-/* テキスト行の余白を詰める */
-.checkout-item-info p {
-  margin: 0;
-  line-height: 1.2;
-}
+/* ===========================
+   ページ本体
+=========================== */
+.checkout-page {
+  flex: 1; /* ✅ フッターを最下部へ */
 
-/* 商品名 */
-.item-name {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-/* 「単価 × 数量」行 */
-.item-price-line {
-  font-size: 13px;
-}
-
-/* 小計行 */
-.item-subtotal {
-  font-size: 13px;
-  color: #555;
-  margin-top: 2px;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin-top: 20px;
-  margin-bottom: 10px;
-}
-
-/* 支払い方法タイトル（ここを中央寄せ） */
-.pay-method-title {
-  margin-top: 0;
-  margin-bottom: 4px;
-  font-size: 18px;
-  text-align: center;
-}
-
-/* =========================================
-   🔥 支払い方法（上の固定エリア）
-   外枠だけふんわり / 中身（PayPayカード）はクッキリ
-========================================= */
-
-.pay-method-fixed {
-  position: fixed;
-  bottom: 100px;            /* ← ボタンに被らないように少し上 */
-  left: 50%;
-  transform: translateX(-50%);
   width: 100%;
-  max-width: 480px;
-
-  background: transparent;  /* 外側は透明のまま */
-  box-shadow: none;
-  border-top: none;
-  z-index: 900;
-}
-
-/* 中のスクロールボックス：ここが「枠」 */
-.pay-method-scroll {
-  max-height: 120px;                    /* ← 小さめ → 必ずスクロール領域になる */
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-
-  width: 92%;
   margin: 0 auto;
-  padding: 10px 12px 20px;
+  padding: 16px;
+  box-sizing: border-box;
 
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  background: #f5f5f7;
+
+  /* ✅ スマホは固定バー分だけ余白 */
+  padding-bottom: calc(var(--bottom-bar-space) + 18px);
+}
+
+@media (max-width: 900px) {
+  .checkout-page { max-width: var(--checkout-max-mobile); }
+}
+
+@media (min-width: 901px) {
+  .checkout-page {
+    max-width: var(--checkout-max-desktop);
+    padding-bottom: 24px; /* PCは固定バー無し */
+  }
+}
+
+/* ===========================
+   レイアウト（スマホ縦 / PCで2カラム）
+=========================== */
+.checkout-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+@media (min-width: 901px) {
+  .checkout-layout {
+    grid-template-columns: 1fr 360px;
+    align-items: start;
+  }
+  .checkout-side {
+    position: sticky;
+    top: 76px;
+  }
+}
+
+/* ===========================
+   セクション共通
+=========================== */
+.co-section { margin-top: 14px; }
+
+.co-section-title {
+  font-size: 14px;
+  font-weight: 900;
+  color: #111827;
+  margin: 0 0 8px;
+}
+
+.co-card {
   background: #fff;
-  border-radius: 16px 16px 0 0;
-  border-top: 1px solid #ddd;
-  box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.12);
-
-  position: relative;                  /* ← 擬似要素用 */
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
-/* ⬇ 外枠だけ上側をふんわりさせる（中のカードは影響なし） */
-.pay-method-scroll::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 10px;
-
-  background: linear-gradient(
-    to bottom,
-    rgba(250, 250, 250, 0),
-    #ffffff
-  );
-
-  border-radius: 16px 16px 0 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* 支払いカードたち（この中身はクッキリ表示される） */
-.pay-card {
-  position: relative;
-  z-index: 1;
+/* ===========================
+   購入商品
+=========================== */
+.co-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  border-radius: 14px;
+  gap: 12px;
+  padding: 10px 0;
+}
+.co-item + .co-item {
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+.co-item-img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #f3f4f6;
+}
+.co-item-info { flex: 1; min-width: 0; }
+.co-item-name {
+  font-size: 14px;
+  font-weight: 900;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.co-item-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+.co-item-right { text-align: right; }
+.co-item-subtotal {
+  font-size: 13px;
+  font-weight: 900;
+  color: #111827;
+}
+
+/* ===========================
+   クーポン
+=========================== */
+.coupon-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.coupon-input {
+  flex: 1;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 0 12px;
+  font-size: 14px;
+  outline: none;
+}
+.coupon-apply {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: none;
+  background: #111827;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+.coupon-msg {
+  margin-top: 10px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.coupon-msg.ok { color: #16a34a; }
+.coupon-msg.ng { color: #ef4444; }
+.coupon-clear {
+  border: none;
+  background: transparent;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+  color: inherit;
+}
+
+/* ===========================
+   支払い方法
+=========================== */
+.pay-card {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.25);
   background: #fff;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.06);
-}
+  border-radius: 14px;
+  padding: 12px;
 
-.pay-card.selected {
-  border: 2px solid #5f85db;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
 }
-
-.pay-card.disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
+.pay-card.selected { border: 2px solid #5f85db; }
 .pay-left {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+  text-align: left;
 }
-
 .pay-title {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 900;
+  color: #111827;
 }
-
 .pay-desc {
-  font-size: 13px;
-  color: #666;
+  font-size: 12px;
+  color: #6b7280;
 }
-
+@media (min-width: 901px) {
+  .pay-card.pay-mini .pay-desc { display: none; }
+}
 .pay-check-area {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #888;
-  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 2px solid rgba(148, 163, 184, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 .pay-check {
   font-size: 16px;
   color: #5f85db;
+  font-weight: 900;
 }
 
-/* =========================================
-   🔥 下の固定（合計＋購入ボタン）
-   合計が左に寄りすぎないようバランス調整
-========================================= */
+/* ===========================
+   明細
+=========================== */
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #111827;
+  padding: 6px 0;
+}
+.sum-sep {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.22);
+  margin: 8px 0;
+}
+.sum-total {
+  font-size: 15px;
+  font-weight: 900;
+}
+.sum-discount {
+  color: #16a34a;
+  font-weight: 900;
+}
 
+/* PC右サイドの購入ボタン */
+.side-pay-btn {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px 12px;
+  border: none;
+  border-radius: 14px;
+  background: #5f85db;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.side-pay-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===========================
+   ✅ スマホ：購入確定ボタンを画面固定（ボタンだけ）
+=========================== */
 .checkout-bottom-fixed {
   position: fixed;
-  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
+  bottom: 0;
 
-  display: flex;
-  justify-content: space-around;   /* ← space-between → space-around に変更 */
-  align-items: center;
-  gap: 12px;                       /* ← 少し余白を追加 */
+  width: calc(100% - 32px);
+  max-width: var(--checkout-max-mobile);
+  box-sizing: border-box;
 
-  padding: 14px 16px;
-  background: #fff;
-  border-top: 1px solid #ddd;
-  box-shadow: 0 -3px 12px rgba(0,0,0,0.15);
-  z-index: 1000;
+  background: #ffffffdd;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  z-index: 300;
 }
 
-.checkout-total {
-  font-size: 20px;
-  font-weight: 700;
-  white-space: nowrap;
-  flex: 0 0 auto;
-}
-
-/* ボタン幅をちょっとだけ縮めてバランス調整 */
 .checkout-btn {
-  flex: 0 0 55%;
-  padding: 14px;
-  background: #5f85db;
-  color: white;
+  width: 100%;
+  padding: 14px 12px;
   border: none;
-  border-radius: 12px;
-  font-size: 18px;
-  font-weight: bold;
+  border-radius: 14px;
+  background: #5f85db;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.checkout-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-/* =========================================
-   🔥 モーダル（PayPayセルフ決済の手順・最終確認）
-========================================= */
+/* ===========================
+   フッターが固定バーに被らないように下余白（スマホだけ）
+=========================== */
+@media (max-width: 900px) {
+  .checkout-page-wrap .site-footer {
+    padding-bottom: calc(var(--bottom-bar-space) + env(safe-area-inset-bottom));
+  }
+}
+@media (min-width: 901px) {
+  .checkout-page-wrap .site-footer { padding-bottom: 0; }
+}
 
+/* ===========================
+   モーダル
+=========================== */
 .pay-modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 20000;
 }
 
@@ -279,23 +342,26 @@
   padding: 22px;
   border-radius: 16px;
   text-align: center;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
 }
 
 .pay-modal h3 {
-  margin-bottom: 12px;
-  font-size: 20px;
-  font-weight: 700;
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 900;
 }
 
-.pay-modal p {
-  font-size: 15px;
-  margin: 6px 0;
-  color: #444;
+.store-auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-sizing: border-box;
 }
 
 .modal-buttons {
-  margin-top: 18px;
+  margin-top: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -308,16 +374,17 @@
   color: white;
   border: none;
   border-radius: 12px;
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 16px;
+  font-weight: 900;
 }
 
 .modal-sub-btn {
   width: 100%;
   padding: 12px;
-  background: #ddd;
-  color: #333;
+  background: #e5e7eb;
+  color: #111827;
   border: none;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 800;
 }

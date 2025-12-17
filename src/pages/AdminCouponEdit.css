@@ -1,0 +1,136 @@
+/* src/pages/AdminCouponEdit.css */
+
+:root{
+  --site-bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #64748b;
+  --line: rgba(148, 163, 184, 0.18);
+  --line-strong: rgba(148, 163, 184, 0.35);
+}
+
+.admin-coupon-edit{
+  padding: 24px 16px;
+  max-width: 900px;
+  margin: 0 auto;
+  color: var(--text);
+}
+
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+
+.top h2{
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.card{
+  margin-top: 14px;
+  border: 1px solid rgba(148,163,184,.25);
+  border-radius: 16px;
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+}
+
+.grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 720px){
+  .grid{ grid-template-columns: 1fr; }
+}
+
+/* ラベル */
+.lab{
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+/* ✅ 共通 input / btn / check */
+.admin-coupon-edit .input{
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text);
+  outline: none;
+}
+
+.admin-coupon-edit .input:focus{
+  border-color: rgba(79,110,233,.45);
+  box-shadow: 0 0 0 4px rgba(79,110,233,.10);
+}
+
+.hint{
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.check{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  font-weight: 900;
+  margin-top: 6px;
+  user-select: none;
+}
+
+.check input{
+  width: 18px;
+  height: 18px;
+}
+
+.actions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top: 14px;
+}
+
+/* ボタン */
+.admin-coupon-edit .btn{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  font-weight: 900;
+  cursor: pointer;
+  color: var(--text);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.admin-coupon-edit .btn:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+}
+
+.admin-coupon-edit .btn.ghost{
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ✅ 追記：はみ出し防止 */
+.admin-coupon-edit,
+.admin-coupon-edit * {
+  box-sizing: border-box;
+}
+
+.grid > label {
+  min-width: 0; /* gridの子要素がはみ出すのを防ぐ */
+}
+
+.admin-coupon-edit .input {
+  display: block;
+  max-width: 100%;
+}

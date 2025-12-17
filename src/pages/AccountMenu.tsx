@@ -4,6 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import "./AccountMenu.css";
 
+import SiteHeader from "../components/SiteHeader";
+import SiteFooter from "../components/SiteFooter";
+
 type Profile = {
   id: string;
   name: string | null;
@@ -82,73 +85,91 @@ function AccountMenu() {
     navigate("/");
   };
 
-  // エラーがあれば先に表示
+  // エラーがあれば先に表示（ヘッダー/フッターは付ける）
   if (error) {
     return (
-      <p style={{ padding: 20, color: "red", whiteSpace: "pre-line" }}>
-        {error}
-      </p>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <SiteHeader />
+        <main style={{ flex: 1 }}>
+          <p style={{ padding: 20, color: "red", whiteSpace: "pre-line" }}>
+            {error}
+          </p>
+        </main>
+        <SiteFooter />
+      </div>
     );
   }
 
-  // データ読み込み中
+  // データ読み込み中（ヘッダー/フッターは付ける）
   if (!user || !profile) {
-    return <p style={{ padding: 20 }}>読み込み中...</p>;
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <SiteHeader />
+        <main style={{ flex: 1 }}>
+          <p style={{ padding: 20 }}>読み込み中...</p>
+        </main>
+        <SiteFooter />
+      </div>
+    );
   }
 
   return (
-    <div className="account-menu">
-      <button className="acc-back" onClick={() => navigate("/")}>
-        ← ホームに戻る
-      </button>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <SiteHeader />
 
-      <h2 style={{ fontSize: "26px", fontWeight: "bold" }}>
-        アカウント情報
-      </h2>
+      <main style={{ flex: 1 }}>
+        <div className="account-menu">
+          <h2 style={{ fontSize: "26px", fontWeight: "bold" }}>
+            アカウント情報
+          </h2>
 
-      <div style={{ width: "100%", maxWidth: "320px", textAlign: "left" }}>
-        <p>
-          <strong>名前:</strong> {profile.name}
-        </p>
-        <p>
-          <strong>メール:</strong> {user.email}
-        </p>
-      </div>
+          <div style={{ width: "100%", maxWidth: "320px", textAlign: "left" }}>
+            <p>
+              <strong>名前:</strong> {profile.name}
+            </p>
+            <p>
+              <strong>メール:</strong> {user.email}
+            </p>
+          </div>
 
-      {/* 🔵 購入履歴ページへ */}
-      <button className="acc-btn" onClick={() => navigate("/orders")}>
-        購入履歴を見る
-      </button>
+          {/* 🔵 購入履歴ページへ */}
+          <button className="acc-btn" onClick={() => navigate("/orders")}>
+            購入履歴を見る
+          </button>
 
-      <button className="acc-btn" onClick={() => navigate("/account-edit")}>
-        アカウント編集
-      </button>
+          <button className="acc-btn" onClick={() => navigate("/account-edit")}>
+            アカウント編集
+          </button>
 
-      {/* 🔵 管理者だけに表示するボタン */}
-      {profile.is_admin && (
-  <button
-    className="acc-btn acc-btn-admin"
-    onClick={() => navigate("/admin-menu")}
-  >
-    管理者メニューへ
-  </button>
-)}
+          {/* 🔵 管理者だけに表示するボタン */}
+          {profile.is_admin && (
+            <button
+              className="acc-btn acc-btn-admin"
+              onClick={() => navigate("/admin-menu")}
+            >
+              管理者メニューへ
+            </button>
+          )}
 
-      <button
-        className="acc-btn"
-        onClick={handleLogout}
-        style={{ background: "#555" }}
-      >
-        ログアウト
-      </button>
+          <button
+            className="acc-btn"
+            onClick={handleLogout}
+            style={{ background: "#555" }}
+          >
+            ログアウト
+          </button>
 
-      <button
-        className="acc-btn"
-        onClick={handleDeleteAccount}
-        style={{ background: "red" }}
-      >
-        アカウント削除
-      </button>
+          <button
+            className="acc-btn"
+            onClick={handleDeleteAccount}
+            style={{ background: "red" }}
+          >
+            アカウント削除
+          </button>
+        </div>
+      </main>
+
+      <SiteFooter />
     </div>
   );
 }

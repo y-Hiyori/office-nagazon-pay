@@ -10,6 +10,8 @@ import CartPage from "./pages/CartPage";
 import Checkout from "./pages/Checkout";
 import Contact from "./pages/Contact";
 import HowTo from "./pages/HowTo";
+import Tokushoho from "./pages/Tokushoho";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 // ▼ アカウントメニュー
 import AccountMenu from "./pages/AccountMenu";
@@ -37,6 +39,8 @@ import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminUserOrders from "./pages/AdminUserOrders";
 import AdminSales from "./pages/AdminSales";
 import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
+import AdminCoupons from "./pages/AdminCoupons";
+import AdminCouponEdit from "./pages/AdminCouponEdit";
 
 import PurchaseComplete from "./pages/PurchaseComplete";
 
@@ -58,6 +62,9 @@ const router = createBrowserRouter([
       { path: "products", element: <ProductList /> },
       { path: "product/:id", element: <ProductDetail /> },
       { path: "cart", element: <CartPage /> },
+            { path: "tokushoho", element: <Tokushoho /> },
+      { path: "privacy", element: <PrivacyPolicy /> },
+      
 
       // 購入フロー
       { path: "checkout", element: <Checkout /> },
@@ -176,6 +183,31 @@ const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
+      {
+  path: "admin-coupons",
+  element: (
+    <AdminRoute>
+      <AdminCoupons />
+    </AdminRoute>
+  ),
+},
+{
+  path: "admin-coupon-new",
+  element: (
+    <AdminRoute>
+      <AdminCouponEdit mode="new" />
+    </AdminRoute>
+  ),
+},
+{
+  path: "admin-coupon-edit/:code",
+  element: (
+    <AdminRoute>
+      <AdminCouponEdit mode="edit" />
+    </AdminRoute>
+  ),
+},
+      
 
       // 購入完了
       { path: "purchase-complete/:id", element: <PurchaseComplete /> },

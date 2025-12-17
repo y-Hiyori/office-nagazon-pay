@@ -1,45 +1,42 @@
-/* ===============================
-   アカウントメニュー（洗練バージョン）
-   =============================== */
+/* src/pages/AccountMenu.css */
 
 .account-menu {
-  min-height: calc(var(--vh, 1vh) * 100);
   width: 100%;
+  max-width: 520px;
 
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 18px;
 
-  /* 固定ヘッダーがある前提で少し下げる */
-  padding: 80px 24px 32px;
+  /* ✅ ヘッダーはコンポーネント側で出してるので、ここは控えめに */
+  padding: 24px 16px 24px;
   box-sizing: border-box;
   text-align: center;
 
-  /* ふわっとした背景グラデーション */
   background: radial-gradient(circle at top, #eef2ff 0%, #f9fafb 45%, #ffffff 100%);
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 }
 
-/* タイトル（もし使っていたら） */
-.account-title {
+/* タイトル */
+.account-menu h2{
+  margin: 0 0 6px;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
   color: #111827;
-  margin-bottom: 10px;
 }
 
-/* メインのメニューボタン */
+/* メニューのボタン */
 .acc-btn {
-  width: 80%;
+  width: 100%;
   max-width: 320px;
-  padding: 15px 18px;
+  padding: 14px 18px;
 
   border: none;
   border-radius: 999px;
 
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
   color: #ffffff;
   letter-spacing: 0.03em;
 
@@ -48,10 +45,6 @@
 
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
-}
-
-.acc-btn + .acc-btn {
-  margin-top: 10px; /* ボタン同士の間隔 */
 }
 
 .acc-btn:hover {
@@ -65,40 +58,9 @@
   box-shadow: 0 12px 24px rgba(79, 70, 229, 0.3);
 }
 
-/* 戻るボタン（左上に小さめピル） */
-.acc-back {
-  align-self: flex-start;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: none;
-
-  font-size: 14px;
-  font-weight: 500;
-  color: #111827;
-
-  background: #f3f4f6;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
-  margin-bottom: 4px;
-}
-
-.acc-back:hover {
-  background: #e5e7eb;
-  transform: translateY(-1px);
-}
-
-.acc-back:active {
-  transform: translateY(0);
-}
-
-/* 管理者メニュー専用ボタン（オレンジ目立つやつ） */
+/* 管理者メニュー専用 */
 .acc-btn-admin {
-  background: linear-gradient(135deg, #f97316, #f59e0b); /* オレンジ〜黄色 */
+  background: linear-gradient(135deg, #f97316, #f59e0b);
   box-shadow: 0 18px 30px rgba(245, 158, 11, 0.45);
 }
 
@@ -108,4 +70,8 @@
 
 .acc-btn-admin:active {
   box-shadow: 0 12px 24px rgba(245, 158, 11, 0.4);
+}
+
+.account-menu{
+  margin: 0 auto;   /* ← これ追加で中央寄せになる */
 }
