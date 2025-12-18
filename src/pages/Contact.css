@@ -1,46 +1,45 @@
 /* src/pages/Contact.css */
 
-.contact-page {
+.contact-page-wrap{
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* main を伸ばしてフッターを下へ */
+.contact-page{
+  flex: 1;
+  min-height: 0;
   background: radial-gradient(circle at top, #eef2ff, #f9fafb 40%, #e5e7eb);
   display: flex;
   flex-direction: column;
   align-items: center;
+
+  /* 共通ヘッダー分 */
+  padding: 80px 16px 32px;
+  box-sizing: border-box;
 }
 
-/* ヘッダー */
-.contact-header {
+/* タイトル行（中央） */
+.contact-head{
   width: 100%;
   max-width: 480px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px 20px 8px;
-  position: relative;
+  padding: 8px 0 10px;
   box-sizing: border-box;
 }
 
-.contact-back {
-  position: absolute;
-  left: 20px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: none;
-  background: #f3f4f6;
-  color: #111827;
-  font-size: 14px;
-  cursor: pointer;
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
-}
-
-.contact-title {
+.contact-title{
   font-size: 20px;
   font-weight: 700;
   color: #111827;
+  margin: 0;
 }
 
 /* カード本体 */
-.contact-card {
+.contact-card{
   width: 100%;
   max-width: 480px;
   margin: 8px auto 32px;
@@ -52,20 +51,20 @@
 }
 
 /* 各入力フィールド */
-.contact-field {
+.contact-field{
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-bottom: 14px;
 }
 
-.contact-field label {
+.contact-field label{
   font-size: 13px;
   color: #4b5563;
 }
 
 .contact-field input,
-.contact-field textarea {
+.contact-field textarea{
   width: 100%;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
@@ -77,14 +76,14 @@
 }
 
 .contact-field input:focus,
-.contact-field textarea:focus {
+.contact-field textarea:focus{
   border-color: #4f46e5;
   box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
   background: #ffffff;
 }
 
 /* 送信ボタン */
-.contact-send-btn {
+.contact-send-btn{
   margin-top: 10px;
   width: 100%;
   padding: 12px;
@@ -99,19 +98,19 @@
   transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.contact-send-btn:hover:enabled {
+.contact-send-btn:hover:enabled{
   opacity: 0.95;
   transform: translateY(-1px);
   box-shadow: 0 22px 38px rgba(79, 70, 229, 0.45);
 }
 
-.contact-send-btn:disabled {
+.contact-send-btn:disabled{
   opacity: 0.7;
   cursor: default;
 }
 
 /* 確認モーダル */
-.contact-modal-overlay {
+.contact-modal-overlay{
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.35);
@@ -121,7 +120,7 @@
   z-index: 1000;
 }
 
-.contact-modal {
+.contact-modal{
   width: min(360px, 90%);
   background: #ffffff;
   border-radius: 20px;
@@ -129,26 +128,26 @@
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.45);
 }
 
-.contact-modal h3 {
+.contact-modal h3{
   margin: 0 0 8px;
   font-size: 17px;
   font-weight: 700;
 }
 
-.contact-modal p {
+.contact-modal p{
   margin: 0 0 16px;
   font-size: 13px;
   color: #4b5563;
 }
 
-.contact-modal-buttons {
+.contact-modal-buttons{
   display: flex;
   gap: 10px;
   justify-content: flex-end;
 }
 
 .contact-modal-main,
-.contact-modal-sub {
+.contact-modal-sub{
   padding: 8px 14px;
   border-radius: 999px;
   border: none;
@@ -156,12 +155,12 @@
   cursor: pointer;
 }
 
-.contact-modal-main {
+.contact-modal-main{
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #ffffff;
 }
 
-.contact-modal-sub {
+.contact-modal-sub{
   background: #f3f4f6;
   color: #111827;
 }

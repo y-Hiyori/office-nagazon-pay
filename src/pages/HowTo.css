@@ -1,50 +1,47 @@
 /* src/pages/HowTo.css */
 
-.howto-page {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 16px 16px 40px;
+.howto-page-wrap{
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* main を伸ばしてフッターを下へ */
+.howto-page{
+  flex: 1;
+  min-height: 0;
+
+  width: 100%;
+  background: #f3f4f6;
+
+  /* 共通ヘッダー分 */
+  padding: 80px 16px 40px;
   box-sizing: border-box;
+
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "Helvetica Neue", sans-serif;
-  background: #f3f4f6;
-  min-height: 100vh;
 }
 
-/* ヘッダー */
-.howto-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: rgba(243, 244, 246, 0.95);
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  padding: 8px 0 10px;
+/* 中央の読みやすい幅 */
+.howto-content{
+  max-width: 480px;
+  margin: 0 auto;
 }
 
-.howto-back {
-  border: none;
-  background: #e5e7eb;
-  border-radius: 999px;
-  padding: 6px 10px;
-  margin-right: 8px;
-  cursor: pointer;
-  font-size: 16px;
+/* タイトル行 */
+.howto-head{
+  max-width: 480px;
+  margin: 0 auto 8px;
 }
 
-.howto-title {
+.howto-title{
   font-size: 20px;
   font-weight: 700;
   margin: 0;
 }
 
-/* 本文 */
-.howto-content {
-  margin-top: 8px;
-}
-
-.howto-section {
+/* セクション */
+.howto-section{
   margin-top: 16px;
   background: #ffffff;
   border-radius: 18px;
@@ -52,20 +49,19 @@
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
-.howto-section-title {
+.howto-section-title{
   font-size: 16px;
   font-weight: 700;
   margin: 0 0 4px;
 }
 
-.howto-section-desc {
+.howto-section-desc{
   font-size: 13px;
   color: #6b7280;
   margin: 0 0 10px;
 }
 
-/* 画像は画面幅いっぱいで表示 */
-.howto-image {
+.howto-image{
   width: 100%;
   height: auto;
   border-radius: 12px;
