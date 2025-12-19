@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useCart } from "../context/CartContext";
-import emailjs from "@emailjs/browser";
 
 type StoredItem = {
   productId: string;
@@ -152,38 +151,47 @@ function PayPayReturn() {
             .eq("id", item.productId);
         }
 
-        // ③ 管理者メール（完了時のみ）
-        try {
-          let buyerName = "(名前未設定)";
-          const { data: profile, error: profError } = await supabase
-            .from("profiles")
-            .select("name")
-            .eq("id", user.id)
-            .single();
+        // ③ 購入者メール（完了時のみ）
+try {
+  let buyerName = "(名前未設定)";
+  const { data: profile, error: profError } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", user.id)
+    .single();
 
-          if (!profError && profile?.name) buyerName = profile.name;
+  if (!profError && profile?.name) buyerName = profile.name;
 
-          const itemsText = items
-            .map(
-              (i) =>
-                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
-            )
-            .join("\n");
+  const itemsText = items
+    .map(
+      (i) =>
+        `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
+    )
+    .join("\n");
 
-          await emailjs.send(
-            import.meta.env.VITE_EMAILJS_SERVICE_ID as string,
-            import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string,
-            {
-              order_id: order.id,
-              buyer_name: buyerName,
-              items_text: itemsText,
-              total_text: `${total.toLocaleString("ja-JP")}円`,
-            },
-            import.meta.env.VITE_EMAILJS_PUBLIC_KEY as string
-          );
-        } catch (e) {
-          console.error("管理者メール送信に失敗:", e);
-        }
+  const apiBase = import.meta.env.DEV
+    ? "https://office-nagazon-pay.vercel.app"
+    : "";
+
+  const toEmail = user.email ?? "";
+  if (toEmail) {
+    await fetch(`${apiBase}/api/send-admin-order-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: order.id,
+        buyerName,
+        itemsText,
+        totalText: `${total.toLocaleString("ja-JP")}円`,
+        to_email: toEmail,
+      }),
+    });
+  } else {
+    console.warn("購入者メールが取得できないため、メール送信をスキップしました");
+  }
+} catch (e) {
+  console.error("購入者メール送信に失敗:", e);
+}
 
         // 後片付け
         sessionStorage.removeItem("paypayCheckout");

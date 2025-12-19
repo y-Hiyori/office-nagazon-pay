@@ -301,40 +301,46 @@ const applyCoupon = async () => {
           }
         }
 
-        // ✅ 0円でも管理者メール送信（失敗しても購入は成功させる）
-        try {
-          let buyerName = "(名前未設定)";
-          const { data: profile, error: profError } = await supabase
-            .from("profiles")
-            .select("name")
-            .eq("id", user.id)
-            .single();
-          if (!profError && profile?.name) buyerName = profile.name;
+        // ✅ 0円でも購入者メール送信（失敗しても購入は成功させる）
+try {
+  let buyerName = "(名前未設定)";
+  const { data: profile, error: profError } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", user.id)
+    .single();
+  if (!profError && profile?.name) buyerName = profile.name;
 
-          const itemsText = itemsForStorage
-            .map(
-              (i) =>
-                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
-            )
-            .join("\n");
+  const itemsText = itemsForStorage
+    .map(
+      (i) =>
+        `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
+    )
+    .join("\n");
 
-          const apiBase = import.meta.env.DEV
-            ? "https://office-nagazon-pay.vercel.app"
-            : "";
+  const apiBase = import.meta.env.DEV
+    ? "https://office-nagazon-pay.vercel.app"
+    : "";
 
-          await fetch(`${apiBase}/api/send-admin-order-email`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              orderId: orderRow.id,
-              buyerName,
-              itemsText,
-              totalText: `0円（クーポン${appliedCoupon ? `:${appliedCoupon}` : ""} -${formatPrice(discountYen)}円）`,
-            }),
-          });
-        } catch (e) {
-          console.error("0円購入の管理者メール送信に失敗:", e);
-        }
+  const toEmail = user.email ?? "";
+  if (toEmail) {
+    await fetch(`${apiBase}/api/send-admin-order-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: orderRow.id,
+        buyerName,
+        itemsText,
+        totalText: `0円（クーポン${appliedCoupon ? `:${appliedCoupon}` : ""} -${formatPrice(discountYen)}円）`,
+        to_email: toEmail,
+      }),
+    });
+  } else {
+    console.warn("購入者メールが取得できないため、メール送信をスキップしました");
+  }
+} catch (e) {
+  console.error("0円購入の購入者メール送信に失敗:", e);
+}
 
         // 4) カートクリア
         if (!buyNow && typeof (cart as any).clearCart === "function") {
