@@ -341,10 +341,13 @@ const applyCoupon = async () => {
           (cart as any).clearCart();
         }
 
-        alert("クーポン適用で0円になったため、決済なしで購入確定しました。");
-        navigate("/orders");
-        setIsProcessing(false);
-        return;
+        alert("購入が完了しました。");
+
+// ✅ PayPayと同じ「購入完了」へ（注文IDを渡す）
+navigate(`/purchase-complete/${orderRow.id}`, { replace: true });
+
+setIsProcessing(false);
+return;
       }
 
       // ✅ 0円じゃない → いつも通りPayPayへ
