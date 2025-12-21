@@ -4,8 +4,6 @@
     { "source": "/api/paypay-status", "destination": "http://161.33.19.160/api/paypay-status" },
     { "source": "/api/whoami", "destination": "http://161.33.19.160/api/whoami" },
 
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-
     { "source": "/(.*)", "destination": "/" }
   ]
 }
