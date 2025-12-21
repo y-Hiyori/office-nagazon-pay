@@ -1,136 +1,232 @@
-/* ===============================
-   管理メニュー（洗練デザイン・矢印はCSSで付けない版）
-   =============================== */
+/* src/pages/AdminMenu.css */
 
-.admin-menu-container {
-  /* カードサイズ */
-  width: min(420px, 100% - 32px);
-  margin: 80px auto 40px;
-  padding: 32px 24px 30px;
+:root{
+  --ink: #0f172a;
+  --muted: rgba(15, 23, 42, 0.62);
+  --line: rgba(15, 23, 42, 0.10);
+
+  --glass: rgba(255,255,255,0.72);
+  --glass2: rgba(255,255,255,0.55);
+
+  --shadowA: 0 24px 70px rgba(15, 23, 42, 0.18);
+  --shadowB: 0 14px 34px rgba(15, 23, 42, 0.12);
+
+  --r1: 26px;
+  --r2: 18px;
+}
+
+/* ===== page ===== */
+.admin-menu-page{
+  min-height: 100vh;
+  padding-top: 84px; /* AdminHeaderぶん（60px + 余白） */
+  padding-bottom: 44px;
   box-sizing: border-box;
 
-  /* 見た目 */
+  /* ✅ ここを“全体真っ白”に */
   background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+}
 
-  position: relative;
+/* ===== container ===== */
+.admin-menu-container{
+  width: min(520px, calc(100% - 32px));
+  margin: 10px auto 0;
+  padding: 26px 18px 20px;
+  box-sizing: border-box;
+
+  border-radius: var(--r1);
+  border: 1px solid rgba(15,23,42,0.08);
+
+  /* 白背景の上で綺麗に見えるように、ガラス感は“控えめ”に */
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.86));
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadowA);
+
   text-align: center;
-
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  position: relative;
+  overflow: hidden;
 }
 
-/* ===== 戻るボタン ===== */
-.back-button {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: none;
-
-  font-size: 14px;
-  color: #111827;
-  background: #f3f4f6;
-  cursor: pointer;
-
-  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+/* うっすらハイライト（白背景でも浮きすぎないよう弱め） */
+.admin-menu-container::before{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  background:
+    radial-gradient(560px 220px at 20% 10%, rgba(255,255,255,0.55), transparent 60%),
+    radial-gradient(420px 220px at 80% 0%, rgba(255,255,255,0.35), transparent 60%),
+    linear-gradient(135deg, rgba(99,102,241,0.10), transparent 55%);
+  pointer-events:none;
 }
 
-.back-button:hover {
-  background: #e5e7eb;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
-}
-
-.back-button:active {
-  box-shadow: none;
-  transform: translateY(0);
-}
-
-/* ===== タイトル ===== */
-.admin-menu-title {
-  margin: 26px 0 26px;   /* 戻るボタンと被らないように */
+/* ===== title ===== */
+.admin-menu-title{
+  margin: 2px 0 6px;
   font-size: 22px;
-  font-weight: 700;
-  color: #111827;
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  position: relative;
+  z-index: 1;
 }
 
-/* ===== ボタンの並び ===== */
-.admin-menu-buttons {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-/* ===== 各メニューボタン ===== */
-.admin-menu-btn {
-  width: 100%;
-  padding: 14px;
+.admin-menu-title::after{
+  content:"";
+  display:block;
+  width: 72px;
+  height: 2px;
+  margin: 10px auto 0;
   border-radius: 999px;
-  border: none;
+  background: linear-gradient(90deg, rgba(99,102,241,0.9), rgba(56,189,248,0.9));
+}
+
+/* （必要ならサブタイトル用：HTML変更なしでもOK） */
+.admin-menu-sub{
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== buttons layout：タイル型 ===== */
+.admin-menu-buttons{
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ボタン共通：角丸カード */
+.admin-menu-btn{
+  width: 100%;
+  padding: 16px 16px;
+  border-radius: var(--r2);
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(255,255,255,0.92);
 
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 900;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+
   cursor: pointer;
+  box-shadow: var(--shadowB);
+  transition:
+    transform .12s ease,
+    box-shadow .12s ease,
+    border-color .12s ease,
+    background .12s ease;
+  outline: none;
 
-  background: #f9fafb;
-  color: #111827;
-  box-shadow: 0 12px 25px rgba(15, 23, 42, 0.08);
-
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease,
-    opacity 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-/* 一番上のボタンだけ「メイン」感 */
-.admin-menu-btn:first-child {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  color: #ffffff;
-  box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
-}
-
-.admin-menu-btn:hover {
+/* 右矢印 */
+.admin-menu-btn::after{
+  content:"›";
+  font-size: 22px;
+  line-height: 1;
+  color: rgba(15,23,42,0.45);
   transform: translateY(-1px);
-  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
-  background: #f3f4f6;
 }
 
-.admin-menu-btn:first-child:hover {
-  box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
+/* hover/active */
+.admin-menu-btn:hover{
+  transform: translateY(-2px);
+  border-color: rgba(99,102,241,0.28);
+  box-shadow: 0 20px 46px rgba(15, 23, 42, 0.16);
+  background: rgba(255,255,255,0.98);
 }
 
-.admin-menu-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
-  opacity: 0.95;
-}
-/* ===== 真ん中のボタン（2番目）＝ アカウント管理（ニュートラル） ===== */
-.admin-menu-buttons .admin-menu-btn:nth-child(2) {
-  background: linear-gradient(135deg, #f3f4f6, #e5e7eb); /* 少し濃いグレーグラデ */
-  color: #111827;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.10);
+.admin-menu-btn:active{
+  transform: translateY(0px);
+  box-shadow: var(--shadowB);
 }
 
-.admin-menu-buttons .admin-menu-btn:nth-child(2):hover {
-  background: linear-gradient(135deg, #e5e7eb, #d1d5db); /* ホバーで少し濃く */
-  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.16);
+.admin-menu-btn:focus-visible{
+  outline: 3px solid rgba(99,102,241,0.35);
+  outline-offset: 2px;
 }
 
-/* ===== 一番下のボタン（3番目）＝ 売り上げ状況（オレンジ） ===== */
-.admin-menu-buttons .admin-menu-btn:nth-child(3) {
-  background: linear-gradient(135deg, #f97316, #ea580c); /* オレンジ系グラデ */
-  color: #ffffff;                                       /* 白文字でハッキリ */
-  box-shadow: 0 16px 30px rgba(234, 88, 12, 0.45);
+/* ===== 各ボタン色分け ===== */
+
+/* 1個目：メイン */
+.admin-menu-btn:first-child{
+  border: 1px solid rgba(99,102,241,0.35);
+  background: linear-gradient(135deg, rgba(79,70,229,0.95), rgba(99,102,241,0.92));
+  color: #fff;
+  box-shadow: 0 22px 48px rgba(79, 70, 229, 0.32);
+}
+.admin-menu-btn:first-child::after{
+  color: rgba(255,255,255,0.85);
 }
 
-.admin-menu-buttons .admin-menu-btn:nth-child(3):hover {
-  background: linear-gradient(135deg, #ea580c, #c2410c); /* 少し濃くしてホバー感 */
-  box-shadow: 0 20px 38px rgba(194, 65, 12, 0.6);
+/* 2個目：クールグレー */
+.admin-menu-buttons .admin-menu-btn:nth-child(2){
+  background: linear-gradient(135deg, rgba(241,245,249,0.98), rgba(226,232,240,0.95));
+  border-color: rgba(15,23,42,0.10);
+}
+
+/* 3個目：淡い緑 */
+.admin-menu-buttons .admin-menu-btn:nth-child(3){
+  background: linear-gradient(135deg, rgba(236,253,245,0.98), rgba(209,250,229,0.94));
+  border-color: rgba(16,185,129,0.18);
+}
+
+/* 4個目：オレンジ */
+.admin-menu-buttons .admin-menu-btn:nth-child(4){
+  background: linear-gradient(135deg, rgba(249,115,22,0.95), rgba(234,88,12,0.94));
+  color: #fff;
+  border-color: rgba(234,88,12,0.35);
+  box-shadow: 0 24px 50px rgba(234, 88, 12, 0.28);
+}
+.admin-menu-buttons .admin-menu-btn:nth-child(4)::after{
+  color: rgba(255,255,255,0.9);
+}
+
+/* 5個目以降 */
+.admin-menu-buttons .admin-menu-btn:nth-child(n+5){
+  background: rgba(255,255,255,0.92);
+}
+
+/* ===== PCのときだけ2列 ===== */
+@media (min-width: 840px){
+  .admin-menu-container{
+    width: min(720px, calc(100% - 48px));
+    padding: 28px 24px 22px;
+  }
+
+  .admin-menu-buttons{
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .admin-menu-btn{
+    padding: 18px 18px;
+    font-size: 16px;
+  }
+}
+
+/* ===== small ===== */
+@media (max-width: 420px){
+  .admin-menu-page{
+    padding-top: 78px;
+  }
+  .admin-menu-container{
+    width: calc(100% - 24px);
+    padding: 22px 14px 18px;
+  }
+  .admin-menu-title{
+    font-size: 20px;
+  }
+  .admin-menu-btn{
+    padding: 14px 14px;
+    font-size: 15px;
+  }
 }

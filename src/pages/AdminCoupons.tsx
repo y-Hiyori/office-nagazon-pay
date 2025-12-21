@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import AdminHeader from "../components/AdminHeader";
 import "./AdminCoupons.css";
 
 type CouponRow = {
@@ -85,99 +86,97 @@ export default function AdminCoupons() {
   };
 
   return (
-    <div className="admin-coupons-page">
-      <div className="admin-coupons-head">
-  <div className="admin-coupons-titleRow">
-    <button className="btn ghost" onClick={() => nav("/admin-menu")}>
-      ← 戻る
-    </button>
-    <h2>クーポン管理</h2>
-  </div>
+    <>
+      <AdminHeader />
 
-  <div className="admin-coupons-actions">
-    <button className="btn" onClick={() => nav("/admin-coupon-new")}>
-      ＋ 新規作成
-    </button>
-    <button className="btn ghost" onClick={load}>
-      更新
-    </button>
-  </div>
-</div>
+      <div className="admin-coupons-page" style={{ paddingTop: 80 }}>
+        <div className="admin-coupons-head">
+          <h2>クーポン管理</h2>
 
-      <div className="admin-coupons-filter">
-        <input
-          className="input"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="コードで検索"
-        />
-        <label className="check">
-          <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
-          有効のみ
-        </label>
-      </div>
-
-      {loading ? (
-        <p style={{ padding: 12 }}>読み込み中...</p>
-      ) : (
-        <div className="admin-coupons-tableWrap">
-          <table className="admin-coupons-table">
-            <thead>
-              <tr>
-                <th>コード</th>
-                <th>割引</th>
-                <th>上限</th>
-                <th>最低小計</th>
-                <th>回数</th>
-                <th>期間</th>
-                <th>有効</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr key={r.code}>
-                  <td className="mono">{r.code}</td>
-                  <td>{discountLabel(r)}</td>
-                  <td>{fmt(r.max_discount_yen)}円</td>
-                  <td>{fmt(r.min_subtotal)}円</td>
-                  <td>
-                    {fmt(r.used_count)} / {fmt(r.usage_limit)}
-                  </td>
-                  <td className="small">
-                    {r.starts_at ? r.starts_at.slice(0, 10) : "-"} 〜 {r.ends_at ? r.ends_at.slice(0, 10) : "-"}
-                  </td>
-                  <td>
-                    <button
-                      className={`pill ${r.is_active ? "on" : "off"}`}
-                      onClick={() => toggleActive(r.code, !r.is_active)}
-                    >
-                      {r.is_active ? "ON" : "OFF"}
-                    </button>
-                  </td>
-                  <td className="right">
-                
-<button
-  className="btn tiny"
-  onClick={() => nav(`/admin-coupon-edit/${encodeURIComponent(r.code)}`)}
->
-  編集
-</button>
-                    <button className="btn tiny danger" onClick={() => remove(r.code)}>
-                      削除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="empty">該当なし</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <div className="admin-coupons-actions">
+            <button className="btn" onClick={() => nav("/admin-coupon-new")}>
+              ＋ 新規作成
+            </button>
+            <button className="btn ghost" onClick={load}>
+              更新
+            </button>
+          </div>
         </div>
-      )}
-    </div>
+
+        <div className="admin-coupons-filter">
+          <input
+            className="input"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="コードで検索"
+          />
+          <label className="check">
+            <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
+            有効のみ
+          </label>
+        </div>
+
+        {loading ? (
+          <p style={{ padding: 12 }}>読み込み中...</p>
+        ) : (
+          <div className="admin-coupons-tableWrap">
+            <table className="admin-coupons-table">
+              <thead>
+                <tr>
+                  <th>コード</th>
+                  <th>割引</th>
+                  <th>上限</th>
+                  <th>最低小計</th>
+                  <th>回数</th>
+                  <th>期間</th>
+                  <th>有効</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.code}>
+                    <td className="mono">{r.code}</td>
+                    <td>{discountLabel(r)}</td>
+                    <td>{fmt(r.max_discount_yen)}円</td>
+                    <td>{fmt(r.min_subtotal)}円</td>
+                    <td>
+                      {fmt(r.used_count)} / {fmt(r.usage_limit)}
+                    </td>
+                    <td className="small">
+                      {r.starts_at ? r.starts_at.slice(0, 10) : "-"} 〜 {r.ends_at ? r.ends_at.slice(0, 10) : "-"}
+                    </td>
+                    <td>
+                      <button
+                        className={`pill ${r.is_active ? "on" : "off"}`}
+                        onClick={() => toggleActive(r.code, !r.is_active)}
+                      >
+                        {r.is_active ? "ON" : "OFF"}
+                      </button>
+                    </td>
+                    <td className="right">
+                      <button
+                        className="btn tiny"
+                        onClick={() => nav(`/admin-coupon-edit/${encodeURIComponent(r.code)}`)}
+                      >
+                        編集
+                      </button>
+                      <button className="btn tiny danger" onClick={() => remove(r.code)}>
+                        削除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="empty">該当なし</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

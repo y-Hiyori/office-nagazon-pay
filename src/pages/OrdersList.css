@@ -1,99 +1,233 @@
 /* ================================
    購入履歴一覧（共通ヘッダー/フッター対応）
+   NAGAZON Pay / Soft Glass UI
 ================================ */
+
+:root{
+  --bg0: #f6f8ff;
+  --bg1: #eef2ff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --card: rgba(255,255,255,0.9);
+  --card2: rgba(255,255,255,0.72);
+  --line: rgba(15, 23, 42, 0.10);
+  --shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+  --shadow2: 0 12px 28px rgba(15, 23, 42, 0.12);
+  --radius: 20px;
+}
 
 .orders-page-wrap{
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+
+  /* アプリ全体の雰囲気に合わせた背景 */
+  background:
+    radial-gradient(1100px 500px at 20% -10%, rgba(99,102,241,0.14), transparent 60%),
+    radial-gradient(900px 500px at 90% 0%, rgba(59,130,246,0.12), transparent 55%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
 }
 
 /* main を伸ばしてフッターを下へ */
 .orders-page{
   flex: 1;
-  width: min(480px, 100% - 32px);
+  width: min(520px, 100% - 32px);
   margin: 0 auto;
-  padding: 80px 0 40px; /* ← 共通ヘッダー分を確保 */
+
+  /* 共通ヘッダー分を確保 */
+  padding: 84px 0 46px;
   box-sizing: border-box;
 
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
 }
 
-/* ヘッダー行：タイトルのみ中央 */
+/* ヘッダー行：タイトル中央 */
 .orders-header{
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 0 4px;
-  margin-bottom: 18px;
+  padding: 10px 0 6px;
+  margin-bottom: 14px;
 }
 
 .orders-title{
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   margin: 0;
-  color: #111827;
+  color: var(--ink);
 }
 
+/* 状態表示 */
 .orders-loading{
-  padding: 12px;
+  padding: 14px 12px;
+  color: var(--muted);
+}
+
+.no-orders{
+  margin-top: 26px;
+  text-align: center;
+  font-size: 15px;
+  color: rgba(100,116,139,0.85);
 }
 
 /* 一覧全体 */
 .orders-list{
-  margin-top: 8px;
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* 各注文カード */
 .order-item{
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: #ffffff;
+  position: relative;
+  padding: 14px 16px 14px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
 
   cursor: pointer;
-  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
 
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
 }
 
 .order-item:hover{
   transform: translateY(-1px);
-  box-shadow: 0 22px 40px rgba(15, 23, 42, 0.16);
-  background: #f9fafb;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.18);
+  background: rgba(255,255,255,0.95);
+  border-color: rgba(15,23,42,0.14);
 }
 
 .order-item:active{
-  transform: translateY(0);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  transform: translateY(0px);
+  box-shadow: var(--shadow2);
 }
 
+/* タイトル（注文ID） */
 .order-item h3{
-  margin: 0 0 4px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
 }
 
+/* 基本文 */
 .order-item p{
   margin: 2px 0;
   font-size: 13px;
-  color: #4b5563;
+  color: rgba(71,85,105,0.92);
 }
 
+/* 合計金額強調 */
 .order-item .total{
-  font-weight: 700;
+  font-weight: 900;
   font-size: 14px;
-  color: #111827;
+  color: var(--ink);
 }
 
-/* 履歴がないとき */
-.no-orders{
-  margin-top: 24px;
-  text-align: center;
-  font-size: 15px;
-  color: #9ca3af;
+/* ↓ ここから「クーポン」「明細プレビュー」をクラスで綺麗にする用
+   （TSXを少しだけ直すと使える。TSX修正は下に載せた） */
+.order-top{
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.order-badge{
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(99,102,241,0.22);
+  background: rgba(99,102,241,0.10);
+  color: #3730a3;
+  white-space: nowrap;
+}
+
+.order-sub{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(15,23,42,0.12);
+}
+
+/* クーポン内訳 */
+.coupon-box{
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--card2);
+  border: 1px solid rgba(15,23,42,0.10);
+}
+
+.coupon-row{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(30,41,59,0.92);
+  line-height: 1.65;
+}
+
+.coupon-row strong{
+  font-weight: 900;
+}
+
+.discount{
+  font-weight: 900;
+  color: #be123c;
+}
+
+/* 明細プレビュー */
+.items-preview{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(15,23,42,0.12);
+}
+
+.items-preview-title{
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(100,116,139,0.9);
+  margin-bottom: 6px;
+}
+
+.preview-row{
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 13px;
+  color: rgba(30,41,59,0.92);
+}
+
+.preview-name{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 75%;
+}
+
+.preview-qty{
+  white-space: nowrap;
+  font-weight: 800;
+  color: rgba(15,23,42,0.88);
+}
+
+.preview-more{
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(100,116,139,0.85);
+}
+
+/* アクセシビリティ */
+.order-item:focus{
+  outline: none;
+}
+.order-item:focus-visible{
+  outline: 3px solid rgba(99,102,241,0.35);
+  outline-offset: 2px;
 }

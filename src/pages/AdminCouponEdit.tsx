@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import AdminHeader from "../components/AdminHeader";
 import "./AdminCouponEdit.css";
 
 type Props = { mode: "new" | "edit" };
@@ -34,12 +35,12 @@ export default function AdminCouponEdit({ mode }: Props) {
 
   const [code, setCode] = useState("");
   const [discountType, setDiscountType] = useState<"yen" | "percent">("yen");
-  const [discountValue, setDiscountValue] = useState("0"); // stringで管理
+  const [discountValue, setDiscountValue] = useState("0");
   const [maxDiscountYen, setMaxDiscountYen] = useState("");
   const [minSubtotal, setMinSubtotal] = useState("");
   const [usageLimit, setUsageLimit] = useState("");
   const [isActive, setIsActive] = useState(true);
-  const [startsAt, setStartsAt] = useState(""); // YYYY-MM-DD
+  const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
 
   const title = useMemo(() => (mode === "new" ? "クーポン作成" : "クーポン編集"), [mode]);
@@ -86,9 +87,7 @@ export default function AdminCouponEdit({ mode }: Props) {
 
     const v = Number(discountValue);
     if (!Number.isFinite(v) || v <= 0) return "割引値は1以上にしてください";
-
     if (discountType === "percent" && (v <= 0 || v > 100)) return "％割引は 1〜100 の範囲にしてください";
-
     return null;
   };
 
@@ -127,7 +126,6 @@ export default function AdminCouponEdit({ mode }: Props) {
       return;
     }
 
-    // edit
     const { error } = await supabase.from("coupons").update(payload).eq("code", editCode);
     if (error) {
       console.error(error);
@@ -143,77 +141,81 @@ export default function AdminCouponEdit({ mode }: Props) {
   if (loading) return <p style={{ padding: 16 }}>読み込み中...</p>;
 
   return (
-    <div className="admin-coupon-edit">
-      <div className="top">
-        <h2>{title}</h2>
-        <button className="btn ghost" onClick={() => nav("/admin-coupons")}>一覧へ</button>
-      </div>
+    <>
+      <AdminHeader />
 
-      <div className="card">
-        <div className="grid">
-          <label>
-            <div className="lab">コード（英数字）</div>
-            <input
-              className="input"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="例：NAGAZON30"
-              disabled={mode === "edit"} // codeはキー扱いで固定
-            />
-          </label>
-
-          <label>
-            <div className="lab">割引タイプ</div>
-            <select className="input" value={discountType} onChange={(e) => setDiscountType(e.target.value as any)}>
-              <option value="yen">円</option>
-              <option value="percent">％</option>
-            </select>
-          </label>
-
-          <label>
-            <div className="lab">割引値</div>
-            <input className="input" inputMode="numeric" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} />
-            <div className="hint">{discountType === "percent" ? "例：30（＝30%オフ）" : "例：500（＝500円引き）"}</div>
-          </label>
-
-          <label>
-            <div className="lab">最大割引（任意）</div>
-            <input className="input" inputMode="numeric" value={maxDiscountYen} onChange={(e) => setMaxDiscountYen(e.target.value)} placeholder="例：1000" />
-            <div className="hint">％のときに「割引上限」を付けたい場合</div>
-          </label>
-
-          <label>
-            <div className="lab">最低小計（任意）</div>
-            <input className="input" inputMode="numeric" value={minSubtotal} onChange={(e) => setMinSubtotal(e.target.value)} placeholder="例：3000" />
-          </label>
-
-          <label>
-            <div className="lab">使用回数上限（任意）</div>
-            <input className="input" inputMode="numeric" value={usageLimit} onChange={(e) => setUsageLimit(e.target.value)} placeholder="例：100" />
-          </label>
-
-          <label>
-            <div className="lab">開始日（任意）</div>
-            <input className="input" type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
-          </label>
-
-          <label>
-            <div className="lab">終了日（任意）</div>
-            <input className="input" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
-          </label>
-
-          <label className="check">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            有効
-          </label>
+      <div className="admin-coupon-edit" style={{ paddingTop: 80 }}>
+        <div className="top">
+          <h2>{title}</h2>
+          <button className="btn ghost" onClick={() => nav("/admin-coupons")}>一覧へ</button>
         </div>
 
-        <div className="actions">
-          <button className="btn" onClick={save} disabled={saving}>
-            {saving ? "保存中..." : "保存する"}
-          </button>
+        <div className="card">
+          <div className="grid">
+            <label>
+              <div className="lab">コード（英数字）</div>
+              <input
+                className="input"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="例：NAGAZON30"
+                disabled={mode === "edit"}
+              />
+            </label>
+
+            <label>
+              <div className="lab">割引タイプ</div>
+              <select className="input" value={discountType} onChange={(e) => setDiscountType(e.target.value as any)}>
+                <option value="yen">円</option>
+                <option value="percent">％</option>
+              </select>
+            </label>
+
+            <label>
+              <div className="lab">割引値</div>
+              <input className="input" inputMode="numeric" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} />
+              <div className="hint">{discountType === "percent" ? "例：30（＝30%オフ）" : "例：500（＝500円引き）"}</div>
+            </label>
+
+            <label>
+              <div className="lab">最大割引（任意）</div>
+              <input className="input" inputMode="numeric" value={maxDiscountYen} onChange={(e) => setMaxDiscountYen(e.target.value)} placeholder="例：1000" />
+              <div className="hint">％のときに「割引上限」を付けたい場合</div>
+            </label>
+
+            <label>
+              <div className="lab">最低小計（任意）</div>
+              <input className="input" inputMode="numeric" value={minSubtotal} onChange={(e) => setMinSubtotal(e.target.value)} placeholder="例：3000" />
+            </label>
+
+            <label>
+              <div className="lab">使用回数上限（任意）</div>
+              <input className="input" inputMode="numeric" value={usageLimit} onChange={(e) => setUsageLimit(e.target.value)} placeholder="例：100" />
+            </label>
+
+            <label>
+              <div className="lab">開始日（任意）</div>
+              <input className="input" type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+            </label>
+
+            <label>
+              <div className="lab">終了日（任意）</div>
+              <input className="input" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+            </label>
+
+            <label className="check">
+              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+              有効
+            </label>
+          </div>
+
+          <div className="actions">
+            <button className="btn" onClick={save} disabled={saving}>
+              {saving ? "保存中..." : "保存する"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

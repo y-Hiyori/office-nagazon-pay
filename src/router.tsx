@@ -28,7 +28,6 @@ import ResetPassword from "./pages/ResetPassword";
 import AuthCallback from "./pages/AuthCallback";
 
 // ▼ 管理者
-import AdminLogin from "./pages/AdminLogin";
 import AdminMenu from "./pages/AdminMenu";
 import AdminPage from "./pages/AdminPage";
 import AdminAdd from "./pages/AdminAdd";
@@ -37,6 +36,7 @@ import AdminEdit from "./pages/AdminEdit";
 import AdminUsers from "./pages/AdminUsers";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminUserOrders from "./pages/AdminUserOrders";
+import AdminOrderDetail from "./pages/AdminOrderDetail"; // ✅ 追加
 import AdminSales from "./pages/AdminSales";
 import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
 import AdminCoupons from "./pages/AdminCoupons";
@@ -49,7 +49,6 @@ import AdminRoute from "./components/AdminRoute";
 
 // ▼ PayPay
 import PayPaySim from "./pages/PayPaySim";
-// ★ 決済完了後に戻ってくるページ（これから作る用）
 import PayPayReturn from "./pages/PayPayReturn";
 
 const router = createBrowserRouter([
@@ -62,9 +61,8 @@ const router = createBrowserRouter([
       { path: "products", element: <ProductList /> },
       { path: "product/:id", element: <ProductDetail /> },
       { path: "cart", element: <CartPage /> },
-            { path: "tokushoho", element: <Tokushoho /> },
+      { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
-      
 
       // 購入フロー
       { path: "checkout", element: <Checkout /> },
@@ -97,7 +95,6 @@ const router = createBrowserRouter([
 
       // ===== 管理者 =====
       // ログイン画面だけはガードなし
-      { path: "admin-login", element: <AdminLogin /> },
 
       {
         path: "admin-menu",
@@ -166,6 +163,16 @@ const router = createBrowserRouter([
         ),
       },
 
+      // ✅ 管理者：注文詳細（追加）
+      {
+        path: "admin-order-detail/:id",
+        element: (
+          <AdminRoute>
+            <AdminOrderDetail />
+          </AdminRoute>
+        ),
+      },
+
       // 管理者：売上
       {
         path: "admin-sales",
@@ -183,31 +190,31 @@ const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
+
       {
-  path: "admin-coupons",
-  element: (
-    <AdminRoute>
-      <AdminCoupons />
-    </AdminRoute>
-  ),
-},
-{
-  path: "admin-coupon-new",
-  element: (
-    <AdminRoute>
-      <AdminCouponEdit mode="new" />
-    </AdminRoute>
-  ),
-},
-{
-  path: "admin-coupon-edit/:code",
-  element: (
-    <AdminRoute>
-      <AdminCouponEdit mode="edit" />
-    </AdminRoute>
-  ),
-},
-      
+        path: "admin-coupons",
+        element: (
+          <AdminRoute>
+            <AdminCoupons />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-coupon-new",
+        element: (
+          <AdminRoute>
+            <AdminCouponEdit mode="new" />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-coupon-edit/:code",
+        element: (
+          <AdminRoute>
+            <AdminCouponEdit mode="edit" />
+          </AdminRoute>
+        ),
+      },
 
       // 購入完了
       { path: "purchase-complete/:id", element: <PurchaseComplete /> },

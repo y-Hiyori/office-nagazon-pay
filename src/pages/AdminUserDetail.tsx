@@ -2,15 +2,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import AdminHeader from "../components/AdminHeader";
 import "./AdminUserDetail.css";
 
 type Profile = {
   id: string;
-  name: string;
-  email: string;
+  name: string | null;
+  email: string | null;
 };
 
-function AdminUserDetail() {
+export default function AdminUserDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
@@ -18,11 +19,12 @@ function AdminUserDetail() {
   const [editName, setEditName] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // 🔥 ユーザー情報読み込み
   useEffect(() => {
     if (!id) return;
 
     const load = async () => {
+      setLoading(true);
+
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
         .select("id, name, email")
@@ -36,24 +38,22 @@ function AdminUserDetail() {
       }
 
       setProfile(prof);
-      setEditName(prof.name);
+      setEditName(prof.name || "");
       setLoading(false);
     };
 
     load();
   }, [id, navigate]);
 
-  // 🔵 名前更新
   const handleUpdateName = async () => {
-    if (!editName) {
+    if (!id) return;
+    const nextName = editName.trim();
+    if (!nextName) {
       alert("名前を入力してください");
       return;
     }
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ name: editName })
-      .eq("id", id);
+    const { error } = await supabase.from("profiles").update({ name: nextName }).eq("id", id);
 
     if (error) {
       alert("名前の変更に失敗しました: " + error.message);
@@ -61,9 +61,9 @@ function AdminUserDetail() {
     }
 
     alert("名前を更新しました！");
+    setProfile((p) => (p ? { ...p, name: nextName } : p));
   };
 
-  // ❌ ユーザー削除
   const handleDeleteUser = async () => {
     if (!id) return;
 
@@ -83,69 +83,86 @@ function AdminUserDetail() {
     navigate("/admin-users");
   };
 
-  if (loading || !profile) {
-    return <p style={{ padding: 20 }}>読み込み中...</p>;
-  }
-
   return (
-    <div className="admin-user-detail-page">
+    <>
+      <AdminHeader />
 
-      {/* ヘッダー */}
-<header className="admin-user-detail-header">
-        <button
-          className="admin-user-detail-back"
-          onClick={() => navigate("/admin-users")}
-        >
-          ←
-        </button>
-        <h2 className="admin-user-detail-title">ユーザー詳細</h2>
-      </header>
+      <div className="admin-user-detail-wrap">
+        <main className="admin-user-detail-page">
+          <header className="admin-user-detail-top">
+            <button
+              className="admin-user-detail-back"
+              onClick={() => navigate(-1)}
+              type="button"
+              aria-label="戻る"
+            >
+              ← 戻る
+            </button>
+            <h2 className="admin-user-detail-title">ユーザー詳細</h2>
+          </header>
 
-      {/* 基本情報 */}
-      <div className="admin-user-detail-card">
-        <p><strong>名前：</strong> {profile.name}</p>
-        <p><strong>メール：</strong> {profile.email}</p>
+          {loading || !profile ? (
+            <p className="admin-user-detail-loading">読み込み中...</p>
+          ) : (
+            <>
+              <section className="admin-user-detail-card">
+                <div className="admin-user-detail-row">
+                  <div className="admin-user-detail-label">名前</div>
+                  <div className="admin-user-detail-value">
+                    {profile.name || "(名前なし)"}
+                  </div>
+                </div>
+
+                <div className="admin-user-detail-row">
+                  <div className="admin-user-detail-label">メール</div>
+                  <div className="admin-user-detail-value admin-user-detail-email">
+                    {profile.email || "(未設定)"}
+                  </div>
+                </div>
+              </section>
+
+              <section className="admin-user-detail-card">
+                <h3 className="admin-user-detail-cardtitle">名前を変更</h3>
+
+                <div className="admin-user-detail-inputrow">
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="admin-user-detail-input"
+                    placeholder="新しい名前"
+                  />
+                  <button
+                    className="admin-user-detail-primary"
+                    onClick={handleUpdateName}
+                    type="button"
+                  >
+                    更新
+                  </button>
+                </div>
+              </section>
+
+              <section className="admin-user-detail-card">
+                <button
+                  className="admin-user-detail-secondary"
+                  onClick={() => navigate(`/admin-user-orders/${id}`)}
+                  type="button"
+                >
+                  このユーザーの購入履歴を見る
+                </button>
+              </section>
+
+              <button
+                className="admin-user-detail-danger"
+                onClick={handleDeleteUser}
+                type="button"
+              >
+                このユーザーを削除する
+              </button>
+            </>
+          )}
+        </main>
       </div>
-
-      {/* 名前変更 */}
-      <div className="admin-user-detail-card">
-        <h3>名前を変更</h3>
-
-        <input
-          type="text"
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          className="admin-user-detail-input"
-          placeholder="新しい名前"
-        />
-
-        <button
-          className="admin-user-detail-save"
-          onClick={handleUpdateName}
-        >
-          名前を更新
-        </button>
-      </div>
-
-      {/* 🔵 ここを追加：購入履歴ページへ */}
-      <div className="admin-user-detail-card">
-        <button
-          className="admin-user-detail-save"
-          onClick={() => navigate(`/admin-user-orders/${id}`)}
-        >
-          このユーザーの購入履歴を見る
-        </button>
-      </div>
-
-      {/* 削除ボタン */}
-      <button
-        className="admin-user-detail-delete"
-        onClick={handleDeleteUser}
-      >
-        このユーザーを削除する
-      </button>
-    </div>
+    </>
   );
 }
-
-export default AdminUserDetail;

@@ -1,19 +1,16 @@
-/* ================================
-   注文詳細（共通ヘッダー/フッター対応）
-================================ */
+/* src/pages/AdminOrderDetail.css */
+/* 注文詳細（管理者）: OrderDetail とほぼ同トーン（クラス名だけ admin に） */
 
 :root{
   --ink: #0f172a;
   --muted: #64748b;
   --card: rgba(255,255,255,0.9);
-  --card2: rgba(255,255,255,0.72);
   --line: rgba(15, 23, 42, 0.10);
   --shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
   --shadow2: 0 12px 28px rgba(15, 23, 42, 0.12);
-  --radius: 20px;
 }
 
-.orders-page-wrap{
+.admin-order-wrap{
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -23,18 +20,18 @@
     linear-gradient(180deg, #f6f8ff, #eef2ff);
 }
 
-.orders-page{
+.admin-order-page{
   flex: 1;
   width: min(520px, 100% - 32px);
   margin: 0 auto;
   padding: 84px 0 46px;
   box-sizing: border-box;
-
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
 }
 
-/* 詳細ヘッダー（戻る無しなので中央固定） */
-.order-header{
+/* ヘッダー（戻る付き） */
+.admin-order-header{
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -42,7 +39,7 @@
   margin-bottom: 12px;
 }
 
-.detail-title{
+.admin-order-title{
   margin: 0;
   font-size: 22px;
   font-weight: 900;
@@ -50,59 +47,60 @@
   color: var(--ink);
 }
 
-/* 読み込み/空表示（OrdersList.cssが無くても動くように） */
-.orders-loading{
-  padding: 14px 12px;
-  color: var(--muted);
+.admin-order-back{
+  position: absolute;
+  left: 0;
+  border: none;
+  cursor: pointer;
+
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(15,23,42,0.10);
+
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 900;
+  color: var(--ink);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
 }
 
-.no-orders{
-  margin-top: 26px;
-  text-align: center;
-  font-size: 15px;
-  color: rgba(100,116,139,0.85);
+.admin-order-state{
+  padding: 14px 12px;
+  color: var(--muted);
+  font-weight: 800;
 }
 
 /* 注文情報カード */
-.order-info{
+.admin-order-info{
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 22px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
-
   padding: 14px 16px;
   margin-bottom: 16px;
-
   font-size: 14px;
   color: rgba(30,41,59,0.92);
 }
 
-.order-info p{
-  margin: 6px 0;
-}
+.admin-order-info p{ margin: 6px 0; }
+.admin-order-info strong{ color: var(--ink); font-weight: 900; }
 
-.order-info strong{
-  color: var(--ink);
-  font-weight: 900;
-}
-
-/* 内訳を少し見やすく */
-.order-info p + p{
+.admin-order-info p + p{
   border-top: 1px dashed rgba(15,23,42,0.10);
   padding-top: 8px;
 }
 
-/* 商品一覧タイトル */
-.items-title{
+/* 商品タイトル */
+.admin-items-title{
   font-size: 16px;
   font-weight: 900;
   margin: 6px 0 12px;
   color: var(--ink);
 }
 
-/* 各商品カード */
-.order-item-box{
+/* 商品カード */
+.admin-item-box{
   background: var(--card);
   border: 1px solid var(--line);
   padding: 12px 12px 14px;
@@ -112,19 +110,15 @@
   backdrop-filter: blur(8px);
 }
 
-.order-item-box p{
+.admin-item-box p{
   margin: 4px 0;
   font-size: 14px;
   color: rgba(30,41,59,0.92);
 }
 
-.order-item-box strong{
-  font-weight: 900;
-  color: var(--ink);
-}
+.admin-item-box strong{ font-weight: 900; color: var(--ink); }
 
-/* 商品画像（有り） */
-.order-item-image{
+.admin-item-image{
   width: 100%;
   height: 190px;
   object-fit: cover;
@@ -134,20 +128,16 @@
   border: 1px solid rgba(15,23,42,0.08);
 }
 
-/* 商品画像（無し） */
-.order-noimg{
+.admin-noimg{
   width: 100%;
   height: 190px;
   border-radius: 16px;
   margin-bottom: 10px;
-
   background: rgba(148,163,184,0.18);
   border: 1px dashed rgba(100,116,139,0.35);
-
   display: flex;
   justify-content: center;
   align-items: center;
-
   color: rgba(100,116,139,0.9);
   font-size: 13px;
   font-weight: 800;

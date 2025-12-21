@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import AdminHeader from "../components/AdminHeader";
 import "./AdminPage.css";
 import { findProductImage } from "../data/products";
 
@@ -49,7 +50,6 @@ function AdminPage() {
       return;
     }
 
-    // 画面を即反映（再取得しなくてもOK）
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, is_visible: nextVisible } : p))
     );
@@ -83,92 +83,91 @@ function AdminPage() {
   }
 
   return (
-    <div className="admin-page">
-      <header className="admin-header">
-        <button className="admin-back" onClick={() => navigate("/admin-menu")}>
-          ←
-        </button>
-        <h2 className="admin-title">商品管理</h2>
-        <button className="admin-add" onClick={() => navigate("/admin-add")}>
-          ＋追加
-        </button>
-      </header>
+    <>
+      <AdminHeader />
 
-      <div className="admin-sort-row">
-        <button
-          className={`admin-sort-btn ${sortMode === "default" ? "active" : ""}`}
-          onClick={() => setSortMode("default")}
-        >
-          通常順
-        </button>
-        <button
-          className={`admin-sort-btn ${sortMode === "stock" ? "active" : ""}`}
-          onClick={() => setSortMode("stock")}
-        >
-          在庫注意順
-        </button>
-      </div>
+      <div className="admin-page" style={{ paddingTop: 80 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <button className="admin-add" onClick={() => navigate("/admin-add")}>
+            ＋追加
+          </button>
+        </div>
 
-      <div className="admin-list">
-        {sorted.length === 0 ? (
-          <p>商品がありません</p>
-        ) : (
-          sorted.map((p) => {
-            const imgSrc = findProductImage(p.id);
+        <div className="admin-sort-row">
+          <button
+            className={`admin-sort-btn ${sortMode === "default" ? "active" : ""}`}
+            onClick={() => setSortMode("default")}
+          >
+            通常順
+          </button>
+          <button
+            className={`admin-sort-btn ${sortMode === "stock" ? "active" : ""}`}
+            onClick={() => setSortMode("stock")}
+          >
+            在庫注意順
+          </button>
+        </div>
 
-            return (
-              <div
-                key={p.id}
-                className={`admin-item ${p.isSoldOut ? "admin-item-soldout" : ""} ${
-                  p.isLowStock ? "admin-item-low" : ""
-                }`}
-                onClick={() => navigate(`/admin-detail/${p.id}`)}
-              >
-                {imgSrc ? (
-                  <img src={imgSrc} alt={p.name} />
-                ) : (
-                  <div className="admin-no-img">画像なし</div>
-                )}
+        <div className="admin-list">
+          {sorted.length === 0 ? (
+            <p>商品がありません</p>
+          ) : (
+            sorted.map((p) => {
+              const imgSrc = findProductImage(p.id);
 
-                <div className="admin-info">
-                  <h3>
-                    {p.name}
-                    {!p.isVisible && (
-                      <span style={{ marginLeft: 8, fontSize: 12 }}>
-                        （非表示）
-                      </span>
-                    )}
-                  </h3>
-                  <p>{formatPrice(p.price)}円</p>
+              return (
+                <div
+                  key={p.id}
+                  className={`admin-item ${p.isSoldOut ? "admin-item-soldout" : ""} ${
+                    p.isLowStock ? "admin-item-low" : ""
+                  }`}
+                  onClick={() => navigate(`/admin-detail/${p.id}`)}
+                >
+                  {imgSrc ? (
+                    <img src={imgSrc} alt={p.name} />
+                  ) : (
+                    <div className="admin-no-img">画像なし</div>
+                  )}
 
-                  <div className="admin-stock-line">
-                    <span className="admin-stock-label">在庫: {p.stockNum}</span>
+                  <div className="admin-info">
+                    <h3>
+                      {p.name}
+                      {!p.isVisible && (
+                        <span style={{ marginLeft: 8, fontSize: 12 }}>
+                          （非表示）
+                        </span>
+                      )}
+                    </h3>
+                    <p>{formatPrice(p.price)}円</p>
 
-                    {p.isSoldOut && (
-                      <span className="admin-stock-badge soldout">在庫切れ</span>
-                    )}
-                    {p.isLowStock && !p.isSoldOut && (
-                      <span className="admin-stock-badge low">残りわずか</span>
-                    )}
+                    <div className="admin-stock-line">
+                      <span className="admin-stock-label">在庫: {p.stockNum}</span>
 
-                    {/* ★ 表示/非表示切り替え */}
-                    <button
-  className={`admin-visible-btn ${p.isVisible ? "on" : "off"}`}
-  onClick={(e) => {
-    e.stopPropagation();
-    toggleVisible(p.id, !p.isVisible);
-  }}
->
-  {p.isVisible ? "表示中" : "非表示"}
-</button>
+                      {p.isSoldOut && (
+                        <span className="admin-stock-badge soldout">在庫切れ</span>
+                      )}
+                      {p.isLowStock && !p.isSoldOut && (
+                        <span className="admin-stock-badge low">残りわずか</span>
+                      )}
+
+                      <button
+                        className={`admin-visible-btn ${p.isVisible ? "on" : "off"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleVisible(p.id, !p.isVisible);
+                        }}
+                      >
+                        {p.isVisible ? "表示中" : "非表示"}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

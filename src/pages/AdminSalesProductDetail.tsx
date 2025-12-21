@@ -1,13 +1,13 @@
-// src/pages/AdminSalesProductDetail.tsx
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import AdminHeader from "../components/AdminHeader";
 import "./AdminSalesProductDetail.css";
 
 type BuyerRow = {
   userId: string;
   userName: string;
-  userEmail: string; // データとしては保持（必要なら後で使える）
+  userEmail: string;
   totalQuantity: number;
   totalSubtotal: number;
   orderCount: number;
@@ -31,7 +31,6 @@ function AdminSalesProductDetail() {
 
   const productName = name ? decodeURIComponent(name) : "";
 
-  // 開始側（そのまま表示）
   const formatDateJST = (iso: string) =>
     new Date(iso).toLocaleString("ja-JP", {
       timeZone: "Asia/Tokyo",
@@ -42,10 +41,9 @@ function AdminSalesProductDetail() {
       minute: "2-digit",
     });
 
-  // 終了側（endIso は「その瞬間の手前まで」なので 1ミリ秒引いて表示）
   const formatRangeEndJST = (iso: string) => {
     const d = new Date(iso);
-    d.setMilliseconds(d.getMilliseconds() - 1); // 例: 14日 0:00 → 13日 23:59:59
+    d.setMilliseconds(d.getMilliseconds() - 1);
     return d.toLocaleString("ja-JP", {
       timeZone: "Asia/Tokyo",
       year: "numeric",
@@ -69,15 +67,10 @@ function AdminSalesProductDetail() {
       setBuyers([]);
 
       try {
-        // 1️⃣ 期間内の注文を取得
-        let query = supabase
-          .from("orders")
-          .select("id, user_id, created_at, total");
+        let query = supabase.from("orders").select("id, user_id, created_at, total");
 
         if (state.startIso && state.endIso) {
-          query = query
-            .gte("created_at", state.startIso)
-            .lt("created_at", state.endIso);
+          query = query.gte("created_at", state.startIso).lt("created_at", state.endIso);
         }
 
         const { data: orders, error: ordersError } = await query;
@@ -98,7 +91,6 @@ function AdminSalesProductDetail() {
         const orderIds = orders.map((o) => o.id);
         const orderMap = new Map(orders.map((o) => [o.id, o] as const));
 
-        // 2️⃣ その注文の中で、この商品だけの order_items を取得
         const { data: items, error: itemsError } = await supabase
           .from("order_items")
           .select("order_id, product_name, quantity, price")
@@ -118,10 +110,7 @@ function AdminSalesProductDetail() {
           return;
         }
 
-        // 3️⃣ ユーザー情報取得（profiles）
-        const userIds = Array.from(
-          new Set(orders.map((o) => o.user_id as string))
-        );
+        const userIds = Array.from(new Set(orders.map((o) => o.user_id as string)));
 
         const { data: profiles, error: profError } = await supabase
           .from("profiles")
@@ -135,11 +124,8 @@ function AdminSalesProductDetail() {
           return;
         }
 
-        const profileMap = new Map(
-          (profiles || []).map((p) => [p.id, p] as const)
-        );
+        const profileMap = new Map((profiles || []).map((p) => [p.id, p] as const));
 
-        // 4️⃣ ユーザーごとに集計
         const map = new Map<string, BuyerRow>();
 
         for (const it of items) {
@@ -171,18 +157,13 @@ function AdminSalesProductDetail() {
           row.totalSubtotal += sub;
           row.orderCount += 1;
 
-          if (
-            new Date(createdAt).getTime() >
-            new Date(row.lastCreatedAt).getTime()
-          ) {
+          if (new Date(createdAt).getTime() > new Date(row.lastCreatedAt).getTime()) {
             row.lastCreatedAt = createdAt;
           }
         }
 
         const aggregated = Array.from(map.values()).sort(
-          (a, b) =>
-            new Date(b.lastCreatedAt).getTime() -
-            new Date(a.lastCreatedAt).getTime()
+          (a, b) => new Date(b.lastCreatedAt).getTime() - new Date(a.lastCreatedAt).getTime()
         );
 
         setBuyers(aggregated);
@@ -197,75 +178,91 @@ function AdminSalesProductDetail() {
     load();
   }, [productName, state.startIso, state.endIso]);
 
-  if (!productName) {
-    return <p style={{ padding: 20 }}>商品名が不明です。</p>;
-  }
+  if (!productName) return <p style={{ padding: 20 }}>商品名が不明です。</p>;
 
   return (
-    <div className="admin-sales-product-page">
-      <div className="admin-sales-product-card">
-        <button
-          className="admin-sales-product-back"
-          onClick={() => navigate(-1)}
-        >
-          ← 戻る
-        </button>
+    <>
+      <AdminHeader />
 
-        <h2 className="admin-sales-product-title">
-          「{productName}」<br />購入者
-        </h2>
+      <div className="admin-sales-product-page" style={{ paddingTop: 80 }}>
+        <div className="admin-sales-product-card">
+          {/* ✅ 追加：戻るボタン */}
+          <button
+            type="button"
+            className="admin-sales-product-back"
+            onClick={() => navigate(-1)}
+            aria-label="戻る"
+          >
+            ← 戻る
+          </button>
 
-        {state.startIso && state.endIso && (
-          <p className="admin-sales-product-range">
-            期間：
-            <span>
-              {formatDateJST(state.startIso)} ～{" "}
-              {formatRangeEndJST(state.endIso)}
-            </span>
-          </p>
-        )}
+          <h2 className="admin-sales-product-title">
+            「{productName}」
+            <br />
+            購入者
+          </h2>
 
-        {loading ? (
-          <p className="admin-sales-product-loading">読み込み中...</p>
-        ) : error ? (
-          <p className="admin-sales-product-error">{error}</p>
-        ) : buyers.length === 0 ? (
-          <p className="admin-sales-product-empty">
-            この期間にこの商品を購入したユーザーはいません
-          </p>
-        ) : (
-          <div className="admin-sales-product-list">
-            {buyers.map((b) => (
-              <div
-                key={b.userId}
-                className="admin-sales-product-item"
-                onClick={() => navigate(`/admin-user-detail/${b.userId}`)}
-              >
-                <p>
-                  <strong>名前：</strong> <span>{b.userName}</span>
-                </p>
-                <p>
-                  <strong>注文回数：</strong>{" "}
-                  <span>{b.orderCount.toLocaleString()} 回</span>
-                </p>
-                <p>
-                  <strong>最終購入：</strong>{" "}
-                  <span>{formatDateJST(b.lastCreatedAt)}</span>
-                </p>
-                <p>
-                  <strong>数量合計：</strong>{" "}
-                  <span>{b.totalQuantity.toLocaleString()} 個</span>
-                </p>
-                <p>
-                  <strong>合計金額：</strong>{" "}
-                  <span>{b.totalSubtotal.toLocaleString()} 円</span>
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
+          {state.startIso && state.endIso && (
+            <p className="admin-sales-product-range">
+              期間：
+              <span>
+                {formatDateJST(state.startIso)} ～ {formatRangeEndJST(state.endIso)}
+              </span>
+            </p>
+          )}
+
+          {loading ? (
+            <p className="admin-sales-product-loading">読み込み中...</p>
+          ) : error ? (
+            <p className="admin-sales-product-error">{error}</p>
+          ) : buyers.length === 0 ? (
+            <p className="admin-sales-product-empty">
+              この期間にこの商品を購入したユーザーはいません
+            </p>
+          ) : (
+            <div className="admin-sales-product-list">
+              {buyers.map((b) => (
+                <div
+                  key={b.userId}
+                  className="admin-sales-product-item"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/admin-user-detail/${b.userId}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      navigate(`/admin-user-detail/${b.userId}`);
+                    }
+                  }}
+                >
+                  <p>
+                    <strong>名前：</strong> <span>{b.userName}</span>
+                  </p>
+                  {/* ✅ 追加：メール（型にあるのに表示してなかった） */}
+                  <p>
+                    <strong>メール：</strong> <span>{b.userEmail || "(未設定)"}</span>
+                  </p>
+                  <p>
+                    <strong>注文回数：</strong>{" "}
+                    <span>{b.orderCount.toLocaleString()} 回</span>
+                  </p>
+                  <p>
+                    <strong>最終購入：</strong> <span>{formatDateJST(b.lastCreatedAt)}</span>
+                  </p>
+                  <p>
+                    <strong>数量合計：</strong>{" "}
+                    <span>{b.totalQuantity.toLocaleString()} 個</span>
+                  </p>
+                  <p>
+                    <strong>合計金額：</strong>{" "}
+                    <span>{b.totalSubtotal.toLocaleString()} 円</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

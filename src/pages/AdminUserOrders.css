@@ -1,134 +1,279 @@
-/* ================================
-   管理：ユーザー購入履歴（洗練版）
-================================ */
+:root{
+  --ink: #0f172a;
+  --muted: #64748b;
+  --card: rgba(255,255,255,0.9);
+  --line: rgba(15, 23, 42, 0.10);
+  --shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+  --shadow2: 0 12px 28px rgba(15, 23, 42, 0.12);
+  --radius: 20px;
+}
 
-.admin-orders-page {
+.admin-orders-wrap{
   min-height: 100vh;
-  padding: 40px 16px;
-  box-sizing: border-box;
-  background: radial-gradient(circle at top left, #f9fafb, #eef2ff);
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  background:
+    radial-gradient(1100px 500px at 20% -10%, rgba(99,102,241,0.14), transparent 60%),
+    radial-gradient(900px 500px at 90% 0%, rgba(59,130,246,0.12), transparent 55%),
+    linear-gradient(180deg, #f6f8ff, #eef2ff);
 }
 
-/* 中央のカード */
-.admin-orders-card {
-  width: min(480px, 100%);
-  margin: 40px auto 24px;
-  padding: 32px 24px 26px;
+/* 中央寄せ & AdminHeader分の余白 */
+.admin-orders-page{
+  flex: 1;
+  width: min(520px, 100% - 32px);
+  margin: 0 auto;
+  padding: 84px 0 46px;
   box-sizing: border-box;
-
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
-
-  position: relative;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
 }
 
-/* 戻るボタン */
-.admin-orders-back {
+/* ✅ ここが戻るボタンのために relative 必須 */
+.admin-orders-head{
+  position: relative;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+/* ✅ 戻るボタン */
+.admin-orders-back{
   position: absolute;
-  top: 16px;
-  left: 16px;
+  left: 0;
+  top: 0;
 
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  padding: 6px 14px;
-  border-radius: 999px;
   border: none;
   cursor: pointer;
 
-  background: #f3f4f6;
-  color: #111827;
-  font-size: 14px;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(15,23,42,0.10);
 
-  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+  padding: 8px 12px;
+  border-radius: 999px;
+
+  font-weight: 900;
+  color: var(--ink);
+
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
 
-/* ← はCSSで1個だけ付ける */
-.admin-orders-back::before {
-  content: "←";
-  font-size: 16px;
-}
-
-.admin-orders-back:hover {
-  background: #e5e7eb;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+.admin-orders-back:hover{
   transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+  background: rgba(255,255,255,0.92);
 }
 
-.admin-orders-back:active {
-  box-shadow: none;
+.admin-orders-back:active{
   transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
 }
 
-/* タイトル */
-.admin-orders-title {
+.admin-orders-title{
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.admin-orders-sub{
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+/* ✅ 検索 */
+.admin-orders-search{
+  position: relative;
+  width: 100%;
+  margin: 14px auto 0;
+}
+
+.admin-orders-search-input{
+  width: 100%;
+  height: 54px;
+  border-radius: 999px;
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(10px);
+
+  padding: 0 46px 0 22px;
+  font-size: 18px;
+  font-weight: 800;
+  color: rgba(30,41,59,0.92);
+
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.admin-orders-search-input::placeholder{
+  color: rgba(100,116,139,0.75);
+  font-weight: 800;
+}
+
+.admin-orders-search-input:focus{
+  border-color: rgba(99,102,241,0.45);
+  box-shadow:
+    0 18px 45px rgba(15, 23, 42, 0.14),
+    0 0 0 4px rgba(99,102,241,0.18);
+}
+
+.admin-orders-search-clear{
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(255,255,255,0.85);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 900;
+  color: rgba(30,41,59,0.75);
+}
+
+.admin-orders-count{
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-weight: 900;
+  color: rgba(100,116,139,0.9);
+}
+
+.admin-orders-state{
   text-align: center;
-  font-size: 22px;
-  font-weight: 700;
-  margin: 26px 0 22px;
-  color: #111827;
+  color: var(--muted);
+  padding: 20px 0;
+  font-weight: 800;
 }
 
-/* ローディング・空表示 */
-.admin-orders-loading,
-.admin-orders-empty {
-  text-align: center;
-  font-size: 15px;
-  color: #6b7280;
-}
-
-/* リスト全体 */
-.admin-orders-list {
-  margin-top: 6px;
+.admin-orders-list{
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 14px;
 }
 
-/* 各注文カード */
-.admin-orders-item {
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: #f9fafb;
+/* 1注文カード（クリックできる） */
+.admin-orders-card{
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow2);
+  backdrop-filter: blur(10px);
+  padding: 14px 14px;
+  text-align: left;
   cursor: pointer;
-
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.admin-orders-item:hover {
+.admin-orders-card:hover{
   transform: translateY(-2px);
-  background: #f3f4ff;
-  box-shadow: 0 16px 32px rgba(79, 70, 229, 0.25);
+  box-shadow: var(--shadow);
+  border-color: rgba(79,110,233,.25);
+  background: rgba(255,255,255,0.95);
 }
 
-.admin-orders-item:active {
+.admin-orders-card:active{
   transform: translateY(0);
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.18);
+  box-shadow: var(--shadow2);
 }
 
-/* テキスト内訳 */
-.order-id {
-  font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 4px;
+.admin-orders-card:focus{
+  outline: none;
+}
+.admin-orders-card:focus-visible{
+  outline: 3px solid rgba(99,102,241,0.35);
+  outline-offset: 2px;
 }
 
-.order-total {
+.admin-orders-card-top{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.admin-orders-id{
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.admin-orders-total{
+  flex-shrink: 0;
+  margin-left: auto;
   font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 4px;
-  color: #111827;
+  font-weight: 900;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
-.order-date {
-  font-size: 13px;
-  color: #6b7280;
-  margin: 0;
+.admin-orders-card-bottom{
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-orders-date{
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: rgba(30,41,59,0.80);
+  font-weight: 800;
+}
+
+.admin-orders-open{
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(79,110,233,.95);
+  white-space: nowrap;
+}
+
+/* ✅ スマホ微調整 */
+@media (max-width: 420px){
+  .admin-orders-page{
+    width: calc(100% - 24px);
+    padding: 78px 0 40px;
+  }
+
+  .admin-orders-back{
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+
+  .admin-orders-search-input{
+    height: 48px;
+    font-size: 16px;
+    padding: 0 42px 0 18px;
+  }
+
+  .admin-orders-title{
+    font-size: 18px;
+  }
+
+  .admin-orders-card{
+    padding: 12px 12px;
+  }
+
+  .admin-orders-total{
+    font-size: 15px;
+  }
 }

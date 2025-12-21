@@ -1,5 +1,3 @@
-/* src/pages/AdminSalesProductDetail.css */
-
 .admin-sales-product-page {
   min-height: 100vh;
   padding: 20px 16px;
@@ -39,7 +37,6 @@
   left: 14px;
   top: 14px;
 
-  /* ← ここを広めに */
   padding: 8px 18px;
   min-width: 70px;
   min-height: 40px;
@@ -65,6 +62,11 @@
   background: #e5e7eb;
   box-shadow: 0 4px 12px rgba(148, 163, 184, 0.6);
   transform: translateY(-1px);
+}
+
+.admin-sales-product-back:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(148, 163, 184, 0.45);
 }
 
 /* タイトル */
@@ -142,6 +144,7 @@
   font-size: 14px;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s;
+  cursor: pointer;
 }
 
 .admin-sales-product-item:hover {
@@ -150,7 +153,7 @@
   border-color: #c7d2fe;
 }
 
-/* ラベル＆値の見た目強弱 */
+/* ラベル＆値 */
 .admin-sales-product-item p {
   margin: 3px 0;
   display: flex;
@@ -164,23 +167,42 @@
 }
 
 /* 名前は少し太く */
-.admin-sales-product-item p:first-of-type strong + span,
 .admin-sales-product-item p:first-of-type {
   font-weight: 600;
   color: #111827;
 }
 
-/* メールは小さめ＆グレー */
+/* メールは小さめ＆グレー（2行目がメール想定） */
 .admin-sales-product-item p:nth-of-type(2) span {
   font-size: 13px;
   color: #4b5563;
   word-break: break-all;
 }
 
-/* 金額・数量を少し目立たせる */
+/* 金額・数量を少し目立たせる（末尾2つ） */
 .admin-sales-product-item p:last-of-type,
 .admin-sales-product-item p:nth-last-of-type(2) {
   margin-top: 4px;
   font-weight: 500;
   color: #111827;
+}
+
+/* ✅ スマホ微調整 */
+@media (max-width: 420px) {
+  .admin-sales-product-card {
+    padding: 20px 16px 22px;
+  }
+
+  .admin-sales-product-title {
+    font-size: 17px;
+  }
+
+  .admin-sales-product-back {
+    left: 12px;
+    top: 12px;
+    padding: 7px 14px;
+    min-width: 64px;
+    min-height: 38px;
+    font-size: 13px;
+  }
 }

@@ -1,151 +1,112 @@
-/* ================================
-   管理画面 全体レイアウト
-================================ */
+/* src/pages/AdminPage.css */
+
+/* ページ全体 */
 .admin-page {
   min-height: 100vh;
-  padding: 80px 16px 24px;   /* ヘッダー分＋下余白 */
+  padding: 80px 16px 24px; /* AdminHeader分 */
   box-sizing: border-box;
 
-  /* ほんのりグラデーション背景 */
   background: radial-gradient(circle at top,
     #f9fbff 0%,
     #edf2ff 45%,
     #f5f5f8 100%);
 }
 
-/* ================================
-   固定ヘッダー
-================================ */
-.admin-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 60px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-  z-index: 100;
+/* タイトル＋右ボタン */
+.admin-page-head{
+  max-width: 1200px;
+  margin: 0 auto 10px;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-/* 戻るボタン（←はTSX側のテキストで1個だけ） */
-.admin-back {
-  position: absolute;
-  left: 16px;
-
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: none;
-
-  font-size: 14px;
-  color: #111827;
-  background: #f3f4f6;
-  cursor: pointer;
-
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-  transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
-}
-
-.admin-back:hover {
-  background: #e5e7eb;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
-}
-
-/* 追加ボタン（ヘッダー右） */
-.admin-add {
-  position: absolute;
-  right: 16px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-
-  font-size: 14px;
-  font-weight: 600;
-  color: #ffffff;
-
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.35);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
-}
-
-.admin-add:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.45);
-  opacity: 0.96;
-}
-
-.admin-add:active {
-  transform: translateY(0);
-  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.3);
-}
-
-/* タイトル */
 .admin-title {
   margin: 0;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.03em;
   color: #111827;
 }
 
-/* ================================
-   商品グリッド
-================================ */
+.admin-page-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap: wrap;
+}
+
+.admin-action{
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #fff;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.admin-action.ghost{
+  background: transparent;
+  box-shadow: none;
+}
+
+.admin-action.primary{
+  border: none;
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.35);
+}
+
+.admin-action:active{
+  transform: translateY(1px);
+}
+
+/* 並び替えボタン行（旧：margin-top 70 は削除） */
+.admin-sort-row {
+  max-width: 1200px;
+  margin: 6px auto 12px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.admin-sort-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.admin-sort-btn:hover { background: #eef2ff; }
+
+.admin-sort-btn.active {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+
+/* 商品グリッド */
 .admin-list {
-  margin-top: 14px;
+  max-width: 1200px;
+  margin: 0 auto;
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(2, 1fr);   /* 📱 初期：2列 */
+  grid-template-columns: repeat(2, 1fr);
 }
 
-/* 📱 ちょい大きめスマホ：3列 */
-@media (min-width: 480px) {
-  .admin-list {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
+@media (min-width: 480px) { .admin-list { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 768px) { .admin-list { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1024px){ .admin-list { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 1400px){ .admin-list { grid-template-columns: repeat(6, 1fr); } }
 
-/* 💻 小さめPC：4列 */
-@media (min-width: 768px) {
-  .admin-list {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-/* 💻 中型PC：5列 */
-@media (min-width: 1024px) {
-  .admin-list {
-    grid-template-columns: repeat(5, 1fr);
-  }
-}
-
-/* 🖥 大型PC：6列 */
-@media (min-width: 1400px) {
-  .admin-list {
-    grid-template-columns: repeat(6, 1fr);
-  }
-}
-
-/* ================================
-   商品カード
-================================ */
+/* カード */
 .admin-item {
   background: rgba(255, 255, 255, 0.96);
   border-radius: 18px;
@@ -161,7 +122,6 @@
   box-shadow: 0 14px 32px rgba(15, 23, 42, 0.10);
 }
 
-/* 商品画像 */
 .admin-item img {
   width: 100%;
   height: 120px;
@@ -170,27 +130,23 @@
   margin-bottom: 8px;
 }
 
-/* ★画像がないとき用のダミー枠 */
 .admin-no-img {
   width: 100%;
   height: 120px;
   border-radius: 14px;
   margin-bottom: 8px;
-
   background: #f3f4f6;
   color: #9ca3af;
   font-size: 12px;
-
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* 商品名・価格など */
 .admin-info h3 {
   font-size: 15px;
   margin: 4px 0 2px;
-  font-weight: 600;
+  font-weight: 700;
   color: #111827;
 }
 
@@ -200,121 +156,48 @@
   color: #6b7280;
 }
 
-/* 在庫表示まわり */
 .admin-stock-line {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 6px;
   margin-top: 4px;
+  flex-wrap: wrap;
 }
 
-.admin-stock-label {
-  font-size: 13px;
-  color: #4b5563;
-}
+.admin-stock-label { font-size: 13px; color: #4b5563; }
 
-/* バッジ共通 */
 .admin-stock-badge {
   padding: 2px 7px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.03em;
 }
 
-/* 在庫切れバッジ */
-.admin-stock-badge.soldout {
-  background: #fee2e2;
-  color: #b91c1c;
-}
+.admin-stock-badge.soldout { background: #fee2e2; color: #b91c1c; }
+.admin-stock-badge.low { background: #ffedd5; color: #c2410c; }
 
-/* 残りわずかバッジ */
-.admin-stock-badge.low {
-  background: #ffedd5;
-  color: #c2410c;
-}
+.admin-item-soldout { opacity: 0.55; border: 1px solid #fecaca; }
+.admin-item-low { border: 1px solid #fed7aa; }
 
-/* 在庫切れカード全体の見た目 */
-.admin-item-soldout {
-  opacity: 0.55;
-  border: 1px solid #fecaca;
-}
-
-/* 残りわずかカードの枠色 */
-.admin-item-low {
-  border: 1px solid #fed7aa;
-}
-
-/* 並び替えボタン行 */
-.admin-sort-row {
-  margin-top: 70px;            /* ヘッダーの下に少し余白 */
-  margin-bottom: 10px;
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* 並び替えボタン */
-.admin-sort-btn {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4b5563;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
-}
-
-.admin-sort-btn:hover {
-  background: #eef2ff;
-}
-
-/* 選択中 */
-.admin-sort-btn.active {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  color: #ffffff;
-  border-color: transparent;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
-}
-
-/* ================================
-   表示 / 非表示 ボタン
-================================ */
 .admin-visible-btn {
-  margin-left: auto;                 /* 右寄せ */
+  margin-left: auto;
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.35);
-
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-
+  font-weight: 800;
   cursor: pointer;
   user-select: none;
-
   background: rgba(255, 255, 255, 0.9);
   color: #334155;
-
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease,
-    background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
 }
 
-.admin-visible-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
-}
+.admin-visible-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12); }
 
-.admin-visible-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 3px 9px rgba(15, 23, 42, 0.1);
-}
-
-/* 表示中（ON） */
 .admin-visible-btn.on {
   background: linear-gradient(135deg, #10b981, #34d399);
   color: #ffffff;
@@ -322,18 +205,9 @@
   box-shadow: 0 8px 18px rgba(16, 185, 129, 0.35);
 }
 
-/* 非表示（OFF） */
 .admin-visible-btn.off {
   background: linear-gradient(135deg, #94a3b8, #cbd5e1);
   color: #0f172a;
   border-color: transparent;
   box-shadow: 0 8px 18px rgba(148, 163, 184, 0.35);
-}
-
-/* 文字が詰まるの防止（スマホ向け） */
-@media (max-width: 360px) {
-  .admin-visible-btn {
-    padding: 6px 8px;
-    font-size: 10px;
-  }
 }
