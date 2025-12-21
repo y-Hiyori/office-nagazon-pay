@@ -18,15 +18,9 @@ function Contact() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
-  // ✅ honeypot（画面には出さない）
-  const [hp, setHp] = useState("");
-
   useEffect(() => {
     const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile, error } = await supabase
@@ -40,38 +34,16 @@ function Contact() {
         if (profile.email) setEmail(profile.email);
       }
     };
-
     load();
   }, []);
 
-  const isValidEmail = (v: string) => {
-    const s = v.trim();
-    return s.includes("@") && s.length <= 254;
-  };
-
   const handleClickSend = () => {
-    if (!name.trim() || !email.trim() || !subject.trim() || !detail.trim()) {
+    if (!name || !email || !subject || !detail) {
       alert("名前・メールアドレス・用件・詳細をすべて入力してください。");
-      return;
-    }
-    if (!isValidEmail(email)) {
-      alert("メールアドレスの形式が正しくありません。");
-      return;
-    }
-    if (subject.trim().length > 120) {
-      alert("用件は120文字以内で入力してください。");
       return;
     }
     if (detail.trim().length < 10) {
       alert("詳細は10文字以上で入力してください。");
-      return;
-    }
-    if (detail.trim().length > 4000) {
-      alert("詳細は4000文字以内で入力してください。");
-      return;
-    }
-    if (orderId.trim().length > 100) {
-      alert("注文IDは100文字以内で入力してください。");
       return;
     }
     setShowConfirm(true);
@@ -82,23 +54,22 @@ function Contact() {
     setIsSending(true);
 
     try {
-      const r = await fetch("/api/send-contact-email", {
+      const res = await fetch("/api/send-contact-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contact_name: name.trim(),
-          contact_email: email.trim(),
-          contact_subject: subject.trim(),
-          contact_message: detail.trim(),
-          contact_order_id: orderId.trim() || "（未入力）",
-          hp, // honeypot
+          contact_name: name,
+          contact_email: email,
+          contact_subject: subject,
+          contact_message: detail,
+          contact_order_id: orderId || "（未入力）",
+          hp: "", // honeypot
         }),
       });
 
-      const json = await r.json().catch(() => null);
-
-      if (!r.ok) {
-        console.error("contact api error:", r.status, json);
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        console.error("send-contact-email failed:", res.status, txt);
         alert("送信に失敗しました。時間をおいて再度お試しください。");
         return;
       }
@@ -129,12 +100,6 @@ function Contact() {
         </div>
 
         <div className="contact-card">
-          {/* ✅ honeypot（見えないフィールド） */}
-          <div style={{ position: "absolute", left: "-10000px", top: "auto" }} aria-hidden="true">
-            <label>Leave this field empty</label>
-            <input value={hp} onChange={(e) => setHp(e.target.value)} tabIndex={-1} />
-          </div>
-
           <div className="contact-field">
             <label>お名前</label>
             <input
@@ -142,7 +107,6 @@ function Contact() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="山田 太郎"
-              maxLength={80}
             />
           </div>
 
@@ -153,7 +117,6 @@ function Contact() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="example@example.com"
-              maxLength={254}
             />
           </div>
 
@@ -164,7 +127,6 @@ function Contact() {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="購入時、支払い時のトラブルなど"
-              maxLength={120}
             />
           </div>
 
@@ -175,7 +137,6 @@ function Contact() {
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
               placeholder="例: 9b5d3024-xxxx... （わかれば）"
-              maxLength={100}
             />
           </div>
 
@@ -186,7 +147,6 @@ function Contact() {
               onChange={(e) => setDetail(e.target.value)}
               rows={6}
               placeholder="お問い合わせの内容を詳しくご記入ください。"
-              maxLength={4000}
             />
           </div>
 
@@ -199,7 +159,6 @@ function Contact() {
           </button>
         </div>
 
-        {/* 確認モーダル */}
         {showConfirm && (
           <div className="contact-modal-overlay">
             <div className="contact-modal">

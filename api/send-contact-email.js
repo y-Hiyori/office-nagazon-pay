@@ -1,97 +1,122 @@
 // api/send-contact-email.js
+
+const ALLOWED_ORIGINS = new Set([
+  "https://office-nagazon-pay.vercel.app",
+  // 独自ドメイン使うならここにも追加
+]);
+
+const MAX_LEN = {
+  name: 60,
+  email: 120,
+  subject: 120,
+  message: 2000,
+  orderId: 120,
+};
+
+// 簡易レート制限（ベストエフォート：サーバレスなので完璧ではない）
+const rateMap = new Map(); // key: ip, value: { count, resetAt }
+function rateLimit(ip) {
+  const now = Date.now();
+  const windowMs = 60_000; // 1分
+  const limit = 10; // 1分10回まで
+
+  const cur = rateMap.get(ip);
+  if (!cur || now > cur.resetAt) {
+    rateMap.set(ip, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (cur.count >= limit) return false;
+  cur.count += 1;
+  return true;
+}
+
+function safeStr(v) {
+  return String(v ?? "").trim();
+}
+
+function isEmail(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
 export default async function handler(req, res) {
-  // CORS（必要なら）
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // CORS
+  const origin = req.headers.origin || "";
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  } else {
+    // 直叩き curl でも動くように（必要なら * を外してOK）
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
 
   try {
-    const {
-      contact_name,
-      contact_email,
-      contact_subject,
-      contact_message,
-      contact_order_id,
-      // honeypot（空じゃなければBOT扱い）
-      hp,
-    } = req.body ?? {};
+    // IP
+    const xff = req.headers["x-forwarded-for"];
+    const ip = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim() || "unknown";
 
-    // ✅ honeypot
-    if (typeof hp === "string" && hp.trim().length > 0) {
-      return res.status(200).json({ ok: true }); // BOTには成功に見せる
+    if (!rateLimit(ip)) {
+      return res.status(429).json({ error: "too_many_requests" });
     }
 
-    // ✅ 入力チェック（最低限）
-    const name = String(contact_name ?? "").trim();
-    const email = String(contact_email ?? "").trim();
-    const subject = String(contact_subject ?? "").trim();
-    const message = String(contact_message ?? "").trim();
-    const orderId = String(contact_order_id ?? "").trim();
+    const contact_name = safeStr(req.body?.contact_name);
+    const contact_email = safeStr(req.body?.contact_email).toLowerCase();
+    const contact_subject = safeStr(req.body?.contact_subject);
+    const contact_message = safeStr(req.body?.contact_message);
+    const contact_order_id = safeStr(req.body?.contact_order_id || "（未入力）");
 
-    if (!name || !email || !subject || !message) {
+    // honeypot（bot対策）
+    const hp = safeStr(req.body?.hp);
+    if (hp) {
+      return res.status(200).json({ ok: true }); // botは成功に見せて静かに捨てる
+    }
+
+    // バリデーション
+    if (!contact_name || !contact_email || !contact_subject || !contact_message) {
       return res.status(400).json({ error: "missing_fields" });
     }
-
-    if (!email.includes("@") || email.length > 254) {
+    if (!isEmail(contact_email)) {
       return res.status(400).json({ error: "invalid_email" });
     }
-
-    if (subject.length > 120) {
-      return res.status(400).json({ error: "subject_too_long" });
-    }
-
-    if (message.length < 10) {
+    if (contact_message.length < 10) {
       return res.status(400).json({ error: "message_too_short" });
     }
 
-    if (message.length > 4000) {
-      return res.status(400).json({ error: "message_too_long" });
-    }
+    // 長さ制限
+    if (contact_name.length > MAX_LEN.name) return res.status(400).json({ error: "name_too_long" });
+    if (contact_email.length > MAX_LEN.email) return res.status(400).json({ error: "email_too_long" });
+    if (contact_subject.length > MAX_LEN.subject) return res.status(400).json({ error: "subject_too_long" });
+    if (contact_message.length > MAX_LEN.message) return res.status(400).json({ error: "message_too_long" });
+    if (contact_order_id.length > MAX_LEN.orderId) return res.status(400).json({ error: "order_id_too_long" });
 
-    if (orderId.length > 100) {
-      return res.status(400).json({ error: "order_id_too_long" });
-    }
-
-    // ✅ 簡易レート制限（IP単位：超簡易。サーバレスなので強くはないけど無いよりマシ）
-    // Vercel/Proxy経由
-    const ip =
-      (req.headers["x-forwarded-for"] || "").toString().split(",")[0].trim() ||
-      req.socket?.remoteAddress ||
-      "unknown";
-
-    // 乱暴だけど「同一IPから短時間に連打」を少し抑える（メモリに残らない環境では弱い）
-    // ここは本気ならUpstash等に移すのがベスト。今回は“手軽に”の範囲。
-    // → なので「スパム完全防止」ではなく「事故予防」。
-    // eslint-disable-next-line no-unused-vars
-    const _ip = ip;
-
-    // ✅ EmailJS（サーバー側Env）
+    // Env（Vercelの環境変数に入れる）
     const serviceId = process.env.EMAILJS_SERVICE_ID;
-    const templateId = process.env.EMAILJS_CONTACT_TEMPLATE_ID; // ← お問い合わせ用テンプレIDを別で用意推奨
+    const templateId = process.env.EMAILJS_CONTACT_TEMPLATE_ID; // ★問い合わせ用テンプレ
     const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-    const privateKey = process.env.EMAILJS_PRIVATE_KEY; // あれば
+    const privateKey = process.env.EMAILJS_PRIVATE_KEY; // EmailJSのPrivate key(Access Token)
 
-    if (!serviceId || !templateId || !publicKey) {
+    if (!serviceId || !templateId || !publicKey || !privateKey) {
       return res.status(500).json({ error: "emailjs_env_missing" });
     }
 
+    // 送信先は「テンプレ側」or ここで固定（テンプレ推奨）
     const payload = {
       service_id: serviceId,
       template_id: templateId,
       user_id: publicKey,
-      ...(privateKey ? { accessToken: privateKey } : {}),
+      accessToken: privateKey,
       template_params: {
-        contact_name: name,
-        contact_email: email,
-        contact_subject: subject,
-        contact_message: message,
-        contact_order_id: orderId || "（未入力）",
-        // 参考情報（テンプレに使いたければ）
-        sender_ip: ip,
+        contact_name,
+        contact_email,
+        contact_subject,
+        contact_message,
+        contact_order_id,
+        // ここで ip も渡せる（テンプレに項目作るなら）
+        contact_ip: ip,
       },
     };
 
