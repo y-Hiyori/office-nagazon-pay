@@ -15,12 +15,17 @@ function Contact() {
   const [detail, setDetail] = useState("");
   const [orderId, setOrderId] = useState("");
 
+  // honeypot（通常ユーザーは触らない）
+  const [hp, setHp] = useState("");
+
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile, error } = await supabase
@@ -58,18 +63,19 @@ function Contact() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contact_name: name,
-          contact_email: email,
-          contact_subject: subject,
-          contact_message: detail,
-          contact_order_id: orderId || "（未入力）",
-          hp: "", // honeypot
+          contact_name: name.trim(),
+          contact_email: email.trim(),
+          contact_subject: subject.trim(),
+          contact_message: detail.trim(),
+          contact_order_id: orderId.trim() || "（未入力）",
+          hp, // ✅ honeypot
         }),
       });
 
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        console.error("send-contact-email failed:", res.status, txt);
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.ok) {
+        console.error("send-contact-email failed:", res.status, json);
         alert("送信に失敗しました。時間をおいて再度お試しください。");
         return;
       }
@@ -80,6 +86,7 @@ function Contact() {
       setSubject("");
       setDetail("");
       setOrderId("");
+      setHp("");
 
       navigate("/");
     } catch (e) {
@@ -100,6 +107,16 @@ function Contact() {
         </div>
 
         <div className="contact-card">
+          {/* honeypot（CSSで隠す。display:noneでもOK） */}
+          <input
+            type="text"
+            value={hp}
+            onChange={(e) => setHp(e.target.value)}
+            autoComplete="off"
+            tabIndex={-1}
+            style={{ display: "none" }}
+          />
+
           <div className="contact-field">
             <label>お名前</label>
             <input
@@ -146,15 +163,11 @@ function Contact() {
               value={detail}
               onChange={(e) => setDetail(e.target.value)}
               rows={6}
-              placeholder="お問い合わせの内容を詳しくご記入ください。"
+              placeholder="お問い合わせの内容を詳しくご記入ください。（10文字以上）"
             />
           </div>
 
-          <button
-            className="contact-send-btn"
-            onClick={handleClickSend}
-            disabled={isSending}
-          >
+          <button className="contact-send-btn" onClick={handleClickSend} disabled={isSending}>
             {isSending ? "送信中..." : "送信"}
           </button>
         </div>
@@ -166,18 +179,10 @@ function Contact() {
               <p>入力内容を確認のうえ、「はい、送信する」を押してください。</p>
 
               <div className="contact-modal-buttons">
-                <button
-                  className="contact-modal-main"
-                  onClick={handleConfirmSend}
-                  disabled={isSending}
-                >
+                <button className="contact-modal-main" onClick={handleConfirmSend} disabled={isSending}>
                   {isSending ? "送信中..." : "はい、送信する"}
                 </button>
-                <button
-                  className="contact-modal-sub"
-                  onClick={() => setShowConfirm(false)}
-                  disabled={isSending}
-                >
+                <button className="contact-modal-sub" onClick={() => setShowConfirm(false)} disabled={isSending}>
                   戻る
                 </button>
               </div>
