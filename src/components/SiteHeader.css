@@ -1,8 +1,8 @@
 :root{
   --site-header-max: 1100px;
 
-  /* ✅ AdminHeaderの雰囲気に寄せる */
-  --site-bg: rgba(255,255,255,0.88);
+  /* ✅ ヘッダー帯を“白”に */
+  --site-bg: #ffffff;                 /* ←ここが白 */
   --site-line: rgba(15, 23, 42, 0.10);
 
   --site-btn-bg: rgba(255,255,255,0.7);
@@ -13,7 +13,7 @@
   --shadow2: 0 18px 50px rgba(15, 23, 42, 0.22);
 }
 
-/* ヘッダー全体（AdminHeaderっぽく） */
+/* ヘッダー全体 */
 .site-header{
   position: sticky;
   top: 0;
@@ -23,7 +23,7 @@
 /* 60px固定の行 */
 .site-header-row{
   height: 60px;
-  background: var(--site-bg);
+  background: #ffffff;                 /* ✅ 確実に白 */
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--site-line);
 }
@@ -40,11 +40,11 @@
   align-items: center;
 }
 
-/* ✅ ロゴを“ガチ中央”に固定するレイアウト */
+/* ✅ ロゴを“ガチ中央”に固定 */
 .site-header-grid{
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr auto 1fr; /* ←これが重要 */
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 12px;
 }
@@ -64,7 +64,7 @@
   display: block;
 }
 
-/* 三本線（AdminHeader寄せ：丸ボタン） */
+/* 三本線（丸） */
 .site-header-burger{
   justify-self: start;
 
@@ -99,7 +99,7 @@
   outline-offset: 2px;
 }
 
-/* 右側：カート/アカウント（四角のまま） */
+/* 右側：カート/アカウント（四角） */
 .site-header-actions{
   justify-self: end;
   display: flex;
@@ -107,7 +107,6 @@
   gap: 10px;
 }
 
-/* ✅ 四角のまま（丸にしない） */
 .site-header-iconbtn{
   width: 44px;
   height: 44px;
@@ -117,7 +116,7 @@
   justify-content: center;
 
   border: 1px solid rgba(15,23,42,0.10);
-  border-radius: 12px; /* 四角 */
+  border-radius: 12px;
   background: rgba(255,255,255,0.85);
   box-shadow: var(--shadow1);
 
@@ -128,7 +127,7 @@
 }
 
 /* ==============
-   ドロワー（AdminHeaderと同じ設計）
+   ドロワー
 ============== */
 .site-drawer-overlay{
   position: fixed;
@@ -141,14 +140,12 @@
   justify-content: flex-start;
 }
 
-/* ✅ ×の基準箱（ここ基準で右上ピタ） */
 .site-drawer-shell{
   position: relative;
   width: min(320px, 86vw);
   height: 100%;
 }
 
-/* ドロワー本体 */
 .site-drawer{
   width: 100%;
   height: 100%;
@@ -160,7 +157,6 @@
   box-sizing: border-box;
 }
 
-/* ✅ ×：右上ピタ（背景透明） */
 .site-drawer-close{
   position: absolute;
   top: 10px;
@@ -188,12 +184,11 @@
   transform: scale(0.95);
 }
 
-/* メニュー */
 .site-drawer-nav{
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 64px; /* ×と被らない */
+  padding-top: 64px;
 }
 
 .site-drawer-item{
