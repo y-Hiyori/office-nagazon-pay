@@ -1,6 +1,5 @@
 // api/send-contact-email.js
 export default async function handler(req, res) {
-  // CORS（必要なら Origin を絞ってもOK）
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -16,35 +15,31 @@ export default async function handler(req, res) {
       contact_subject,
       contact_message,
       contact_order_id,
-      hp, // honeypot（フォームに隠し項目で入れてるやつ）
+      hp,
     } = req.body ?? {};
 
-    // スパム対策：honeypot が埋まってたら弾く
+    // honeypot（スパム対策）
     if (hp) return res.status(200).json({ ok: true });
 
-    // バリデーション（最低限）
-    if (
-      !contact_name ||
-      !contact_email ||
-      !contact_subject ||
-      !contact_message
-    ) {
+    if (!contact_name || !contact_email || !contact_subject || !contact_message) {
       return res.status(400).json({ error: "missing_fields" });
     }
 
-    const msg = String(contact_message);
+    const msg = String(contact_message ?? "");
     if (msg.trim().length < 10) {
       return res.status(400).json({ error: "message_too_short" });
     }
 
     const serviceId = process.env.EMAILJS_SERVICE_ID;
-    // ✅ ここがB：CONTACTが無ければ TEMPLATE_ID を使う
     const templateId =
       process.env.EMAILJS_CONTACT_TEMPLATE_ID ?? process.env.EMAILJS_TEMPLATE_ID;
     const publicKey = process.env.EMAILJS_PUBLIC_KEY;
     const privateKey = process.env.EMAILJS_PRIVATE_KEY;
 
-    if (!serviceId || !templateId || !publicKey) {
+    // ★ 管理者宛先（これが無いと recipients empty になる）
+    const toEmail = process.env.CONTACT_TO_EMAIL;
+
+    if (!serviceId || !templateId || !publicKey || !toEmail) {
       return res.status(500).json({ error: "emailjs_env_missing" });
     }
 
@@ -54,6 +49,8 @@ export default async function handler(req, res) {
       user_id: publicKey,
       ...(privateKey ? { accessToken: privateKey } : {}),
       template_params: {
+        to_email: toEmail,                 // ✅ 宛先（管理者）
+        reply_to: contact_email,           // ✅ 返信先（ユーザー）
         contact_name,
         contact_email,
         contact_subject,
@@ -69,11 +66,7 @@ export default async function handler(req, res) {
     });
 
     const text = await r.text();
-    if (!r.ok) {
-      return res
-        .status(r.status)
-        .json({ error: "emailjs_failed", detail: text });
-    }
+    if (!r.ok) return res.status(422).json({ error: "emailjs_failed", detail: text });
 
     return res.status(200).json({ ok: true });
   } catch (e) {
