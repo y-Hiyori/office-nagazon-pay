@@ -78,94 +78,94 @@ function Checkout() {
     load();
   }, [navigate]);
 
- // ✅ Supabaseクーポン適用（円/％ 両対応：discount_value版）
-const applyCoupon = async () => {
-  const code = couponCode.trim().toUpperCase();
-  setCouponMsg("");
+  // ✅ Supabaseクーポン適用（円/％ 両対応：discount_value版）
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    setCouponMsg("");
 
-  if (!code) {
-    clearCoupon();
-    setCouponMsg("クーポンコードを入力してください。");
-    return;
-  }
+    if (!code) {
+      clearCoupon();
+      setCouponMsg("クーポンコードを入力してください。");
+      return;
+    }
 
-  const nowIso = new Date().toISOString();
+    const nowIso = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("coupons")
-    .select(
-      "code, discount_type, discount_value, max_discount_yen, min_subtotal, is_active, starts_at, ends_at, usage_limit, used_count"
-    )
-    .eq("code", code)
-    .maybeSingle();
+    const { data, error } = await supabase
+      .from("coupons")
+      .select(
+        "code, discount_type, discount_value, max_discount_yen, min_subtotal, is_active, starts_at, ends_at, usage_limit, used_count"
+      )
+      .eq("code", code)
+      .maybeSingle();
 
-  if (error) {
-    console.error("coupon load error:", error);
-    clearCoupon();
-    setCouponMsg("クーポン確認に失敗しました。");
-    return;
-  }
+    if (error) {
+      console.error("coupon load error:", error);
+      clearCoupon();
+      setCouponMsg("クーポン確認に失敗しました。");
+      return;
+    }
 
-  if (!data || !data.is_active) {
-    clearCoupon();
-    setCouponMsg("このクーポンは使えません。");
-    return;
-  }
+    if (!data || !data.is_active) {
+      clearCoupon();
+      setCouponMsg("このクーポンは使えません。");
+      return;
+    }
 
-  // 期間
-  if (data.starts_at && nowIso < data.starts_at) {
-    clearCoupon();
-    setCouponMsg("このクーポンはまだ使えません。");
-    return;
-  }
-  if (data.ends_at && nowIso > data.ends_at) {
-    clearCoupon();
-    setCouponMsg("このクーポンは期限切れです。");
-    return;
-  }
+    // 期間
+    if (data.starts_at && nowIso < data.starts_at) {
+      clearCoupon();
+      setCouponMsg("このクーポンはまだ使えません。");
+      return;
+    }
+    if (data.ends_at && nowIso > data.ends_at) {
+      clearCoupon();
+      setCouponMsg("このクーポンは期限切れです。");
+      return;
+    }
 
-  // 最低購入金額
-  if (data.min_subtotal != null && subtotal < data.min_subtotal) {
-    clearCoupon();
-    setCouponMsg(`小計${formatPrice(data.min_subtotal)}円以上で使えます。`);
-    return;
-  }
+    // 最低購入金額
+    if (data.min_subtotal != null && subtotal < data.min_subtotal) {
+      clearCoupon();
+      setCouponMsg(`小計${formatPrice(data.min_subtotal)}円以上で使えます。`);
+      return;
+    }
 
-  // 回数制限
-  if (data.usage_limit != null && (data.used_count ?? 0) >= data.usage_limit) {
-    clearCoupon();
-    setCouponMsg("このクーポンは上限回数に達しました。");
-    return;
-  }
+    // 回数制限
+    if (data.usage_limit != null && (data.used_count ?? 0) >= data.usage_limit) {
+      clearCoupon();
+      setCouponMsg("このクーポンは上限回数に達しました。");
+      return;
+    }
 
-  // 値引き計算（％ or 円）
-  let discount = 0;
-  const v = Number(data.discount_value ?? 0);
+    // 値引き計算（％ or 円）
+    let discount = 0;
+    const v = Number(data.discount_value ?? 0);
 
-  if ((data.discount_type ?? "yen") === "percent") {
-    discount = Math.floor((subtotal * v) / 100); // 端数切り捨て
-  } else {
-    discount = v;
-  }
+    if ((data.discount_type ?? "yen") === "percent") {
+      discount = Math.floor((subtotal * v) / 100);
+    } else {
+      discount = v;
+    }
 
-  // 上限（任意）
-  if (data.max_discount_yen != null) {
-    discount = Math.min(discount, Number(data.max_discount_yen));
-  }
+    // 上限（任意）
+    if (data.max_discount_yen != null) {
+      discount = Math.min(discount, Number(data.max_discount_yen));
+    }
 
-  // 小計を超えない
-  discount = Math.min(discount, subtotal);
+    // 小計を超えない
+    discount = Math.min(discount, subtotal);
 
-  if (discount <= 0) {
-    clearCoupon();
-    setCouponMsg("このクーポンは使えません。");
-    return;
-  }
+    if (discount <= 0) {
+      clearCoupon();
+      setCouponMsg("このクーポンは使えません。");
+      return;
+    }
 
-  setDiscountYen(discount);
-  setAppliedCoupon(data.code);
-  setCouponMsg(`クーポン適用：-${formatPrice(discount)}円`);
-};
+    setDiscountYen(discount);
+    setAppliedCoupon(data.code);
+    setCouponMsg(`クーポン適用：-${formatPrice(discount)}円`);
+  };
 
   // ✅ 解除（完全クリア）
   const clearCoupon = () => {
@@ -204,10 +204,11 @@ const applyCoupon = async () => {
       return;
     }
 
+    let redirecting = false;
+
     try {
       setIsProcessing(true);
 
-      // ユーザー取得（0円でも必要）
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -215,11 +216,9 @@ const applyCoupon = async () => {
       if (!user) {
         alert("ログインしてください");
         navigate("/login");
-        setIsProcessing(false);
         return;
       }
 
-      // items整形（orders保存にもPayPayにも使う）
       const itemsForStorage: StoredItem[] = items.map((item) => ({
         productId: item.product.id,
         name: item.product.name,
@@ -228,9 +227,8 @@ const applyCoupon = async () => {
         stock: Number(item.product.stock ?? 0),
       }));
 
-      // ✅ 0円ならPayPayに行かず、DB保存→在庫減算→カートクリア→遷移
+      // ✅ 0円：PayPayに行かずDB保存→在庫減算→メール→完了へ
       if (payableTotal === 0) {
-        // 1) orders 作成（ordersのカラムに合わせて必要最低限だけ）
         const { data: orderRow, error: orderErr } = await supabase
           .from("orders")
           .insert({
@@ -246,11 +244,9 @@ const applyCoupon = async () => {
         if (orderErr || !orderRow) {
           console.error(orderErr);
           alert("注文の作成に失敗しました");
-          setIsProcessing(false);
           return;
         }
 
-        // 2) order_items 作成
         const orderItemsPayload = itemsForStorage.map((it) => ({
           order_id: orderRow.id,
           product_id: Number(it.productId),
@@ -266,11 +262,10 @@ const applyCoupon = async () => {
         if (itemsErr) {
           console.error(itemsErr);
           alert("注文商品の保存に失敗しました");
-          setIsProcessing(false);
           return;
         }
 
-                // 3) 在庫減算（RLSで失敗する場合あり）
+        // ✅ 在庫チェック→減算（不足なら止める）
         for (const it of itemsForStorage) {
           const { data: pRow, error: pErr } = await supabase
             .from("products")
@@ -281,88 +276,81 @@ const applyCoupon = async () => {
           if (pErr || !pRow) {
             console.error(pErr);
             alert("在庫確認に失敗しました");
-            setIsProcessing(false);
             return;
           }
 
           const currentStock = Number(pRow.stock ?? 0);
-          const nextStock = Math.max(currentStock - it.quantity, 0);
+
+          if (currentStock < it.quantity) {
+            alert(`在庫が足りません：${it.name}`);
+            return;
+          }
 
           const { error: updErr } = await supabase
             .from("products")
-            .update({ stock: nextStock })
+            .update({ stock: currentStock - it.quantity })
             .eq("id", Number(it.productId));
 
           if (updErr) {
             console.error(updErr);
             alert("在庫更新に失敗しました");
-            setIsProcessing(false);
             return;
           }
         }
 
-        // ✅ 0円でも購入者メール送信（失敗しても購入は成功させる）
-try {
-  let buyerName = "(名前未設定)";
-  const { data: profile, error: profError } = await supabase
-    .from("profiles")
-    .select("name")
-    .eq("id", user.id)
-    .single();
-  if (!profError && profile?.name) buyerName = profile.name;
+        // ✅ 0円でも購入者メール送信（失敗しても購入は成功）
+        try {
+          let buyerName = "(名前未設定)";
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", user.id)
+            .single();
+          if (profile?.name) buyerName = profile.name;
 
-  const itemsText = itemsForStorage
-    .map(
-      (i) =>
-        `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
-    )
-    .join("\n");
+          const itemsText = itemsForStorage
+            .map(
+              (i) =>
+                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
+            )
+            .join("\n");
 
-  const apiBase = import.meta.env.DEV
-    ? "https://office-nagazon-pay.vercel.app"
-    : "";
+          const toEmail = user.email ?? "";
+          if (toEmail) {
+            await fetch("/api/send-admin-order-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId: orderRow.id,
+                buyerName,
+                itemsText,
+                totalText: `0円（クーポン${appliedCoupon ? `:${appliedCoupon}` : ""} -${formatPrice(discountYen)}円）`,
+                to_email: toEmail,
+              }),
+            });
+          } else {
+            console.warn("購入者メールが取得できないため、メール送信をスキップしました");
+          }
+        } catch (e) {
+          console.error("0円購入の購入者メール送信に失敗:", e);
+        }
 
-  const toEmail = user.email ?? "";
-  if (toEmail) {
-    await fetch(`${apiBase}/api/send-admin-order-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orderId: orderRow.id,
-        buyerName,
-        itemsText,
-        totalText: `0円（クーポン${appliedCoupon ? `:${appliedCoupon}` : ""} -${formatPrice(discountYen)}円）`,
-        to_email: toEmail,
-      }),
-    });
-  } else {
-    console.warn("購入者メールが取得できないため、メール送信をスキップしました");
-  }
-} catch (e) {
-  console.error("0円購入の購入者メール送信に失敗:", e);
-}
-
-        // 4) カートクリア
         if (!buyNow && typeof (cart as any).clearCart === "function") {
           (cart as any).clearCart();
         }
 
         alert("購入が完了しました。");
-
-// ✅ PayPayと同じ「購入完了」へ（注文IDを渡す）
-navigate(`/purchase-complete/${orderRow.id}`, { replace: true });
-
-setIsProcessing(false);
-return;
-      }
-
-      // ✅ 0円じゃない → いつも通りPayPayへ
-      if (method !== "paypay") {
-        alert("支払い方法を選択してください");
-        setIsProcessing(false);
+        navigate(`/purchase-complete/${orderRow.id}`, { replace: true });
         return;
       }
 
+      // ✅ PayPayへ
+      if (method !== "paypay") {
+        alert("支払い方法を選択してください");
+        return;
+      }
+
+      // 先にセッション保存（戻ってきたとき使う）
       sessionStorage.setItem(
         "paypayCheckout",
         JSON.stringify({
@@ -374,22 +362,28 @@ return;
         })
       );
 
-      const apiBase = import.meta.env.DEV
-        ? "https://office-nagazon-pay.vercel.app"
-        : "";
-
-      const res = await fetch(`${apiBase}/api/create-paypay-order`, {
+      const res = await fetch("/api/create-paypay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ total: payableTotal }),
+        body: JSON.stringify({
+          amount: payableTotal,
+          redirectUrl: "https://office-nagazon-pay.vercel.app/paypay-return",
+        }),
       });
 
-      if (!res.ok) throw new Error("PayPay注文作成に失敗しました");
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.error("create-paypay-order failed:", res.status, errText);
+        throw new Error("PayPay注文作成に失敗しました");
+      }
 
-      const data = (await res.json()) as {
-        redirectUrl: string;
-        merchantPaymentId?: string;
-      };
+      const data = await res.json();
+      const redirectUrl = data.redirectUrl ?? data.url;
+      const merchantPaymentId = data.merchantPaymentId;
+
+      if (!redirectUrl || !merchantPaymentId) {
+        throw new Error("PayPay API response invalid");
+      }
 
       sessionStorage.setItem(
         "paypayCheckout",
@@ -399,16 +393,18 @@ return;
           coupon: appliedCoupon,
           total: payableTotal,
           items: itemsForStorage,
-          merchantPaymentId: data.merchantPaymentId,
-          redirectUrl: data.redirectUrl,
+          merchantPaymentId,
+          redirectUrl,
         })
       );
 
-      window.location.href = data.redirectUrl;
+      redirecting = true;
+      window.location.href = redirectUrl;
     } catch (e) {
       console.error(e);
       alert("決済の開始に失敗しました。時間をおいてお試しください。");
-      setIsProcessing(false);
+    } finally {
+      if (!redirecting) setIsProcessing(false);
     }
   };
 
@@ -495,9 +491,7 @@ return;
                     <div className="pay-desc">PayPayでお支払い</div>
                   </div>
                   <div className="pay-check-area">
-                    <div className="pay-check">
-                      {method === "paypay" ? "✓" : ""}
-                    </div>
+                    <div className="pay-check">{method === "paypay" ? "✓" : ""}</div>
                   </div>
                 </button>
               </div>
@@ -531,9 +525,7 @@ return;
               <div className="co-card">
                 <button
                   type="button"
-                  className={`pay-card pay-mini ${
-                    method === "paypay" ? "selected" : ""
-                  }`}
+                  className={`pay-card pay-mini ${method === "paypay" ? "selected" : ""}`}
                   onClick={() => setMethod("paypay")}
                 >
                   <div className="pay-left">
@@ -541,9 +533,7 @@ return;
                     <div className="pay-desc">PayPayでお支払い</div>
                   </div>
                   <div className="pay-check-area">
-                    <div className="pay-check">
-                      {method === "paypay" ? "✓" : ""}
-                    </div>
+                    <div className="pay-check">{method === "paypay" ? "✓" : ""}</div>
                   </div>
                 </button>
               </div>

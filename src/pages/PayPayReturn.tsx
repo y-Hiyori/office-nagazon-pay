@@ -5,11 +5,11 @@ import { supabase } from "../lib/supabase";
 import { useCart } from "../context/CartContext";
 
 type StoredItem = {
-  productId: string;
+  productId: string | number;
   name: string;
   price: number;
   quantity: number;
-  stock: number;
+  stock: number; // Checkout時点の表示用（PayPayReturnでは“現在在庫”を取り直す）
 };
 
 type CheckoutData = {
@@ -17,6 +17,10 @@ type CheckoutData = {
   items: StoredItem[];
   merchantPaymentId?: string;
   redirectUrl?: string;
+  // もしCheckoutで入れてるなら持っててもOK（無くても動く）
+  subtotal?: number;
+  discountYen?: number;
+  coupon?: string | null;
 };
 
 function PayPayReturn() {
@@ -30,7 +34,7 @@ function PayPayReturn() {
   // ✅ StrictMode等で useEffect が2回走っても、処理は1回だけにする
   const ranRef = useRef(false);
 
-  // ✅ setTimeout を使うなら必ず掃除（途中で checkout に戻る事故の原因になる）
+  // ✅ setTimeout を使うなら必ず掃除
   const timersRef = useRef<number[]>([]);
   const setNavTimer = (fn: () => void, ms: number) => {
     const id = window.setTimeout(fn, ms);
@@ -43,8 +47,10 @@ function PayPayReturn() {
 
     const run = async () => {
       try {
-        const { data } = await supabase.auth.getUser();
-        const user = data.user;
+        // 0) ログイン確認
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
         if (!user) {
           setMessage("ログイン情報が見つかりません。もう一度ログインしてください。");
@@ -52,20 +58,29 @@ function PayPayReturn() {
           return;
         }
 
+        // 1) Checkout情報読み込み
         const raw = sessionStorage.getItem("paypayCheckout");
         if (!raw) {
-          // ✅ 勝手に checkout に飛ばさない（戻る事故防止）
           setMessage("決済情報が見つかりませんでした。");
           setShowActions(true);
           return;
         }
 
-        const dataCheckout: CheckoutData = JSON.parse(raw);
-        if (
-          !dataCheckout.total ||
-          !dataCheckout.items?.length ||
-          !dataCheckout.merchantPaymentId
-        ) {
+        let dataCheckout: CheckoutData | null = null;
+        try {
+          dataCheckout = JSON.parse(raw) as CheckoutData;
+        } catch (e) {
+          console.error("paypayCheckout JSON parse error:", e);
+          setMessage("決済情報が壊れています。");
+          setShowActions(true);
+          return;
+        }
+
+        const total = Number(dataCheckout?.total ?? 0);
+        const items = dataCheckout?.items ?? [];
+        const merchantPaymentId = dataCheckout?.merchantPaymentId;
+
+        if (!merchantPaymentId || !Array.isArray(items) || items.length === 0 || !(total > 0)) {
           setMessage("決済情報が不完全です。");
           setShowActions(true);
           return;
@@ -73,27 +88,29 @@ function PayPayReturn() {
 
         setRetryUrl(dataCheckout.redirectUrl ?? null);
 
-        const { total, items, merchantPaymentId } = dataCheckout;
-
-        // ✅ 同じ merchantPaymentId の注文が既に作られてたら、二重作成せず完了画面へ
-        const { data: existing } = await supabase
+        // 2) 既に同じ merchantPaymentId の注文が作られていたら二重作成しない
+        const { data: existing, error: existErr } = await supabase
           .from("orders")
           .select("id")
           .eq("paypay_merchant_payment_id", merchantPaymentId)
           .limit(1);
 
+        if (existErr) {
+          console.error("existing order check error:", existErr);
+          setMessage("注文状態の確認に失敗しました。店員にお知らせください。");
+          setShowActions(true);
+          return;
+        }
+
         if (existing?.[0]?.id) {
           sessionStorage.removeItem("paypayCheckout");
-          cart.clearCart();
+          if (typeof (cart as any).clearCart === "function") (cart as any).clearCart();
           navigate(`/purchase-complete/${existing[0].id}`, { replace: true });
           return;
         }
 
-        // ① PayPayに「支払い完了した？」を確認（あなたの /api/paypay-status ）
-        const apiBase = import.meta.env.DEV
-          ? "https://office-nagazon-pay.vercel.app"
-          : "";
-
+        // 3) PayPayに「支払い完了した？」を確認（/api/paypay-status）
+        const apiBase = import.meta.env.DEV ? "https://office-nagazon-pay.vercel.app" : "";
         const statusRes = await fetch(`${apiBase}/api/paypay-status`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -101,103 +118,147 @@ function PayPayReturn() {
         });
 
         if (!statusRes.ok) {
-          console.error("paypay-status error:", statusRes.status);
+          console.error("paypay-status error:", statusRes.status, await statusRes.text().catch(() => ""));
           setMessage("決済状況の確認に失敗しました。店員にお知らせください。");
+          setShowActions(true);
           return;
         }
 
         const statusJson = (await statusRes.json()) as { status?: string | null };
         const status = statusJson.status ?? null;
 
-        // ✅ 未完了なら注文を作らず、戻る or 支払いに戻る
         if (status !== "COMPLETED") {
-          setMessage("お支払いが完了していません。");
+          setMessage(`お支払いが完了していません。（状態: ${status ?? "不明"}）`);
           setShowActions(true);
           return;
         }
 
-        // ② 支払い完了した時だけ注文処理
+        // 4) 支払い完了 → 注文確定処理
         setMessage("お支払いを確認しました。注文を確定しています…");
 
+        // 4-1) 注文作成
         const { data: order, error: orderErr } = await supabase
           .from("orders")
           .insert({
             user_id: user.id,
             total,
             payment_method: "paypay",
+            merchant_payment_id: null,
             paypay_merchant_payment_id: merchantPaymentId,
           })
-          .select()
+          .select("id")
           .single();
 
         if (orderErr || !order) {
-          console.error(orderErr);
+          console.error("order insert error:", orderErr);
           setMessage("注文の登録に失敗しました。店員にお知らせください。");
+          setShowActions(true);
           return;
         }
 
-        for (const item of items) {
-          await supabase.from("order_items").insert({
-            order_id: order.id,
-            product_id: item.productId,
-            product_name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-          });
+        // 4-2) order_items（まとめてinsert）
+        const orderItemsPayload = items.map((it) => ({
+          order_id: order.id,
+          product_id: Number(it.productId),
+          product_name: it.name,
+          price: Number(it.price) || 0,
+          quantity: Number(it.quantity) || 0,
+        }));
 
-          await supabase
-            .from("products")
-            .update({ stock: item.stock - item.quantity })
-            .eq("id", item.productId);
+        const { error: itemsErr } = await supabase.from("order_items").insert(orderItemsPayload);
+
+        if (itemsErr) {
+          console.error("order_items insert error:", itemsErr);
+          setMessage("注文商品の登録に失敗しました。店員にお知らせください。");
+          setShowActions(true);
+          return;
         }
 
-        // ③ 購入者メール（完了時のみ）
-try {
-  let buyerName = "(名前未設定)";
-  const { data: profile, error: profError } = await supabase
-    .from("profiles")
-    .select("name")
-    .eq("id", user.id)
-    .single();
+        // 4-3) 在庫更新（現在在庫を取り直して不足なら止める）
+        for (const it of items) {
+          const pid = Number(it.productId);
 
-  if (!profError && profile?.name) buyerName = profile.name;
+          const { data: pRow, error: pErr } = await supabase
+            .from("products")
+            .select("stock, name")
+            .eq("id", pid)
+            .single();
 
-  const itemsText = items
-    .map(
-      (i) =>
-        `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
-    )
-    .join("\n");
+          if (pErr || !pRow) {
+            console.error("stock load error:", pErr);
+            setMessage("在庫確認に失敗しました。店員にお知らせください。");
+            setShowActions(true);
+            return;
+          }
 
-  const apiBase = import.meta.env.DEV
-    ? "https://office-nagazon-pay.vercel.app"
-    : "";
+          const currentStock = Number(pRow.stock ?? 0);
+          const qty = Number(it.quantity) || 0;
 
-  const toEmail = user.email ?? "";
-  if (toEmail) {
-    await fetch(`${apiBase}/api/send-admin-order-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orderId: order.id,
-        buyerName,
-        itemsText,
-        totalText: `${total.toLocaleString("ja-JP")}円`,
-        to_email: toEmail,
-      }),
-    });
-  } else {
-    console.warn("購入者メールが取得できないため、メール送信をスキップしました");
-  }
-} catch (e) {
-  console.error("購入者メール送信に失敗:", e);
-}
+          if (qty <= 0) continue;
 
-        // 後片付け
+          if (currentStock < qty) {
+            setMessage(`在庫が足りません：${it.name}`);
+            setShowActions(true);
+            return;
+          }
+
+          const nextStock = currentStock - qty;
+
+          const { error: updErr } = await supabase
+            .from("products")
+            .update({ stock: nextStock })
+            .eq("id", pid);
+
+          if (updErr) {
+            console.error("stock update error:", updErr);
+            setMessage("在庫更新に失敗しました。店員にお知らせください。");
+            setShowActions(true);
+            return;
+          }
+        }
+
+        // 5) 購入者メール（完了時のみ）
+        try {
+          let buyerName = "(名前未設定)";
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", user.id)
+            .single();
+          if (profile?.name) buyerName = profile.name;
+
+          const itemsText = items
+            .map(
+              (i) =>
+                `${i.name} × ${i.quantity}個（単価: ${Number(i.price || 0).toLocaleString("ja-JP")}円）`
+            )
+            .join("\n");
+
+          const toEmail = user.email ?? "";
+          if (toEmail) {
+            await fetch(`${apiBase}/api/send-admin-order-email`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId: order.id,
+                buyerName,
+                itemsText,
+                totalText: `${Number(total).toLocaleString("ja-JP")}円`,
+                to_email: toEmail,
+              }),
+            });
+          } else {
+            console.warn("購入者メールが取得できないため、メール送信をスキップしました");
+          }
+        } catch (e) {
+          console.error("購入者メール送信に失敗:", e);
+          // メール失敗しても購入は成功扱いで続行
+        }
+
+        // 6) 後片付け
         sessionStorage.removeItem("paypayCheckout");
-        cart.clearCart();
+        if (typeof (cart as any).clearCart === "function") (cart as any).clearCart();
 
-        // ✅ replace で「戻る」で戻りにくくする
         navigate(`/purchase-complete/${order.id}`, { replace: true });
       } catch (e) {
         console.error(e);
@@ -257,6 +318,8 @@ try {
               border: "none",
               fontWeight: 700,
               fontSize: "16px",
+              opacity: retryUrl ? 1 : 0.6,
+              cursor: retryUrl ? "pointer" : "not-allowed",
             }}
           >
             支払いに戻る
