@@ -265,38 +265,27 @@ function Checkout() {
           return;
         }
 
-        // ✅ 在庫チェック→減算（不足なら止める）
-        for (const it of itemsForStorage) {
-          const { data: pRow, error: pErr } = await supabase
-            .from("products")
-            .select("stock")
-            .eq("id", Number(it.productId))
-            .single();
+        // ✅ 在庫減算（不足なら止める）: RPC
+for (const it of itemsForStorage) {
+  const { error } = await supabase.rpc("decrement_stock", {
+    p_product_id: Number(it.productId),
+    p_qty: Number(it.quantity),
+  });
 
-          if (pErr || !pRow) {
-            console.error(pErr);
-            alert("在庫確認に失敗しました");
-            return;
-          }
+  if (error) {
+    console.error("decrement_stock error:", error);
 
-          const currentStock = Number(pRow.stock ?? 0);
-
-          if (currentStock < it.quantity) {
-            alert(`在庫が足りません：${it.name}`);
-            return;
-          }
-
-          const { error: updErr } = await supabase
-            .from("products")
-            .update({ stock: currentStock - it.quantity })
-            .eq("id", Number(it.productId));
-
-          if (updErr) {
-            console.error(updErr);
-            alert("在庫更新に失敗しました");
-            return;
-          }
-        }
+    // メッセージで分岐（あなたの関数は '在庫不足' を投げる）
+    if ((error.message ?? "").includes("在庫不足")) {
+      alert(`在庫が足りません：${it.name}`);
+    } else if ((error.message ?? "").includes("not authenticated")) {
+      alert("ログインが必要です");
+    } else {
+      alert("在庫更新に失敗しました");
+    }
+    return;
+  }
+}
 
         // ✅ 0円でも購入者メール送信（失敗しても購入は成功）
         try {
