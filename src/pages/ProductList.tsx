@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+// src/pages/ProductList.tsx
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./ProductList.css";
@@ -21,116 +22,161 @@ type ProductRow = {
 
 function ProductList() {
   const navigate = useNavigate();
+
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ✅ 検索
+  const [query, setQuery] = useState("");
 
   const formatPrice = (value: number | string) =>
     Number(value ?? 0).toLocaleString("ja-JP");
 
   useEffect(() => {
     const loadProducts = async () => {
+      setLoading(true);
+
+      // ✅ 列名ズレ対策：まず全部取る（安定して表示させる）
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, price, stock, created_at, is_visible")
-        .eq("is_visible", true)
-        .order("id", { ascending: true });
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("商品一覧取得エラー:", error);
+        console.error("products load error:", error);
         setProducts([]);
         setLoading(false);
         return;
       }
 
-      const rows = (data ?? []) as any[];
       const now = Date.now();
 
-      const merged: ProductRow[] = rows.map((row) => {
-        const createdAt: string | null = row.created_at ?? null;
-        const createdDate = createdAt ? new Date(createdAt) : null;
+      const rows: ProductRow[] = (data ?? []).map((p: any) => {
+        // created_at / createdAt どっちでもOKにする
+        const createdAt = p.created_at ?? p.createdAt ?? null;
 
-        const isNew =
-          createdDate != null && now - createdDate.getTime() < NEW_PERIOD_MS;
+        const isNew = createdAt
+          ? now - new Date(createdAt).getTime() <= NEW_PERIOD_MS
+          : false;
+
+        // is_visible / isVisible どっちでもOK
+        // null/undefined は「表示する」にする（全消し事故防止）
+        const isVisible = (p.is_visible ?? p.isVisible) ?? true;
 
         return {
-          id: row.id,
-          name: row.name,
-          price: row.price,
-          stock: Number(row.stock ?? 0),
-          imageData: findProductImage(row.id) ?? null,
+          id: Number(p.id),
+          name: String(p.name ?? ""),
+          price: Number(p.price ?? 0),
+          stock: Number(p.stock ?? 0),
+          imageData: p.imageData ?? findProductImage(Number(p.id)) ?? null,
           createdAt,
           isNew,
-          isVisible: Boolean(row.is_visible ?? true),
+          isVisible,
         };
       });
 
-      merged.sort((a, b) => {
-        const aSold = a.stock <= 0;
-        const bSold = b.stock <= 0;
-        if (aSold !== bSold) return aSold ? 1 : -1;
+      // ✅ 表示フラグが false のものだけ非表示（null/undefined は表示）
+      const visibleRows = rows
+  .filter((r) => r.isVisible !== false)
+  .sort((a, b) => {
+    const aSold = (a.stock ?? 0) <= 0;
+    const bSold = (b.stock ?? 0) <= 0;
 
-        const aNew = a.isNew;
-        const bNew = b.isNew;
-        if (aNew !== bNew) return aNew ? -1 : 1;
+    // ① 在庫ありを先、売り切れを後
+    if (aSold !== bSold) return aSold ? 1 : -1;
 
-        if (aNew && bNew) {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          if (aTime !== bTime) return bTime - aTime;
-        }
+    // ② 在庫あり同士なら NEW を先
+    const aNew = !!a.isNew;
+    const bNew = !!b.isNew;
+    if (aNew !== bNew) return aNew ? -1 : 1;
 
-        return a.id - b.id;
-      });
+    // ③ 同じグループ内は新しい順
+    const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bt - at;
+  });
 
-      setProducts(merged);
-      setLoading(false);
+setProducts(visibleRows);
+setLoading(false);
     };
 
     loadProducts();
   }, []);
 
-  if (loading) return <p style={{ padding: 20 }}>読み込み中...</p>;
+  // ✅ 検索で絞り込み
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => (p.name ?? "").toLowerCase().includes(q));
+  }, [products, query]);
 
   return (
     <div className="plist-page">
-      {/* ✅ 共通ヘッダーに置き換え */}
       <SiteHeader />
 
-      <div className="plist-container">
+      <main className="plist-container">
+        {/* ✅ 検索バー */}
+        <div className="plist-search">
+          <div className="plist-search-inner">
+            <span className="plist-search-icon">🔎</span>
+            <input
+              className="plist-search-input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="商品名で検索"
+            />
+            {query && (
+              <button
+                type="button"
+                className="plist-search-clear"
+                onClick={() => setQuery("")}
+                aria-label="検索をクリア"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+
         <h2 className="plist-title">商品一覧</h2>
 
-        <div className="plist-grid">
-          {products.length === 0 ? (
-            <p>商品がありません</p>
-          ) : (
-            products.map((p) => {
-              const isSoldOut = p.stock <= 0;
+        {loading ? (
+          <div className="plist-empty">読み込み中...</div>
+        ) : filtered.length === 0 ? (
+          <div className="plist-empty">該当する商品がありません</div>
+        ) : (
+          <div className="plist-grid">
+            {filtered.map((p) => {
+              const soldOut = (p.stock ?? 0) <= 0;
 
               return (
                 <div
                   key={p.id}
-                  className={`plist-card ${isSoldOut ? "sold-out" : ""}`}
-                  onClick={() => {
-                    if (!isSoldOut) navigate(`/product/${p.id}`);
-                  }}
+                  className={`plist-card ${soldOut ? "sold-out" : ""}`}
+                  onClick={() => navigate(`/products/${p.id}`)}
                 >
+                  {/* ラベル */}
+                  {soldOut ? (
+                    <div className="sold-label">SOLD OUT</div>
+                  ) : p.isNew ? (
+                    <div className="new-label">NEW</div>
+                  ) : null}
+
+                  {/* 画像 */}
                   {p.imageData ? (
                     <img src={p.imageData} alt={p.name} />
                   ) : (
-                    <div className="plist-noimg">画像なし</div>
+                    <div className="plist-noimg">No Image</div>
                   )}
 
-                  {p.isNew && !isSoldOut && <div className="new-label">NEW</div>}
-                  {isSoldOut && <div className="sold-label">SOLD OUT</div>}
-
-                  <p className="plist-name">{p.name}</p>
-                  <p className="plist-price">{formatPrice(p.price)}円</p>
+                  <div className="plist-name">{p.name}</div>
+                  <div className="plist-price">{formatPrice(p.price)}円</div>
                 </div>
               );
-            })
-          )}
-        </div>
-      </div>
+            })}
+          </div>
+        )}
+      </main>
 
       <SiteFooter />
     </div>

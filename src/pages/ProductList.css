@@ -27,6 +27,56 @@
   color: #111827;
 }
 
+.plist-empty{
+  padding: 18px 6px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* ===========================
+   検索バー
+=========================== */
+.plist-search {
+  position: sticky;
+  top: 60px;              /* ヘッダー高さに合わせて調整 */
+  z-index: 20;
+  padding: 10px 0 12px;
+  background: #f5f5f7;
+}
+
+.plist-search-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.plist-search-icon {
+  font-size: 16px;
+  opacity: 0.55;
+}
+
+.plist-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 16px; /* iPhoneズーム防止 */
+  background: transparent;
+  color: #111827;
+}
+
+.plist-search-clear {
+  border: none;
+  background: rgba(15, 23, 42, 0.06);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
 /* グリッド（PC / タブレット） */
 .plist-grid {
   display: grid;

@@ -78,3 +78,7 @@ button:focus-visible {
   ...
 }
 */
+/* iOSの入力フォーカス時ズーム防止 */
+input, textarea, select, button {
+  font-size: 16px;
+}
