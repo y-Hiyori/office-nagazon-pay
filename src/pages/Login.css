@@ -1,25 +1,39 @@
 /* ================================
-   ログイン画面（洗練デザイン）
+   Login（クリーン / AuthSelectと統一）
 ================================ */
 
-/* コンテナ */
-.login-container {
-  width: min(420px, 100% - 32px);
-  margin: 80px auto 40px;
-  padding: 32px 24px 30px;
-  box-sizing: border-box;
+:root{
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: rgba(15, 23, 42, 0.10);
 
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+  --card: rgba(255,255,255,0.92);
+  --shadow: 0 22px 60px rgba(15, 23, 42, 0.14);
 
-  position: relative;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", sans-serif;
+  --accent1: #2563eb;
+  --accent2: #3b82f6;
+  --danger: #ef4444;
 }
 
-/* ← 戻るボタン */
-.login-back {
+/* コンテナ */
+.login-container{
+  width: min(420px, 100% - 32px);
+  margin: 88px auto 46px;
+  padding: 34px 24px 26px;
+  box-sizing: border-box;
+
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94));
+  border: 1px solid rgba(15,23,42,0.08);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
+}
+
+/* 戻るボタン（AuthSelectと揃える） */
+.login-back{
   position: absolute;
   top: 16px;
   left: 16px;
@@ -28,152 +42,210 @@
   align-items: center;
   gap: 6px;
 
-  padding: 6px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
-  border: none;
+  border: 1px solid rgba(15,23,42,0.10);
 
   font-size: 14px;
-  color: #111827;
-  background: #f3f4f6;
+  font-weight: 900;
+  color: var(--ink);
+
+  background: rgba(255,255,255,0.92);
   cursor: pointer;
 
-  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
 
-/* ★ 他の共通CSSで付いている矢印を消す */
-.login-back::before {
-  content: none !important;
+/* ✅ 矢印はここで付ける（他CSSのbeforeは無視） */
+.login-back::before{
+  content: "";
+  font-size: 16px;
 }
 
-.login-back:hover {
-  background: #e5e7eb;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+.login-back:hover{
   transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+  background: rgba(255,255,255,0.98);
 }
 
-.login-back:active {
-  box-shadow: none;
+.login-back:active{
   transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+}
+
+.login-back:focus{ outline: none; }
+.login-back:focus-visible{
+  outline: 3px solid rgba(59,130,246,0.28);
+  outline-offset: 3px;
 }
 
 /* タイトル */
-.login-title {
+.login-title{
   text-align: center;
   font-size: 22px;
-  font-weight: 700;
-  margin: 26px 0 24px;  /* 戻るボタンと被らないように */
-  color: #111827;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  margin: 30px 0 18px;
+  color: var(--ink);
 }
 
 /* 入力欄 */
-.login-input {
+.login-input{
   width: 100%;
   box-sizing: border-box;
 
-  padding: 14px 16px;
+  padding: 14px 14px;
   font-size: 16px;
+  font-weight: 800;
+  color: rgba(30,41,59,0.92);
 
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(255,255,255,0.92);
 
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease,
-    background 0.15s ease;
-  margin-bottom: 14px;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  margin-bottom: 12px;
+
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
 }
 
-.login-input:focus {
-  border-color: #4f46e5;
-  background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25);
+.login-input::placeholder{
+  color: rgba(100,116,139,0.75);
+  font-weight: 800;
 }
 
-/* エラー表示 */
-.login-error {
-  color: #ef4444;
-  text-align: center;
-  font-size: 14px;
-  margin: 6px 0 8px;
+.login-input:focus{
+  border-color: rgba(59,130,246,0.55);
+  background: rgba(255,255,255,0.98);
+  box-shadow:
+    0 12px 26px rgba(15, 23, 42, 0.10),
+    0 0 0 4px rgba(59,130,246,0.18);
 }
 
-/* ログインボタン（メイン） */
-.login-button {
+/* パスワード忘れ */
+.login-forgot-row{
   width: 100%;
-  padding: 14px;
-  margin-top: 8px;
-
-  border: none;
-  border-radius: 999px;
-
-  font-size: 16px;
-  font-weight: 700;
-  color: #ffffff;
-  cursor: pointer;
-
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
-}
-
-.login-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
-  opacity: 0.97;
-}
-
-.login-button:active {
-  transform: translateY(0);
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.28);
-}
-
-/* アカウント作成ボタン（サブ） */
-.login-link {
-  width: 100%;
-  padding: 12px;
-  margin-top: 12px;
-
-  border: none;
-  border-radius: 999px;
-
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-
-  background: #f3f4f6;
-  color: #111827;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
-}
-
-.login-link:hover {
-  background: #e5e7eb;
-  transform: translateY(-1px);
-}
-
-.login-link:active {
-  transform: translateY(0);
-  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.04);
-}
-/* パスワードを忘れた方リンク（右端に小さく） */
-.login-forgot-row {
-  width: 100%;
-  margin-top: -6px;      /* パスワード入力との距離を少し詰める */
-  margin-bottom: 6px;    /* エラー文との間に少しだけ余白 */
+  margin-top: -6px;
+  margin-bottom: 10px;
   display: flex;
   justify-content: flex-end;
 }
 
-.login-forgot-link {
+.login-forgot-link{
   border: none;
   background: transparent;
   padding: 0;
+
   font-size: 13px;
-  color: #6b7280;
+  font-weight: 800;
+  color: rgba(100,116,139,0.95);
   cursor: pointer;
   text-decoration: underline;
+
+  transition: color .12s ease, opacity .12s ease;
 }
 
-.login-forgot-link:hover {
-  color: #4f46e5;
+.login-forgot-link:hover{
+  color: var(--accent1);
+  opacity: 0.95;
+}
+
+/* エラー表示（カードっぽくして見やすく） */
+.login-error{
+  margin: 10px 0 6px;
+  padding: 10px 12px;
+
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+
+  color: #b91c1c;
+  font-weight: 900;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ログインボタン（メイン） */
+.login-button{
+  width: 100%;
+  height: 54px;
+  margin-top: 6px;
+
+  border: none;
+  border-radius: 999px;
+
+  font-size: 16px;
+  font-weight: 900;
+  color: #ffffff;
+  cursor: pointer;
+
+  background: linear-gradient(135deg, var(--accent2), var(--accent1));
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.30);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+
+.login-button:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 22px 40px rgba(37, 99, 235, 0.38);
+  opacity: 0.98;
+}
+
+.login-button:active{
+  transform: translateY(0);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.26);
+  opacity: 0.92;
+}
+
+.login-button:focus{ outline: none; }
+.login-button:focus-visible{
+  outline: 3px solid rgba(59,130,246,0.28);
+  outline-offset: 3px;
+}
+
+/* 新規作成（サブ） */
+.login-link{
+  width: 100%;
+  height: 52px;
+  margin-top: 12px;
+
+  border-radius: 999px;
+  border: 1px solid rgba(15,23,42,0.12);
+
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+
+  background: rgba(255,255,255,0.96);
+  color: var(--ink);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.10);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+
+.login-link:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+}
+
+.login-link:active{
+  transform: translateY(0);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.10);
+  opacity: 0.92;
+}
+
+/* スマホ */
+@media (max-width: 420px){
+  .login-container{
+    margin: 78px auto 36px;
+    padding: 30px 18px 22px;
+  }
+  .login-button{
+    height: 50px;
+    font-size: 15px;
+  }
+  .login-link{
+    height: 48px;
+    font-size: 14px;
+  }
 }

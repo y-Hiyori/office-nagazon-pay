@@ -220,3 +220,29 @@
   outline: 3px solid rgba(99,102,241,0.35);
   outline-offset: 2px;
 }
+/* カートのバッジ用 */
+.site-header-cartbtn{
+  position: relative;
+}
+
+.site-header-badge{
+  position: absolute;
+  top: -6px;
+  right: -6px;
+
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 18px;
+  text-align: center;
+
+  border: 2px solid rgba(255,255,255,0.9);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+}

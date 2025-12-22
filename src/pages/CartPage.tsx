@@ -14,6 +14,11 @@ function CartPage() {
   const formatPrice = (value: number | string) =>
     Number(value || 0).toLocaleString("ja-JP");
 
+  const goDetail = (productId: string | number) => {
+    // ✅ 正式ルートに統一
+    navigate(`/products/${productId}`);
+  };
+
   return (
     <div className="cart-page">
       <SiteHeader />
@@ -32,8 +37,12 @@ function CartPage() {
                 <div key={item.id} className="cart-item">
                   <div
                     className="cart-img"
-                    onClick={() => navigate(`/product/${item.id}`)}
+                    onClick={() => goDetail(item.id)}
                     role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") goDetail(item.id);
+                    }}
                   >
                     {item.product.imageData ? (
                       <img src={item.product.imageData} alt={item.product.name} />
@@ -44,8 +53,12 @@ function CartPage() {
 
                   <div
                     className="cart-info"
-                    onClick={() => navigate(`/product/${item.id}`)}
+                    onClick={() => goDetail(item.id)}
                     role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") goDetail(item.id);
+                    }}
                   >
                     <p className="name">{item.product.name}</p>
                     <p className="price">

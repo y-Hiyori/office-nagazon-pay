@@ -12,9 +12,6 @@ type OrderRow = {
   user_id?: string | null;
   total?: number | null;
   created_at?: string | null;
-
-  coupon_code?: string | null;
-  discount_amount?: number | null;
   subtotal?: number | null;
 };
 
@@ -41,11 +38,6 @@ function OrderDetail() {
   const toNumber = (v: any) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
-  };
-
-  const getCouponCode = (o: any): string => {
-    const code = o?.coupon_code ?? o?.couponCode ?? "";
-    return typeof code === "string" ? code : "";
   };
 
   const getImageByProductId = (productId: number | null | undefined) => {
@@ -88,7 +80,7 @@ function OrderDetail() {
         .eq("user_id", user.id)
         .single();
 
-      if (orderErr) {
+      if (orderErr || !orderData) {
         setOrder(null);
         setErrorMsg("注文が見つかりませんでした。");
         setLoading(false);
@@ -116,11 +108,10 @@ function OrderDetail() {
     load();
   }, [id, navigate]);
 
+  // ✅ 割引は「小計 - 支払合計」で計算（割引がある時だけ表示）
   const summary = useMemo(() => {
     const total = toNumber(order?.total);
-    const couponCode = getCouponCode(order);
 
-    // 小計：orders.subtotal があればそれ優先、無ければ明細から計算
     const subtotalFromItems = items.reduce(
       (sum, i) => sum + toNumber(i.price) * toNumber(i.quantity),
       0
@@ -131,16 +122,10 @@ function OrderDetail() {
         ? toNumber((order as any).subtotal)
         : subtotalFromItems;
 
-    // 値引き：orders.discount_amount があればそれ優先、無ければ（小計 - total）
-    const discountRaw = (order as any)?.discount_amount ?? (order as any)?.discountAmount;
-    const discount =
-      discountRaw != null && Number.isFinite(Number(discountRaw))
-        ? Math.max(0, toNumber(discountRaw))
-        : Math.max(0, subtotal - total);
+    const discount = Math.max(0, subtotal - total);
+    const hasDiscount = discount > 0;
 
-    const hasCoupon = !!couponCode || discount > 0;
-
-    return { total, subtotal, discount, couponCode, hasCoupon };
+    return { total, subtotal, discount, hasDiscount };
   }, [order, items]);
 
   return (
@@ -149,6 +134,11 @@ function OrderDetail() {
 
       <main className="orders-page">
         <header className="order-header">
+          {/* ✅ AdminOrderDetail と同じ戻るボタン */}
+          <button className="order-back" type="button" onClick={() => navigate(-1)}>
+            ← 戻る
+          </button>
+
           <h2 className="detail-title">注文詳細</h2>
         </header>
 
@@ -177,22 +167,15 @@ function OrderDetail() {
                   : "-"}
               </p>
 
-              {/* 内訳 */}
               <p>
                 <strong>小計：</strong> {formatPrice(summary.subtotal)}円
               </p>
 
-              {summary.hasCoupon && (
-                <>
-                  {summary.couponCode && (
-                    <p>
-                      <strong>クーポンコード：</strong> {summary.couponCode}
-                    </p>
-                  )}
-                  <p>
-                    <strong>値引き：</strong> -{formatPrice(summary.discount)}円
-                  </p>
-                </>
+              {/* ✅ 割引がある時だけ表示 */}
+              {summary.hasDiscount && (
+                <p>
+                  <strong>割引：</strong> -{formatPrice(summary.discount)}円
+                </p>
               )}
 
               <p>

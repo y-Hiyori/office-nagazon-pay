@@ -9,12 +9,9 @@ import { findProductImage } from "../data/products";
 type OrderRow = {
   id: string;
   user_id?: string | null;
-  total?: number | null;
+  total?: number | null;        // 支払合計
   created_at?: string | null;
-
-  coupon_code?: string | null;
-  discount_amount?: number | null;
-  subtotal?: number | null;
+  subtotal?: number | null;     // もしDBにあるなら使う（無ければ明細から計算）
 };
 
 type OrderItemRow = {
@@ -40,11 +37,6 @@ export default function AdminOrderDetail() {
   const toNumber = (v: any) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
-  };
-
-  const getCouponCode = (o: any): string => {
-    const code = o?.coupon_code ?? o?.couponCode ?? "";
-    return typeof code === "string" ? code : "";
   };
 
   const getImageByProductId = (productId: number | null | undefined) => {
@@ -82,7 +74,7 @@ export default function AdminOrderDetail() {
         return;
       }
 
-      // ✅ 管理者は user_id 縛りなしで注文を取得
+      // ✅ 注文取得
       const { data: orderData, error: orderErr } = await supabase
         .from("orders")
         .select("*")
@@ -98,6 +90,7 @@ export default function AdminOrderDetail() {
 
       setOrder(orderData as OrderRow);
 
+      // ✅ 明細取得
       const { data: itemData, error: itemErr } = await supabase
         .from("order_items")
         .select("*")
@@ -119,27 +112,24 @@ export default function AdminOrderDetail() {
 
   const summary = useMemo(() => {
     const total = toNumber(order?.total);
-    const couponCode = getCouponCode(order);
 
     const subtotalFromItems = items.reduce(
       (sum, i) => sum + toNumber(i.price) * toNumber(i.quantity),
       0
     );
 
+    // ✅ DBに subtotal があるなら使う。無い/不正なら明細から計算
+    const rawSubtotal = (order as any)?.subtotal;
     const subtotal =
-      order && (order as any).subtotal != null && Number.isFinite(Number((order as any).subtotal))
-        ? toNumber((order as any).subtotal)
+      rawSubtotal != null && Number.isFinite(Number(rawSubtotal))
+        ? toNumber(rawSubtotal)
         : subtotalFromItems;
 
-    const discountRaw = (order as any)?.discount_amount ?? (order as any)?.discountAmount;
-    const discount =
-      discountRaw != null && Number.isFinite(Number(discountRaw))
-        ? Math.max(0, toNumber(discountRaw))
-        : Math.max(0, subtotal - total);
+    // ✅ 割引 = 小計 - 支払合計（0未満にならない）
+    const discount = Math.max(0, subtotal - total);
+    const hasDiscount = discount > 0;
 
-    const hasCoupon = !!couponCode || discount > 0;
-
-    return { total, subtotal, discount, couponCode, hasCoupon };
+    return { total, subtotal, discount, hasDiscount };
   }, [order, items]);
 
   return (
@@ -188,17 +178,11 @@ export default function AdminOrderDetail() {
                   <strong>小計：</strong> {formatPrice(summary.subtotal)}円
                 </p>
 
-                {summary.hasCoupon && (
-                  <>
-                    {summary.couponCode && (
-                      <p>
-                        <strong>クーポンコード：</strong> {summary.couponCode}
-                      </p>
-                    )}
-                    <p>
-                      <strong>値引き：</strong> -{formatPrice(summary.discount)}円
-                    </p>
-                  </>
+                {/* ✅ 割引は「小計 > 支払合計」のときだけ */}
+                {summary.hasDiscount && (
+                  <p>
+                    <strong>割引：</strong> -{formatPrice(summary.discount)}円
+                  </p>
                 )}
 
                 <p>

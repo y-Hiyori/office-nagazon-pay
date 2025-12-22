@@ -1,25 +1,38 @@
 /* ================================
-   新規アカウント作成画面（洗練版）
+   Signup（クリーン / Login・AuthSelectと統一）
 ================================ */
 
-/* コンテナ */
-.signup-container {
-  width: min(420px, 100% - 32px);
-  margin: 80px auto 40px;
-  padding: 32px 24px 30px;
-  box-sizing: border-box;
+:root{
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: rgba(15, 23, 42, 0.10);
 
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
-  position: relative;
+  --card: rgba(255,255,255,0.92);
+  --shadow: 0 22px 60px rgba(15, 23, 42, 0.14);
 
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", sans-serif;
+  --accent1: #2563eb;
+  --accent2: #3b82f6;
 }
 
-/* 戻るボタン（JSXのテキストは「← 戻る」のままでOK） */
-.signup-back {
+/* コンテナ */
+.signup-container{
+  width: min(420px, 100% - 32px);
+  margin: 88px auto 46px;
+  padding: 34px 24px 26px;
+  box-sizing: border-box;
+
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94));
+  border: 1px solid rgba(15,23,42,0.08);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
+}
+
+/* 戻るボタン（Loginと同じ） */
+.signup-back{
   position: absolute;
   top: 16px;
   left: 16px;
@@ -28,129 +41,177 @@
   align-items: center;
   gap: 6px;
 
-  padding: 6px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
-  border: none;
+  border: 1px solid rgba(15,23,42,0.10);
+
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--ink);
+
+  background: rgba(255,255,255,0.92);
   cursor: pointer;
 
-  /* 元テキストは見えない＆幅ゼロにする */
-  color: transparent;
-  font-size: 0;              /* ← これを追加！ */
-
-  background: #f3f4f6;
-  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
 
-/* 表示用テキストをCSSで1回だけ描画 */
-.signup-back::before {
-  content: "← 戻る";
-  color: #111827;
-  font-size: 14px;           /* 表示用のサイズはこっちで指定 */
-}
-
-.signup-back:hover {
-  background: #e5e7eb;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+/* JSXが「← 戻る」でもOK（見た目は統一される） */
+.signup-back:hover{
   transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+  background: rgba(255,255,255,0.98);
 }
 
-.signup-back:active {
-  box-shadow: none;
+.signup-back:active{
   transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+}
+
+.signup-back:focus{ outline: none; }
+.signup-back:focus-visible{
+  outline: 3px solid rgba(59,130,246,0.28);
+  outline-offset: 3px;
 }
 
 /* タイトル */
-.signup-title {
+.signup-title{
   text-align: center;
   font-size: 22px;
-  font-weight: 700;
-  margin: 26px 0 24px;
-  color: #111827;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  margin: 30px 0 18px;
+  color: var(--ink);
 }
 
 /* 入力欄 */
-.signup-input {
+.signup-input{
   width: 100%;
   box-sizing: border-box;
 
-  padding: 14px 16px;
+  padding: 14px 14px;
   font-size: 16px;
+  font-weight: 800;
+  color: rgba(30,41,59,0.92);
 
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(255,255,255,0.92);
 
-  margin-bottom: 16px;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  margin-bottom: 12px;
+
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
 }
 
-.signup-input:focus {
-  border-color: #4f46e5;
-  background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+.signup-input::placeholder{
+  color: rgba(100,116,139,0.75);
+  font-weight: 800;
 }
 
-/* エラー文 */
-.signup-error {
-  color: #ef4444;
+.signup-input:focus{
+  border-color: rgba(59,130,246,0.55);
+  background: rgba(255,255,255,0.98);
+  box-shadow:
+    0 12px 26px rgba(15, 23, 42, 0.10),
+    0 0 0 4px rgba(59,130,246,0.18);
+}
+
+/* エラー表示（見やすいカード） */
+.signup-error{
+  margin: 10px 0 6px;
+  padding: 10px 12px;
+
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+
+  color: #b91c1c;
+  font-weight: 900;
+  font-size: 13px;
   text-align: center;
-  font-size: 14px;
-  margin-bottom: 10px;
 }
 
 /* 登録ボタン（メイン） */
-.signup-button {
+.signup-button{
   width: 100%;
-  padding: 14px;
-  margin-top: 4px;
+  height: 54px;
+  margin-top: 6px;
 
   border: none;
   border-radius: 999px;
+
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 900;
   color: #ffffff;
   cursor: pointer;
 
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+  background: linear-gradient(135deg, var(--accent2), var(--accent1));
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.30);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
 }
 
-.signup-button:hover {
+.signup-button:hover{
   transform: translateY(-1px);
-  box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
-  opacity: 0.97;
+  box-shadow: 0 22px 40px rgba(37, 99, 235, 0.38);
+  opacity: 0.98;
 }
 
-.signup-button:active {
+.signup-button:active{
   transform: translateY(0);
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.28);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.26);
+  opacity: 0.92;
+}
+
+.signup-button:focus{ outline: none; }
+.signup-button:focus-visible{
+  outline: 3px solid rgba(59,130,246,0.28);
+  outline-offset: 3px;
 }
 
 /* ログインへ（サブ） */
-.signup-link {
+.signup-link{
   width: 100%;
-  padding: 12px;
-  margin-top: 10px;
+  height: 52px;
+  margin-top: 12px;
 
-  border: none;
   border-radius: 999px;
+  border: 1px solid rgba(15,23,42,0.12);
+
   font-size: 15px;
+  font-weight: 900;
   cursor: pointer;
 
-  background: #f3f4f6;
-  color: #111827;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+  background: rgba(255,255,255,0.96);
+  color: var(--ink);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.10);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
 }
 
-.signup-link:hover {
-  background: #e5e7eb;
+.signup-link:hover{
   transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
 }
 
-.signup-link:active {
+.signup-link:active{
   transform: translateY(0);
-  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.10);
+  opacity: 0.92;
+}
+
+/* スマホ */
+@media (max-width: 420px){
+  .signup-container{
+    margin: 78px auto 36px;
+    padding: 30px 18px 22px;
+  }
+  .signup-button{
+    height: 50px;
+    font-size: 15px;
+  }
+  .signup-link{
+    height: 48px;
+    font-size: 14px;
+  }
 }

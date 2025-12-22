@@ -36,7 +36,7 @@ import AdminEdit from "./pages/AdminEdit";
 import AdminUsers from "./pages/AdminUsers";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminUserOrders from "./pages/AdminUserOrders";
-import AdminOrderDetail from "./pages/AdminOrderDetail"; // ✅ 追加
+import AdminOrderDetail from "./pages/AdminOrderDetail";
 import AdminSales from "./pages/AdminSales";
 import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
 import AdminCoupons from "./pages/AdminCoupons";
@@ -46,6 +46,9 @@ import PurchaseComplete from "./pages/PurchaseComplete";
 
 // ★ 管理者専用ルートガード
 import AdminRoute from "./components/AdminRoute";
+
+// ★ 一般ユーザー用ルートガード（追加）
+import UserRoute from "./components/UserRoute";
 
 // ▼ PayPay
 import PayPaySim from "./pages/PayPaySim";
@@ -59,31 +62,68 @@ const router = createBrowserRouter([
       // ===== 一般ユーザー =====
       { index: true, element: <Home /> },
       { path: "products", element: <ProductList /> },
+
+      // 商品詳細（正/互換）
+      { path: "products/:id", element: <ProductDetail /> },
       { path: "product/:id", element: <ProductDetail /> },
+
       { path: "cart", element: <CartPage /> },
       { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
 
-      // 購入フロー
-      { path: "checkout", element: <Checkout /> },
+      // ✅ 購入フロー：ログイン必須にする
+      {
+        path: "checkout",
+        element: (
+          <UserRoute>
+            <Checkout />
+          </UserRoute>
+        ),
+      },
 
-      // ★ PayPay決済テスト画面
+      // PayPay
       { path: "paypay-sim", element: <PayPaySim /> },
-
-      // ★ PayPay 決済完了後の戻り先
       { path: "paypay-return", element: <PayPayReturn /> },
 
-      // 使い方・問い合わせ
+      // 使い方・問い合わせ（ログイン不要）
       { path: "how-to", element: <HowTo /> },
       { path: "contact", element: <Contact /> },
 
-      // アカウント
-      { path: "account", element: <AccountMenu /> },
-      { path: "account-edit", element: <AccountEdit /> },
+      // ✅ アカウント：ログイン必須
+      {
+        path: "account",
+        element: (
+          <UserRoute>
+            <AccountMenu />
+          </UserRoute>
+        ),
+      },
+      {
+        path: "account-edit",
+        element: (
+          <UserRoute>
+            <AccountEdit />
+          </UserRoute>
+        ),
+      },
 
-      // 購入履歴（ユーザー）
-      { path: "orders", element: <OrdersList /> },
-      { path: "orders/:id", element: <OrderDetail /> },
+      // ✅ 購入履歴：ログイン必須
+      {
+        path: "orders",
+        element: (
+          <UserRoute>
+            <OrdersList />
+          </UserRoute>
+        ),
+      },
+      {
+        path: "orders/:id",
+        element: (
+          <UserRoute>
+            <OrderDetail />
+          </UserRoute>
+        ),
+      },
 
       // 認証
       { path: "auth", element: <AuthSelect /> },
@@ -93,9 +133,17 @@ const router = createBrowserRouter([
       { path: "reset-password", element: <ResetPassword /> },
       { path: "auth/callback", element: <AuthCallback /> },
 
-      // ===== 管理者 =====
-      // ログイン画面だけはガードなし
+      // ✅ 購入完了：ログイン必須（必要なら外してOK）
+      {
+        path: "purchase-complete/:id",
+        element: (
+          <UserRoute>
+            <PurchaseComplete />
+          </UserRoute>
+        ),
+      },
 
+      // ===== 管理者 =====
       {
         path: "admin-menu",
         element: (
@@ -136,8 +184,6 @@ const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
-
-      // 管理者：ユーザー管理
       {
         path: "admin-users",
         element: (
@@ -162,8 +208,6 @@ const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
-
-      // ✅ 管理者：注文詳細（追加）
       {
         path: "admin-order-detail/:id",
         element: (
@@ -172,8 +216,6 @@ const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
-
-      // 管理者：売上
       {
         path: "admin-sales",
         element: (
@@ -190,7 +232,6 @@ const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
-
       {
         path: "admin-coupons",
         element: (
@@ -215,9 +256,6 @@ const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
-
-      // 購入完了
-      { path: "purchase-complete/:id", element: <PurchaseComplete /> },
 
       // 404
       { path: "*", element: <p>ページが見つかりません</p> },

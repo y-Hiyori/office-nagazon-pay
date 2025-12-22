@@ -36,7 +36,6 @@ function ProductList() {
     const loadProducts = async () => {
       setLoading(true);
 
-      // ✅ 列名ズレ対策：まず全部取る（安定して表示させる）
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -52,15 +51,12 @@ function ProductList() {
       const now = Date.now();
 
       const rows: ProductRow[] = (data ?? []).map((p: any) => {
-        // created_at / createdAt どっちでもOKにする
         const createdAt = p.created_at ?? p.createdAt ?? null;
 
         const isNew = createdAt
           ? now - new Date(createdAt).getTime() <= NEW_PERIOD_MS
           : false;
 
-        // is_visible / isVisible どっちでもOK
-        // null/undefined は「表示する」にする（全消し事故防止）
         const isVisible = (p.is_visible ?? p.isVisible) ?? true;
 
         return {
@@ -75,29 +71,29 @@ function ProductList() {
         };
       });
 
-      // ✅ 表示フラグが false のものだけ非表示（null/undefined は表示）
+      // ✅ 並び順：在庫あり → NEW優先 → 新しい順 → 最後に売り切れ
       const visibleRows = rows
-  .filter((r) => r.isVisible !== false)
-  .sort((a, b) => {
-    const aSold = (a.stock ?? 0) <= 0;
-    const bSold = (b.stock ?? 0) <= 0;
+        .filter((r) => r.isVisible !== false)
+        .sort((a, b) => {
+          const aSold = (a.stock ?? 0) <= 0;
+          const bSold = (b.stock ?? 0) <= 0;
 
-    // ① 在庫ありを先、売り切れを後
-    if (aSold !== bSold) return aSold ? 1 : -1;
+          // ① 在庫ありを先、売り切れを後
+          if (aSold !== bSold) return aSold ? 1 : -1;
 
-    // ② 在庫あり同士なら NEW を先
-    const aNew = !!a.isNew;
-    const bNew = !!b.isNew;
-    if (aNew !== bNew) return aNew ? -1 : 1;
+          // ② 在庫あり同士なら NEW を先
+          const aNew = !!a.isNew;
+          const bNew = !!b.isNew;
+          if (aNew !== bNew) return aNew ? -1 : 1;
 
-    // ③ 同じグループ内は新しい順
-    const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    return bt - at;
-  });
+          // ③ 同じグループ内は新しい順
+          const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bt - at;
+        });
 
-setProducts(visibleRows);
-setLoading(false);
+      setProducts(visibleRows);
+      setLoading(false);
     };
 
     loadProducts();

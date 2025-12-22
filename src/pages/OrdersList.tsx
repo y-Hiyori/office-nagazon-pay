@@ -148,6 +148,11 @@ function OrdersList() {
 
       <main className="orders-page">
         <header className="orders-header">
+          {/* ✅ 戻るボタン（追加） */}
+          <button type="button" className="orders-back" onClick={() => navigate(-1)}>
+            ← 戻る
+          </button>
+
           <h2 className="orders-title">購入履歴</h2>
         </header>
 
@@ -205,7 +210,6 @@ function OrdersList() {
                         </div>
                       )}
 
-                      {/* 明細があるときだけ小計表示（無いと0になりがち） */}
                       {items.length > 0 && (
                         <div className="coupon-row">
                           <span>小計</span>
@@ -235,6 +239,9 @@ function OrdersList() {
                       {remain > 0 && <div className="preview-more">＋{remain}件</div>}
                     </div>
                   )}
+
+                  {/* ✅ 詳細を見る（追加） */}
+                  <div className="orders-open">詳細を見る ＞</div>
                 </div>
               );
             })}

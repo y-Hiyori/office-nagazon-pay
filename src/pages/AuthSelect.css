@@ -1,29 +1,41 @@
 /* ================================
-   アカウント選択 / 認証メニュー（洗練版・最終）
+   AuthSelect（クリーン / 変な色気なし）
 ================================ */
 
-.auth-container {
+:root{
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: rgba(15, 23, 42, 0.10);
+
+  --card: rgba(255,255,255,0.92);
+  --shadow: 0 22px 60px rgba(15, 23, 42, 0.14);
+
+  /* アクセント（青だけ） */
+  --accent1: #2563eb;
+  --accent2: #3b82f6;
+}
+
+.auth-container{
   width: min(420px, 100% - 32px);
-  margin: 80px auto 40px;
-  padding: 32px 24px 30px;
+  margin: 88px auto 46px;
+  padding: 34px 24px 26px;
   box-sizing: border-box;
 
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+  /* ✅ 変な紫グラデ無し：白カードにうっすら面 */
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94));
+  border: 1px solid rgba(15,23,42,0.08);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
 
   position: relative;
   text-align: center;
 
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
 }
 
-/* ================================
-   戻るボタン
-   ※ JSXの表示テキストは「戻る」だけ！
-================================ */
-.auth-back {
+/* 戻るボタン */
+.auth-back{
   position: absolute;
   top: 16px;
   left: 16px;
@@ -32,103 +44,122 @@
   align-items: center;
   gap: 6px;
 
-  padding: 6px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
-  border: none;
+  border: 1px solid rgba(15,23,42,0.10);
 
   font-size: 14px;
-  color: #111827;
-  background: #f3f4f6;
+  font-weight: 900;
+  color: var(--ink);
+
+  background: rgba(255,255,255,0.92);
   cursor: pointer;
 
-  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
 
-/* 矢印は CSS で 1 個だけ付ける */
-.auth-back::before {
+.auth-back::before{
   content: "←";
   font-size: 16px;
 }
 
-.auth-back:hover {
-  background: #e5e7eb;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+.auth-back:hover{
   transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+  background: rgba(255,255,255,0.98);
 }
 
-.auth-back:active {
-  box-shadow: none;
+.auth-back:active{
   transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
 }
 
-/* ================================
-   タイトル
-================================ */
-.auth-title {
+.auth-back:focus{ outline: none; }
+.auth-back:focus-visible{
+  outline: 3px solid rgba(59,130,246,0.28);
+  outline-offset: 3px;
+}
+
+/* タイトル */
+.auth-title{
+  margin: 30px 0 18px;
   font-size: 22px;
-  font-weight: 700;
-  margin: 26px 0 30px;  /* 戻るボタンと被らないように */
-  color: #111827;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: var(--ink);
 }
 
-/* ================================
-   ボタン共通デザイン
-================================ */
-.auth-btn {
+/* ボタン共通 */
+.auth-btn{
   width: 100%;
-  padding: 14px;
+  height: 54px;
   border-radius: 999px;
   border: none;
 
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 900;
   cursor: pointer;
 
-  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease,
-    background 0.1s ease, color 0.1s ease;
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease, background .12s ease;
 }
 
-/* ボタン同士の間隔 */
-.auth-btn + .auth-btn {
+.auth-btn + .auth-btn{
   margin-top: 12px;
 }
 
-/* ログイン（メインアクション） */
-.auth-btn.login {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+/* ログイン（メイン） */
+.auth-btn.login{
   color: #ffffff;
-  box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
+  background: linear-gradient(135deg, var(--accent2), var(--accent1));
+  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.30);
 }
 
-.auth-btn.login:hover {
+.auth-btn.login:hover{
   transform: translateY(-1px);
-  box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
-  opacity: 0.97;
+  box-shadow: 0 22px 40px rgba(37, 99, 235, 0.38);
+  opacity: 0.98;
 }
 
-.auth-btn.login:active {
+.auth-btn.login:active{
   transform: translateY(0);
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.28);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.26);
+  opacity: 0.92;
 }
 
-/* 新規作成（サブアクション） */
-.auth-btn.signup {
-  background: #f3f4f6;
-  color: #111827;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+/* 新規作成（サブ：白アウトライン） */
+.auth-btn.signup{
+  color: var(--ink);
+  background: rgba(255,255,255,0.96);
+  border: 1px solid rgba(15,23,42,0.12);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.10);
 }
 
-.auth-btn.signup:hover {
-  background: #e5e7eb;
+.auth-btn.signup:hover{
   transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
 }
 
-.auth-btn.signup:active {
+.auth-btn.signup:active{
   transform: translateY(0);
-  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.10);
+  opacity: 0.92;
 }
 
-/* クリック時の共通演出 */
-.auth-btn:active {
-  opacity: 0.9;
+.auth-btn:focus{ outline: none; }
+.auth-btn:focus-visible{
+  outline: 3px solid rgba(59,130,246,0.28);
+  outline-offset: 3px;
+}
+
+/* スマホ */
+@media (max-width: 420px){
+  .auth-container{
+    margin: 78px auto 36px;
+    padding: 30px 18px 22px;
+  }
+  .auth-btn{
+    height: 50px;
+    font-size: 15px;
+  }
 }

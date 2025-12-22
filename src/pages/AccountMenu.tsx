@@ -1,5 +1,4 @@
-// src/pages/AccountMenu.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import "./AccountMenu.css";
@@ -22,7 +21,6 @@ function AccountMenu() {
 
   useEffect(() => {
     const loadUser = async () => {
-      // ① ログインユーザー取得
       const {
         data: { user },
         error: userError,
@@ -41,7 +39,6 @@ function AccountMenu() {
 
       setUser(user);
 
-      // ② profiles から自分の行だけ取得（is_admin も含める）
       const { data, error: profileError } = await supabase
         .from("profiles")
         .select("id, name, email, is_admin")
@@ -65,6 +62,12 @@ function AccountMenu() {
     loadUser();
   }, [navigate]);
 
+  const initials = useMemo(() => {
+    const n = (profile?.name ?? "").trim();
+    if (!n) return "👤";
+    return n.slice(0, 1);
+  }, [profile?.name]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     alert("ログアウトしました");
@@ -85,28 +88,28 @@ function AccountMenu() {
     navigate("/");
   };
 
-  // エラーがあれば先に表示（ヘッダー/フッターは付ける）
   if (error) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div className="account-wrap">
         <SiteHeader />
-        <main style={{ flex: 1 }}>
-          <p style={{ padding: 20, color: "red", whiteSpace: "pre-line" }}>
-            {error}
-          </p>
+        <main className="account-main">
+          <div className="account-shell">
+            <p className="account-error">{error}</p>
+          </div>
         </main>
         <SiteFooter />
       </div>
     );
   }
 
-  // データ読み込み中（ヘッダー/フッターは付ける）
   if (!user || !profile) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div className="account-wrap">
         <SiteHeader />
-        <main style={{ flex: 1 }}>
-          <p style={{ padding: 20 }}>読み込み中...</p>
+        <main className="account-main">
+          <div className="account-shell">
+            <p className="account-ghost">読み込み中...</p>
+          </div>
         </main>
         <SiteFooter />
       </div>
@@ -114,58 +117,53 @@ function AccountMenu() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="account-wrap">
       <SiteHeader />
 
-      <main style={{ flex: 1 }}>
-        <div className="account-menu">
-          <h2 style={{ fontSize: "26px", fontWeight: "bold" }}>
-            アカウント情報
-          </h2>
+      <main className="account-main">
+        <div className="account-shell">
+          {/* ✅ プロフィール（基本情報の枠は作らない） */}
+          <section className="account-profile">
+            <div className="account-avatar" aria-hidden="true">
+              {initials}
+            </div>
 
-          <div style={{ width: "100%", maxWidth: "320px", textAlign: "left" }}>
-            <p>
-              <strong>名前:</strong> {profile.name}
-            </p>
-            <p>
-              <strong>メール:</strong> {user.email}
-            </p>
-          </div>
+            <div className="account-profile-text">
+              <div className="account-name-row">
+                <h2 className="account-name">{profile.name || "ユーザー"}</h2>
+                {profile.is_admin && <span className="account-badge">管理者</span>}
+              </div>
+              <p className="account-email">{user.email}</p>
+            </div>
+          </section>
 
-          {/* 🔵 購入履歴ページへ */}
-          <button className="acc-btn" onClick={() => navigate("/orders")}>
-            購入履歴を見る
-          </button>
-
-          <button className="acc-btn" onClick={() => navigate("/account-edit")}>
-            アカウント編集
-          </button>
-
-          {/* 🔵 管理者だけに表示するボタン */}
-          {profile.is_admin && (
-            <button
-              className="acc-btn acc-btn-admin"
-              onClick={() => navigate("/admin-menu")}
-            >
-              管理者メニューへ
+          {/* ✅ 操作ボタン */}
+          <section className="account-actions">
+            <button className="acc-btn" onClick={() => navigate("/orders")}>
+              購入履歴を見る
             </button>
-          )}
 
-          <button
-            className="acc-btn"
-            onClick={handleLogout}
-            style={{ background: "#555" }}
-          >
-            ログアウト
-          </button>
+            <button className="acc-btn" onClick={() => navigate("/account-edit")}>
+              アカウント編集
+            </button>
 
-          <button
-            className="acc-btn"
-            onClick={handleDeleteAccount}
-            style={{ background: "red" }}
-          >
-            アカウント削除
-          </button>
+            {profile.is_admin && (
+              <button
+                className="acc-btn acc-btn-admin"
+                onClick={() => navigate("/admin-menu")}
+              >
+                管理者メニューへ
+              </button>
+            )}
+
+            <button className="acc-btn acc-btn-ghost" onClick={handleLogout}>
+              ログアウト
+            </button>
+
+            <button className="acc-btn acc-btn-danger" onClick={handleDeleteAccount}>
+              アカウント削除
+            </button>
+          </section>
         </div>
       </main>
 
