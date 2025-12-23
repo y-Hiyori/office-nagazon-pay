@@ -1,7 +1,6 @@
 // src/pages/PayPayReturn.tsx
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
 
 function PayPayReturn() {
   const navigate = useNavigate();
@@ -47,19 +46,16 @@ function PayPayReturn() {
       const j = await r.json().catch(() => ({}));
 
       if (!r.ok || !j?.ok) {
-        setMessage(`決済が確定できませんでした。（状態: ${j?.status ?? "不明"}）`);
-        setShowActions(true);
-        return;
-      }
+  setMessage(`決済が確定できませんでした。（状態: ${j?.status ?? "不明"}）`);
+  setShowActions(true);
+  return;
+}
 
-      setMessage("お支払いを確認しました。決済は完了しています。");
+setMessage("お支払いを確認しました。決済は完了しています。");
 
-      // ✅ ログイン済みなら、完了ページへ
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        navigate(`/purchase-complete/${oid}`, { replace: true });
-        return;
-      }
+// ✅ ログイン関係なく完了ページへ（tokenも渡す）
+navigate(`/purchase-complete/${oid}?token=${encodeURIComponent(token)}`, { replace: true });
+return;
 
       // ❗ Safariに飛んで未ログインの場合は、ここで止めて案内する
       setShowActions(true);
