@@ -1,4 +1,4 @@
-// api/get-paypay-payment.js
+// api_disabled/get-paypay-payment.js
 import PAYPAY from "@paypayopa/paypayopa-sdk-node";
 
 PAYPAY.Configure({

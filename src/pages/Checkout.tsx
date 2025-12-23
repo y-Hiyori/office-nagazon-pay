@@ -352,43 +352,56 @@ for (const it of itemsForStorage) {
       );
 
       const res = await fetch("/api/create-paypay-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: payableTotal,
-          redirectUrl: "https://office-nagazon-pay.vercel.app/paypay-return",
-        }),
-      });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    total: payableTotal,
+    userId: user.id,
+    // いまは items をサーバーに渡してなくても動く（必要なら後で足す）
+    // items: itemsForStorage,
+    // subtotal,
+    // discountYen,
+    // coupon: appliedCoupon,
+  }),
+});
 
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        console.error("create-paypay-order failed:", res.status, errText);
-        throw new Error("PayPay注文作成に失敗しました");
-      }
+if (!res.ok) {
+  const errText = await res.text().catch(() => "");
+  console.error("create-paypay-order failed:", res.status, errText);
+  throw new Error("PayPay注文作成に失敗しました");
+}
 
-      const data = await res.json();
-      const redirectUrl = data.redirectUrl ?? data.url;
-      const merchantPaymentId = data.merchantPaymentId;
+const data = await res.json();
 
-      if (!redirectUrl || !merchantPaymentId) {
-        throw new Error("PayPay API response invalid");
-      }
+// あなたの create-paypay-order は redirectUrl / deeplink / merchantPaymentId / orderId / token / returnUrl を返す想定
+const redirectUrl = data.redirectUrl;     // PayPayの決済ページURL
+const merchantPaymentId = data.merchantPaymentId;
+const orderId = data.orderId;
+const token = data.token;
 
-      sessionStorage.setItem(
-        "paypayCheckout",
-        JSON.stringify({
-          subtotal,
-          discountYen,
-          coupon: appliedCoupon,
-          total: payableTotal,
-          items: itemsForStorage,
-          merchantPaymentId,
-          redirectUrl,
-        })
-      );
+if (!redirectUrl || !merchantPaymentId || !orderId || !token) {
+  console.error("create-paypay-order response:", data);
+  throw new Error("PayPay API response invalid");
+}
 
-      redirecting = true;
-      window.location.href = redirectUrl;
+// いまの sessionStorage は “保険” で残してOK（でもSafari対策の本体は orderId/token）
+sessionStorage.setItem(
+  "paypayCheckout",
+  JSON.stringify({
+    subtotal,
+    discountYen,
+    coupon: appliedCoupon,
+    total: payableTotal,
+    items: itemsForStorage,
+    merchantPaymentId,
+    redirectUrl,
+    orderId,
+    token,
+  })
+);
+
+redirecting = true;
+window.location.href = redirectUrl;
     } catch (e) {
       console.error(e);
       alert("決済の開始に失敗しました。時間をおいてお試しください。");
