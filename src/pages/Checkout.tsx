@@ -219,6 +219,19 @@ function Checkout() {
         return;
       }
 
+      // 購入者名（任意）
+      let buyerName = "(名前未設定)";
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profile?.name) buyerName = profile.name;
+      } catch {
+        // 無視でOK
+      }
+
       const itemsForStorage: StoredItem[] = items.map((item) => ({
         productId: item.product.id,
         name: item.product.name,
@@ -227,7 +240,7 @@ function Checkout() {
         stock: Number(item.product.stock ?? 0),
       }));
 
-      // ✅ 0円：PayPayに行かずDB保存→在庫減算→メール→完了へ
+      // ✅ 0円：PayPayに行かずDB保存→在庫減算→メール→完了へ（既存のまま）
       if (payableTotal === 0) {
         const { data: orderRow, error: orderErr } = await supabase
           .from("orders")
@@ -237,6 +250,11 @@ function Checkout() {
             payment_method: "coupon",
             merchant_payment_id: null,
             paypay_merchant_payment_id: null,
+            subtotal,
+            discount_amount: discountYen,
+            coupon_code: appliedCoupon,
+            status: "paid",
+            paid_at: new Date().toISOString(),
           })
           .select("id")
           .single();
@@ -266,37 +284,27 @@ function Checkout() {
         }
 
         // ✅ 在庫減算（不足なら止める）: RPC
-for (const it of itemsForStorage) {
-  const { error } = await supabase.rpc("decrement_stock", {
-    p_product_id: Number(it.productId),
-    p_qty: Number(it.quantity),
-  });
+        for (const it of itemsForStorage) {
+          const { error } = await supabase.rpc("decrement_stock", {
+            p_product_id: Number(it.productId),
+            p_qty: Number(it.quantity),
+          });
 
-  if (error) {
-    console.error("decrement_stock error:", error);
-
-    // メッセージで分岐（あなたの関数は '在庫不足' を投げる）
-    if ((error.message ?? "").includes("在庫不足")) {
-      alert(`在庫が足りません：${it.name}`);
-    } else if ((error.message ?? "").includes("not authenticated")) {
-      alert("ログインが必要です");
-    } else {
-      alert("在庫更新に失敗しました");
-    }
-    return;
-  }
-}
+          if (error) {
+            console.error("decrement_stock error:", error);
+            if ((error.message ?? "").includes("在庫不足")) {
+              alert(`在庫が足りません：${it.name}`);
+            } else if ((error.message ?? "").includes("not authenticated")) {
+              alert("ログインが必要です");
+            } else {
+              alert("在庫更新に失敗しました");
+            }
+            return;
+          }
+        }
 
         // ✅ 0円でも購入者メール送信（失敗しても購入は成功）
         try {
-          let buyerName = "(名前未設定)";
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("name")
-            .eq("id", user.id)
-            .single();
-          if (profile?.name) buyerName = profile.name;
-
           const itemsText = itemsForStorage
             .map(
               (i) =>
@@ -317,8 +325,6 @@ for (const it of itemsForStorage) {
                 to_email: toEmail,
               }),
             });
-          } else {
-            console.warn("購入者メールが取得できないため、メール送信をスキップしました");
           }
         } catch (e) {
           console.error("0円購入の購入者メール送信に失敗:", e);
@@ -339,7 +345,7 @@ for (const it of itemsForStorage) {
         return;
       }
 
-      // 先にセッション保存（戻ってきたとき使う）
+      // 先にセッション保存（保険）
       sessionStorage.setItem(
         "paypayCheckout",
         JSON.stringify({
@@ -351,57 +357,62 @@ for (const it of itemsForStorage) {
         })
       );
 
+      // ✅ 重要：items/subtotal/discount/coupon/email/name をサーバへ渡す
       const res = await fetch("/api/create-paypay-order", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    total: payableTotal,
-    userId: user.id,
-    // いまは items をサーバーに渡してなくても動く（必要なら後で足す）
-    // items: itemsForStorage,
-    // subtotal,
-    // discountYen,
-    // coupon: appliedCoupon,
-  }),
-});
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          total: payableTotal,
+          userId: user.id,
+          subtotal,
+          discountYen,
+          coupon: appliedCoupon,
+          buyerEmail: user.email ?? null,
+          buyerName,
+          items: itemsForStorage.map((it) => ({
+            productId: Number(it.productId),
+            productName: it.name,
+            price: it.price,
+            quantity: it.quantity,
+          })),
+        }),
+      });
 
-if (!res.ok) {
-  const errText = await res.text().catch(() => "");
-  console.error("create-paypay-order failed:", res.status, errText);
-  throw new Error("PayPay注文作成に失敗しました");
-}
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.error("create-paypay-order failed:", res.status, errText);
+        throw new Error("PayPay注文作成に失敗しました");
+      }
 
-const data = await res.json();
+      const data = await res.json();
 
-// あなたの create-paypay-order は redirectUrl / deeplink / merchantPaymentId / orderId / token / returnUrl を返す想定
-const redirectUrl = data.redirectUrl;     // PayPayの決済ページURL
-const merchantPaymentId = data.merchantPaymentId;
-const orderId = data.orderId;
-const token = data.token;
+      const redirectUrl = data.redirectUrl;
+      const merchantPaymentId = data.merchantPaymentId;
+      const orderId = data.orderId;
+      const token = data.token;
 
-if (!redirectUrl || !merchantPaymentId || !orderId || !token) {
-  console.error("create-paypay-order response:", data);
-  throw new Error("PayPay API response invalid");
-}
+      if (!redirectUrl || !merchantPaymentId || !orderId || !token) {
+        console.error("create-paypay-order response:", data);
+        throw new Error("PayPay API response invalid");
+      }
 
-// いまの sessionStorage は “保険” で残してOK（でもSafari対策の本体は orderId/token）
-sessionStorage.setItem(
-  "paypayCheckout",
-  JSON.stringify({
-    subtotal,
-    discountYen,
-    coupon: appliedCoupon,
-    total: payableTotal,
-    items: itemsForStorage,
-    merchantPaymentId,
-    redirectUrl,
-    orderId,
-    token,
-  })
-);
+      sessionStorage.setItem(
+        "paypayCheckout",
+        JSON.stringify({
+          subtotal,
+          discountYen,
+          coupon: appliedCoupon,
+          total: payableTotal,
+          items: itemsForStorage,
+          merchantPaymentId,
+          redirectUrl,
+          orderId,
+          token,
+        })
+      );
 
-redirecting = true;
-window.location.href = redirectUrl;
+      redirecting = true;
+      window.location.href = redirectUrl;
     } catch (e) {
       console.error(e);
       alert("決済の開始に失敗しました。時間をおいてお試しください。");
