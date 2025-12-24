@@ -1,5 +1,5 @@
 // src/pages/Checkout.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useCart } from "../context/CartContext";
@@ -57,8 +57,10 @@ function Checkout() {
     ? (Number(buyNow.product.price) || 0) * buyNow.quantity
     : cart.getTotalPrice();
 
-  // ✅ useMemoやめる（警告対策＆シンプル）
-  const payableTotal = Math.max(subtotal - discountYen, 0);
+  const payableTotal = useMemo(
+    () => Math.max(subtotal - discountYen, 0),
+    [subtotal, discountYen]
+  );
 
   // ログインチェック
   useEffect(() => {
@@ -165,7 +167,6 @@ function Checkout() {
     setCouponMsg(`クーポン適用：-${formatPrice(discount)}円`);
   };
 
-  // ✅ 解除（完全クリア）
   const clearCoupon = () => {
     setCouponCode("");
     setDiscountYen(0);
@@ -173,7 +174,6 @@ function Checkout() {
     setCouponMsg("");
   };
 
-  // 購入確定ボタン
   const handleClickConfirmButton = () => {
     if (!buyNow && cart.cart.length === 0) {
       alert("カートが空です");
@@ -226,9 +226,7 @@ function Checkout() {
           .eq("id", user.id)
           .maybeSingle();
         if (profile?.name) buyerName = profile.name;
-      } catch {
-        // 無視でOK
-      }
+      } catch {}
 
       const itemsForStorage: StoredItem[] = items.map((item) => ({
         productId: item.product.id,
@@ -281,7 +279,6 @@ function Checkout() {
           return;
         }
 
-        // ✅ 在庫減算（不足なら止める）: RPC
         for (const it of itemsForStorage) {
           const { error } = await supabase.rpc("decrement_stock", {
             p_product_id: Number(it.productId),
@@ -292,8 +289,6 @@ function Checkout() {
             console.error("decrement_stock error:", error);
             if ((error.message ?? "").includes("在庫不足")) {
               alert(`在庫が足りません：${it.name}`);
-            } else if ((error.message ?? "").includes("not authenticated")) {
-              alert("ログインが必要です");
             } else {
               alert("在庫更新に失敗しました");
             }
@@ -301,7 +296,6 @@ function Checkout() {
           }
         }
 
-        // ✅ 0円でも購入者メール送信（失敗しても購入は成功）
         try {
           const itemsText = itemsForStorage
             .map(
@@ -347,7 +341,7 @@ function Checkout() {
         return;
       }
 
-      // 先にセッション保存（保険）
+      // 保険（戻りで使う人もいる）
       sessionStorage.setItem(
         "paypayCheckout",
         JSON.stringify({
@@ -359,6 +353,7 @@ function Checkout() {
         })
       );
 
+      // ✅ サーバに送る items は "name" が必須
       const res = await fetch("/api/create-paypay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -372,7 +367,7 @@ function Checkout() {
           buyerName,
           items: itemsForStorage.map((it) => ({
             productId: Number(it.productId),
-            name: it.name, // ✅ サーバが見るのはこれ
+            name: it.name,
             price: it.price,
             quantity: it.quantity,
           })),
@@ -399,7 +394,6 @@ function Checkout() {
         throw new Error("PayPay API response invalid");
       }
 
-      // 後でpaypay-return側で使う
       sessionStorage.setItem(
         "paypayCheckout",
         JSON.stringify({
@@ -417,7 +411,7 @@ function Checkout() {
         })
       );
 
-      // ✅ 端末関係なく「PayPayへ直接遷移」
+      // ✅ 端末関係なく PayPay に直接遷移
       redirecting = true;
       window.location.href = redirectUrl;
       return;
@@ -604,7 +598,6 @@ function Checkout() {
 
       <SiteFooter />
 
-      {/* 店舗IDモーダル */}
       {showStoreAuth && (
         <div className="pay-modal-overlay">
           <div className="pay-modal">
