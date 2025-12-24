@@ -1,103 +1,101 @@
-// src/pages/PayPayReturn.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-function PayPayReturn() {
+export default function PayPayReturn() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [message, setMessage] = useState("決済結果を確認しています…");
-  const [showActions, setShowActions] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [msg, setMsg] = useState("決済を確認しています…");
+  const [status, setStatus] = useState<string>("PENDING");
 
-  const ranRef = useRef(false);
-
-  const openInChrome = () => {
-    const url = window.location.href;
-    const chromeUrl = url.replace(/^https?:\/\//, "googlechrome://");
-    window.location.href = chromeUrl;
-  };
+  const q = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const orderId = q.get("orderId") || "";
+  const token = q.get("token") || "";
 
   useEffect(() => {
-    if (ranRef.current) return;
-    ranRef.current = true;
+    if (!orderId || !token) {
+      setMsg("URLが不正です（orderId/tokenがありません）");
+      setStatus("BAD_REQUEST");
+      return;
+    }
 
-    const run = async () => {
-      const q = new URLSearchParams(location.search);
-      const oid = q.get("orderId");
-      const token = q.get("token");
+    let stopped = false;
+    const start = Date.now();
+    let timer: number | null = null;
 
-      setOrderId(oid);
+    const tick = async () => {
+      if (stopped) return;
 
-      if (!oid || !token) {
-        setMessage("決済確認に必要な情報が見つかりませんでした。");
-        setShowActions(true);
+      // 最大5分
+      if (Date.now() - start > 5 * 60 * 1000) {
+        setMsg("時間切れです。支払いが完了している場合は再読み込みしてください。");
+        setStatus("TIMEOUT");
         return;
       }
 
-      // ✅ サーバーで PayPay照会→DB確定
-      const apiBase = import.meta.env.DEV ? "https://office-nagazon-pay.vercel.app" : "";
-      const r = await fetch(`${apiBase}/api/confirm-paypay-payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: oid, token }),
-      });
+      try {
+        const r = await fetch("/api/confirm-paypay-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, token }),
+        });
 
-      const j = await r.json().catch(() => ({}));
+        const j = await r.json().catch(() => null);
 
-      if (!r.ok || !j?.ok) {
-  setMessage(`決済が確定できませんでした。（状態: ${j?.status ?? "不明"}）`);
-  setShowActions(true);
-  return;
-}
+        // paid 判定（サーバが paid:true を返す想定）
+        if (r.ok && (j?.paid === true || j?.status === "paid" || j?.status === "COMPLETED")) {
+          // ✅ 完了画面へ
+          navigate(`/purchase-complete/${orderId}`, { replace: true });
+          return;
+        }
 
-setMessage("お支払いを確認しました。決済は完了しています。");
+        // PENDING系：待つ
+        if (r.ok && (j?.status === "PENDING" || j?.paid === false)) {
+          setMsg("PayPayの支払い完了を待っています…（最大5分）");
+          setStatus("PENDING");
+          timer = window.setTimeout(tick, 2500);
+          return;
+        }
 
-// ✅ ログイン関係なく完了ページへ（tokenも渡す）
-navigate(`/purchase-complete/${oid}?token=${encodeURIComponent(token)}`, { replace: true });
-return;
-
-      // ❗ Safariに飛んで未ログインの場合は、ここで止めて案内する
-      setShowActions(true);
+        // それ以外：エラー表示
+        setMsg(`決済確認に失敗しました（${j?.error || j?.status || r.status}）`);
+        setStatus(j?.error || j?.status || "ERROR");
+      } catch {
+        // 一時的な失敗は待つ
+        timer = window.setTimeout(tick, 2500);
+      }
     };
 
-    run();
-  }, [location.search, navigate]);
+    tick();
+
+    return () => {
+      stopped = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [orderId, token, navigate]);
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", gap: 14, alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
-      <div style={{ fontSize: 16 }}>{message}</div>
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
+        <div style={{ fontSize: 16, marginBottom: 10 }}>{msg}</div>
+        <div style={{ opacity: 0.7, fontSize: 13, marginBottom: 18 }}>
+          注文ID: {orderId}
+          <br />
+          状態: {status}
+        </div>
 
-      {showActions && (
-        <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            onClick={openInChrome}
-            style={{ padding: 14, borderRadius: 12, border: "none", fontWeight: 700, fontSize: 16 }}
-          >
-            Chromeで開く（ログイン状態を引き継ぐ）
+        <div style={{ display: "grid", gap: 10 }}>
+          <button onClick={() => window.location.reload()} style={{ padding: 12, borderRadius: 12 }}>
+            再読み込み
           </button>
-
-          <button
-            onClick={() => navigate("/login", { replace: true })}
-            style={{ padding: 12, borderRadius: 12, border: "none", fontWeight: 600, fontSize: 15 }}
-          >
+          <button onClick={() => navigate("/login")} style={{ padding: 12, borderRadius: 12 }}>
             ログインする
           </button>
-
-          <button
-            onClick={() => navigate("/")}
-            style={{ padding: 12, borderRadius: 12, border: "none", fontWeight: 600, fontSize: 15 }}
-          >
+          <button onClick={() => navigate("/")} style={{ padding: 12, borderRadius: 12 }}>
             トップへ戻る
           </button>
-
-          {orderId && (
-            <div style={{ fontSize: 12, opacity: 0.7 }}>注文ID: {orderId}</div>
-          )}
         </div>
-      )}
-    </div>
+      </div>
+    </main>
   );
 }
-
-export default PayPayReturn;
