@@ -1,5 +1,16 @@
+// src/pages/PayPayReturn.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+
+type ConfirmRes = {
+  paid?: boolean;
+  status?: string;
+  error?: string;
+
+  // 念のため、サーバが入れ子で返すパターンも拾う
+  result?: { status?: string; paid?: boolean };
+  data?: { status?: string; paid?: boolean };
+};
 
 export default function PayPayReturn() {
   const navigate = useNavigate();
@@ -11,6 +22,12 @@ export default function PayPayReturn() {
   const q = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const orderId = q.get("orderId") || "";
   const token = q.get("token") || "";
+
+  // ✅ ここが超重要：Vercelの /api じゃなく、OCIを叩く
+  // Vercelの環境変数に VITE_PAYPAY_API_BASE を設定してね
+  // 例) http://161.33.19.160  （本番は https ドメイン推奨）
+  const API_BASE =
+    (import.meta as any).env?.VITE_PAYPAY_API_BASE?.replace(/\/$/, "") || "";
 
   useEffect(() => {
     if (!orderId || !token) {
@@ -34,32 +51,41 @@ export default function PayPayReturn() {
       }
 
       try {
-        const r = await fetch("/api/confirm-paypay-payment", {
+        const url = `${API_BASE}/api/confirm-paypay-payment`;
+
+        const r = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId, token }),
         });
 
-        const j = await r.json().catch(() => null);
+        const j: ConfirmRes | null = await r.json().catch(() => null);
 
-        // paid 判定（サーバが paid:true を返す想定）
-        if (r.ok && (j?.paid === true || j?.status === "paid" || j?.status === "COMPLETED")) {
-          // ✅ 完了画面へ
+        // デバッグしたいときだけ有効化
+        // console.log("confirm:", r.status, j);
+
+        const s =
+          j?.status ?? j?.result?.status ?? j?.data?.status ?? (r.ok ? "PENDING" : "ERROR");
+        const paid =
+          j?.paid ?? j?.result?.paid ?? j?.data?.paid ?? false;
+
+        // ✅ 完了判定（ここで purchase-complete に飛ばす）
+        if (r.ok && (paid === true || s === "COMPLETED" || s === "paid")) {
           navigate(`/purchase-complete/${orderId}`, { replace: true });
           return;
         }
 
-        // PENDING系：待つ
-        if (r.ok && (j?.status === "PENDING" || j?.paid === false)) {
+        // ✅ 未完了（待つ）
+        if (r.ok && (s === "PENDING" || paid === false)) {
           setMsg("PayPayの支払い完了を待っています…（最大5分）");
           setStatus("PENDING");
           timer = window.setTimeout(tick, 2500);
           return;
         }
 
-        // それ以外：エラー表示
-        setMsg(`決済確認に失敗しました（${j?.error || j?.status || r.status}）`);
-        setStatus(j?.error || j?.status || "ERROR");
+        // ✅ それ以外はエラー
+        setMsg(`決済確認に失敗しました（${j?.error || s || r.status}）`);
+        setStatus(j?.error || s || "ERROR");
       } catch {
         // 一時的な失敗は待つ
         timer = window.setTimeout(tick, 2500);
@@ -72,7 +98,7 @@ export default function PayPayReturn() {
       stopped = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [orderId, token, navigate]);
+  }, [orderId, token, navigate, API_BASE]);
 
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
