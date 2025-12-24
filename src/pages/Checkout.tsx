@@ -449,12 +449,12 @@ function Checkout() {
           coupon: appliedCoupon,
           buyerEmail: user.email ?? null,
           buyerName,
-          items: itemsForStorage.map((it) => ({
-            productId: Number(it.productId),
-            productName: it.name,
-            price: it.price,
-            quantity: it.quantity,
-          })),
+         items: itemsForStorage.map((it) => ({
+  productId: Number(it.productId),
+  name: it.name,
+  price: it.price,
+  quantity: it.quantity,
+})),
         }),
       });
 
