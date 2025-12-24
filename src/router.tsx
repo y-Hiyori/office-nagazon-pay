@@ -12,6 +12,8 @@ import Contact from "./pages/Contact";
 import HowTo from "./pages/HowTo";
 import Tokushoho from "./pages/Tokushoho";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import PayPayQr from "./pages/PayPayQr";
+
 
 // ▼ アカウントメニュー
 import AccountMenu from "./pages/AccountMenu";
@@ -84,6 +86,8 @@ const router = createBrowserRouter([
       // PayPay
       { path: "paypay-sim", element: <PayPaySim /> },
       { path: "paypay-return", element: <PayPayReturn /> },
+
+{ path: "paypay-qr", element: <PayPayQr /> },
 
       // 使い方・問い合わせ（ログイン不要）
       { path: "how-to", element: <HowTo /> },

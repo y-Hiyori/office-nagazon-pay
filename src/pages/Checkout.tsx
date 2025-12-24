@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { useCart } from "../context/CartContext";
 import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
+import QRCode from "react-qr-code";
 import "./Checkout.css";
 
 type StoredItem = {
@@ -13,6 +14,15 @@ type StoredItem = {
   price: number;
   quantity: number;
   stock: number;
+};
+
+type PayPayInfo = {
+  redirectUrl: string;
+  deeplink?: string | null;
+  merchantPaymentId: string;
+  orderId: string;
+  token: string;
+  returnUrl?: string | null;
 };
 
 function Checkout() {
@@ -33,6 +43,16 @@ function Checkout() {
   const [discountYen, setDiscountYen] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponMsg, setCouponMsg] = useState<string>("");
+
+  // PayPay QR 表示用（PC）
+  const [showPaypayQr, setShowPaypayQr] = useState(false);
+  const [paypayInfo, setPaypayInfo] = useState<PayPayInfo | null>(null);
+  const [paypayPollingMsg, setPaypayPollingMsg] = useState<string>("");
+
+  const isMobile = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }, []);
 
   const formatPrice = (value: number | string) =>
     Number(value || 0).toLocaleString("ja-JP");
@@ -77,6 +97,62 @@ function Checkout() {
     };
     load();
   }, [navigate]);
+
+  // ✅ PCでQR表示中：支払い完了を自動チェックして /paypay-return へ（安全版）
+  useEffect(() => {
+    if (!showPaypayQr || !paypayInfo) return;
+
+    let stopped = false;
+    const start = Date.now();
+    let timer: number | null = null;
+
+    setPaypayPollingMsg("支払い完了を確認中…（最大5分）");
+
+    const tick = async () => {
+      if (stopped) return;
+
+      // 5分で打ち切り
+      if (Date.now() - start > 5 * 60 * 1000) {
+        setPaypayPollingMsg("時間切れです。支払いが完了している場合は再読み込みしてください。");
+        return;
+      }
+
+      try {
+        const r = await fetch("/api/paypay-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ merchantPaymentId: paypayInfo.merchantPaymentId }),
+        });
+
+        // 500とかHTMLが返る場合があるので json しない
+        if (!r.ok) {
+          timer = window.setTimeout(tick, 2500);
+          return;
+        }
+
+        const j = await r.json().catch(() => null);
+
+        if (j?.paid === true || j?.status === "COMPLETED") {
+          const url = `/paypay-return?orderId=${encodeURIComponent(
+            paypayInfo.orderId
+          )}&token=${encodeURIComponent(paypayInfo.token)}`;
+          window.location.href = url;
+          return;
+        }
+      } catch {
+        // 一時的な失敗は無視
+      }
+
+      timer = window.setTimeout(tick, 2500);
+    };
+
+    tick();
+
+    return () => {
+      stopped = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [showPaypayQr, paypayInfo]);
 
   // ✅ Supabaseクーポン適用（円/％ 両対応：discount_value版）
   const applyCoupon = async () => {
@@ -240,7 +316,7 @@ function Checkout() {
         stock: Number(item.product.stock ?? 0),
       }));
 
-      // ✅ 0円：PayPayに行かずDB保存→在庫減算→メール→完了へ（既存のまま）
+      // ✅ 0円：PayPayに行かずDB保存→在庫減算→メール→完了へ
       if (payableTotal === 0) {
         const { data: orderRow, error: orderErr } = await supabase
           .from("orders")
@@ -308,7 +384,9 @@ function Checkout() {
           const itemsText = itemsForStorage
             .map(
               (i) =>
-                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString("ja-JP")}円）`
+                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString(
+                  "ja-JP"
+                )}円）`
             )
             .join("\n");
 
@@ -321,7 +399,9 @@ function Checkout() {
                 orderId: orderRow.id,
                 buyerName,
                 itemsText,
-                totalText: `0円（クーポン${appliedCoupon ? `:${appliedCoupon}` : ""} -${formatPrice(discountYen)}円）`,
+                totalText: `0円（クーポン${
+                  appliedCoupon ? `:${appliedCoupon}` : ""
+                } -${formatPrice(discountYen)}円）`,
                 to_email: toEmail,
               }),
             });
@@ -357,7 +437,7 @@ function Checkout() {
         })
       );
 
-      // ✅ 重要：items/subtotal/discount/coupon/email/name をサーバへ渡す
+      // ✅ items/subtotal/discount/coupon/email/name をサーバへ渡す
       const res = await fetch("/api/create-paypay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,10 +466,12 @@ function Checkout() {
 
       const data = await res.json();
 
-      const redirectUrl = data.redirectUrl;
-      const merchantPaymentId = data.merchantPaymentId;
-      const orderId = data.orderId;
-      const token = data.token;
+      const redirectUrl: string | null = data.redirectUrl ?? null;
+      const deeplink: string | null = data.deeplink ?? null;
+      const merchantPaymentId: string | null = data.merchantPaymentId ?? null;
+      const orderId: string | null = data.orderId ?? null;
+      const token: string | null = data.token ?? null;
+      const returnUrl: string | null = data.returnUrl ?? null;
 
       if (!redirectUrl || !merchantPaymentId || !orderId || !token) {
         console.error("create-paypay-order response:", data);
@@ -408,11 +490,32 @@ function Checkout() {
           redirectUrl,
           orderId,
           token,
+          deeplink,
+          returnUrl,
         })
       );
 
+      // ✅ スマホなら今まで通り飛ぶ
+      if (isMobile) {
+        redirecting = true;
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      // ✅ PCならQR表示してスマホで読む
+      setPaypayInfo({
+        redirectUrl,
+        deeplink,
+        merchantPaymentId,
+        orderId,
+        token,
+        returnUrl,
+      });
+      setShowPaypayQr(true);
+
+      // PCは遷移しないので処理中解除
+      setIsProcessing(false);
       redirecting = true;
-      window.location.href = redirectUrl;
     } catch (e) {
       console.error(e);
       alert("決済の開始に失敗しました。時間をおいてお試しください。");
@@ -596,6 +699,7 @@ function Checkout() {
 
       <SiteFooter />
 
+      {/* 店舗IDモーダル */}
       {showStoreAuth && (
         <div className="pay-modal-overlay">
           <div className="pay-modal">
@@ -614,6 +718,78 @@ function Checkout() {
               </button>
               <button className="modal-sub-btn" onClick={handleStoreAuthCancel}>
                 戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PC用：PayPay QR モーダル */}
+      {showPaypayQr && paypayInfo && (
+        <div className="pay-modal-overlay">
+          <div className="pay-modal">
+            <h3>PayPay お支払い</h3>
+
+            <div
+              style={{
+                background: "#fff",
+                padding: 12,
+                borderRadius: 12,
+                width: "fit-content",
+                margin: "0 auto",
+              }}
+            >
+              <QRCode value={paypayInfo.redirectUrl} size={220} />
+            </div>
+
+            <p
+              style={{
+                marginTop: 10,
+                fontSize: 13,
+                opacity: 0.85,
+                textAlign: "center",
+              }}
+            >
+              スマホのPayPayでQRを読み取って支払いしてください
+            </p>
+
+            {paypayPollingMsg && (
+              <p style={{ marginTop: 8, fontSize: 12, opacity: 0.75, textAlign: "center" }}>
+                {paypayPollingMsg}
+              </p>
+            )}
+
+            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+              <button
+                className="modal-main-btn"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(paypayInfo.redirectUrl);
+                    alert("支払いリンクをコピーしました");
+                  } catch {
+                    alert("コピーできませんでした");
+                  }
+                }}
+              >
+                支払いリンクをコピー
+              </button>
+
+              <button
+                className="modal-sub-btn"
+                onClick={() => window.open(paypayInfo.redirectUrl, "_blank")}
+              >
+                このPCで開く（保険）
+              </button>
+
+              <button
+                className="modal-sub-btn"
+                onClick={() => {
+                  setShowPaypayQr(false);
+                  setPaypayInfo(null);
+                  setPaypayPollingMsg("");
+                }}
+              >
+                閉じる
               </button>
             </div>
           </div>
