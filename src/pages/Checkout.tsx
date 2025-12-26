@@ -26,6 +26,7 @@ function Checkout() {
   const [showStoreAuth, setShowStoreAuth] = useState(false);
   const [storeCode, setStoreCode] = useState("");
 
+  // クーポン
   const [couponCode, setCouponCode] = useState("");
   const [discountYen, setDiscountYen] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
@@ -53,6 +54,7 @@ function Checkout() {
     [subtotal, discountYen]
   );
 
+  // ログインチェック
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -195,7 +197,7 @@ function Checkout() {
         return;
       }
 
-      // 購入者名
+      // 購入者名（表示用）
       let buyerName = "(名前未設定)";
       try {
         const { data: profile } = await supabase
@@ -220,8 +222,6 @@ function Checkout() {
           (globalThis.crypto as any)?.randomUUID?.() ??
           `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-        const buyerEmail = user.email ?? "";
-
         const { data: orderRow, error: orderErr } = await supabase
           .from("orders")
           .insert({
@@ -236,12 +236,10 @@ function Checkout() {
             status: "paid",
             paid_at: new Date().toISOString(),
 
-            // ★重要：購入者メール用（トークン照合・宛先）
+            // ★重要：メール送信APIのtoken照合に使う
             paypay_return_token: token0yen,
-            email: buyerEmail || null,
-            name: buyerName || null,
           })
-          .select("id")
+          .select("id, paypay_return_token")
           .single();
 
         if (orderErr || !orderRow) {
@@ -253,7 +251,7 @@ function Checkout() {
         const orderItemsPayload = itemsForStorage.map((it) => ({
           order_id: orderRow.id,
           product_id: Number(it.productId),
-          product_name: it.name, // ★あなたのDBに合わせて product_name
+          product_name: it.name, // ★DBに合わせて product_name
           price: it.price,
           quantity: it.quantity,
         }));
@@ -286,14 +284,15 @@ function Checkout() {
           }
         }
 
-        // ✅ 購入者メール（Vercel API）
-        if (buyerEmail) {
-          await fetch("/api/send-buyer-order-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: orderRow.id, token: token0yen }),
-          }).catch(() => {});
-        }
+        // ✅ 購入者メール（Vercel APIに統一：テンプレ変数も統一済み前提）
+        await fetch("/api/send-buyer-order-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: orderRow.id,
+            token: orderRow.paypay_return_token,
+          }),
+        }).catch(() => {});
 
         if (!buyNow && typeof (cart as any).clearCart === "function") {
           (cart as any).clearCart();
@@ -565,6 +564,7 @@ function Checkout() {
               placeholder="IDを入力してください"
               className="store-auth-input"
             />
+
             <div className="modal-buttons">
               <button className="modal-main-btn" onClick={handleStoreAuthConfirm}>
                 次へ進む
