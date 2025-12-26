@@ -26,7 +26,6 @@ function Checkout() {
   const [showStoreAuth, setShowStoreAuth] = useState(false);
   const [storeCode, setStoreCode] = useState("");
 
-  // クーポン
   const [couponCode, setCouponCode] = useState("");
   const [discountYen, setDiscountYen] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
@@ -180,11 +179,6 @@ function Checkout() {
     setShowStoreAuth(false);
     setStoreCode("");
 
-    if (!method) {
-      alert("支払い方法を選択してください");
-      return;
-    }
-
     let redirecting = false;
 
     try {
@@ -197,7 +191,7 @@ function Checkout() {
         return;
       }
 
-      // 購入者名（表示用）
+      // 購入者名
       let buyerName = "(名前未設定)";
       try {
         const { data: profile } = await supabase
@@ -208,6 +202,8 @@ function Checkout() {
         if (profile?.name) buyerName = profile.name;
       } catch {}
 
+      const buyerEmail = user.email ?? "";
+
       const itemsForStorage: StoredItem[] = items.map((item) => ({
         productId: item.product.id,
         name: item.product.name,
@@ -216,7 +212,7 @@ function Checkout() {
         stock: Number(item.product.stock ?? 0),
       }));
 
-      // ========= 0円購入（クーポンで全額相殺） =========
+      // ========= 0円購入 =========
       if (payableTotal === 0) {
         const token0yen =
           (globalThis.crypto as any)?.randomUUID?.() ??
@@ -228,18 +224,18 @@ function Checkout() {
             user_id: user.id,
             total: 0,
             payment_method: "coupon",
-            merchant_payment_id: null,
-            paypay_merchant_payment_id: null,
             subtotal,
             discount_amount: discountYen,
             coupon_code: appliedCoupon,
             status: "paid",
             paid_at: new Date().toISOString(),
 
-            // ★重要：メール送信APIのtoken照合に使う
+            // ★購入者通知用
             paypay_return_token: token0yen,
+            email: buyerEmail || null,
+            name: buyerName || null,
           })
-          .select("id, paypay_return_token")
+          .select("id")
           .single();
 
         if (orderErr || !orderRow) {
@@ -251,7 +247,7 @@ function Checkout() {
         const orderItemsPayload = itemsForStorage.map((it) => ({
           order_id: orderRow.id,
           product_id: Number(it.productId),
-          product_name: it.name, // ★DBに合わせて product_name
+          product_name: it.name, // ★order_itemsはproduct_name
           price: it.price,
           quantity: it.quantity,
         }));
@@ -275,30 +271,24 @@ function Checkout() {
 
           if (error) {
             console.error("decrement_stock error:", error);
-            if ((error.message ?? "").includes("在庫不足")) {
-              alert(`在庫が足りません：${it.name}`);
-            } else {
-              alert("在庫更新に失敗しました");
-            }
+            alert((error.message ?? "").includes("在庫不足") ? `在庫が足りません：${it.name}` : "在庫更新に失敗しました");
             return;
           }
         }
 
-        // ✅ 購入者メール（Vercel APIに統一：テンプレ変数も統一済み前提）
-        await fetch("/api/send-buyer-order-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId: orderRow.id,
-            token: orderRow.paypay_return_token,
-          }),
-        }).catch(() => {});
+        // ✅ 購入者メール（Vercel API）
+        if (buyerEmail) {
+          await fetch("/api/send-buyer-order-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: orderRow.id, token: token0yen }),
+          }).catch(() => {});
+        }
 
         if (!buyNow && typeof (cart as any).clearCart === "function") {
           (cart as any).clearCart();
         }
 
-        alert("購入が完了しました。");
         navigate(`/purchase-complete/${orderRow.id}`, { replace: true });
         return;
       }
@@ -309,18 +299,7 @@ function Checkout() {
         return;
       }
 
-      // 保険
-      sessionStorage.setItem(
-        "paypayCheckout",
-        JSON.stringify({
-          subtotal,
-          discountYen,
-          coupon: appliedCoupon,
-          total: payableTotal,
-          items: itemsForStorage,
-        })
-      );
-
+      // PayPay注文作成（Vercelの /api/create-paypay-order を使う前提）
       const res = await fetch("/api/create-paypay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -330,7 +309,7 @@ function Checkout() {
           subtotal,
           discountYen,
           coupon: appliedCoupon,
-          buyerEmail: user.email ?? null,
+          buyerEmail: buyerEmail || null,
           buyerName,
           items: itemsForStorage.map((it) => ({
             productId: Number(it.productId),
@@ -348,33 +327,12 @@ function Checkout() {
       }
 
       const data = await res.json();
-
       const redirectUrl: string | null = data.redirectUrl ?? null;
-      const merchantPaymentId: string | null = data.merchantPaymentId ?? null;
-      const orderId: string | null = data.orderId ?? null;
-      const token: string | null = data.token ?? null;
 
-      if (!redirectUrl || !merchantPaymentId || !orderId || !token) {
+      if (!redirectUrl) {
         console.error("create-paypay-order response:", data);
         throw new Error("PayPay API response invalid");
       }
-
-      sessionStorage.setItem(
-        "paypayCheckout",
-        JSON.stringify({
-          subtotal,
-          discountYen,
-          coupon: appliedCoupon,
-          total: payableTotal,
-          items: itemsForStorage,
-          merchantPaymentId,
-          redirectUrl,
-          orderId,
-          token,
-          deeplink: data.deeplink ?? null,
-          returnUrl: data.returnUrl ?? null,
-        })
-      );
 
       redirecting = true;
       window.location.href = redirectUrl;
@@ -393,6 +351,7 @@ function Checkout() {
       <main className="checkout-page">
         <div className="checkout-layout">
           <div className="checkout-main">
+            {/* 購入商品 */}
             <section className="co-section">
               <h3 className="co-section-title">購入商品</h3>
               <div className="co-card">
@@ -419,6 +378,7 @@ function Checkout() {
               </div>
             </section>
 
+            {/* クーポン */}
             <section className="co-section">
               <h3 className="co-section-title">クーポンコード</h3>
               <div className="co-card">
@@ -448,6 +408,7 @@ function Checkout() {
               </div>
             </section>
 
+            {/* 支払い方法（モバイル） */}
             <section className="co-section only-mobile">
               <h3 className="co-section-title">支払い方法</h3>
               <div className="co-card">
@@ -467,6 +428,7 @@ function Checkout() {
               </div>
             </section>
 
+            {/* 明細（モバイル） */}
             <section className="co-section only-mobile">
               <h3 className="co-section-title">お支払い明細</h3>
               <div className="co-card">
@@ -489,6 +451,7 @@ function Checkout() {
             </section>
           </div>
 
+          {/* 右側（PC） */}
           <aside className="checkout-side">
             <section className="co-section only-desktop">
               <h3 className="co-section-title">支払い方法</h3>
@@ -564,7 +527,6 @@ function Checkout() {
               placeholder="IDを入力してください"
               className="store-auth-input"
             />
-
             <div className="modal-buttons">
               <button className="modal-main-btn" onClick={handleStoreAuthConfirm}>
                 次へ進む

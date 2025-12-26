@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       "EMAILJS_SERVICE_ID",
       "EMAILJS_PUBLIC_KEY",
       "EMAILJS_PRIVATE_KEY",
-      "EMAILJS_TEMPLATE_ID", // ← nagazon_order_notice の template id
+      "EMAILJS_TEMPLATE_ID", // 購入者テンプレ（nagazon_order_notice）
     ];
     const missing = need.filter((k) => !process.env[k]);
     if (missing.length) {
@@ -27,55 +27,52 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, status: "MISSING" });
     }
 
-    const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const sb = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
 
-    // 1) 注文取得（orders.email は取らない！）
-    const { data: order, error: orderErr } = await sb
+    // 注文取得 + token検証 + 二重送信防止
+    const { data: order, error: getErr } = await sb
       .from("orders")
-      .select("id,user_id,status,total,created_at,paypay_return_token,buyer_email_sent_at")
+      .select("id,total,subtotal,discount_amount,coupon_code,created_at,paypay_return_token,email,name,buyer_email_sent_at")
       .eq("id", orderId)
       .single();
 
-    if (orderErr || !order) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
+    if (getErr || !order) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
     if (order.paypay_return_token !== token) return res.status(403).json({ ok: false, status: "BAD_TOKEN" });
 
-    // 2) 支払い済みだけ送る（必要ならゆるめてOK）
-    const paid = order.status === "paid" || order.status === "COMPLETED";
-    if (!paid) return res.status(409).json({ ok: false, status: "NOT_PAID_YET" });
-
-    // 3) 二重送信防止
     if (order.buyer_email_sent_at) {
       return res.json({ ok: true, status: "ALREADY_SENT" });
     }
 
-    // 4) 購入者のメール/名前は profiles から取る（orders.email問題回避）
-    const { data: profile } = await sb
-      .from("profiles")
-      .select("name,email")
-      .eq("id", order.user_id)
-      .maybeSingle();
-
-    const toEmail = profile?.email || "";
-    const buyerName = profile?.name || "お客様";
+    const toEmail = order.email;
     if (!toEmail) return res.status(500).json({ ok: false, status: "NO_BUYER_EMAIL" });
 
-    // 5) 明細
+    // 注文明細
     const { data: items } = await sb
       .from("order_items")
       .select("product_name,price,quantity")
       .eq("order_id", orderId);
 
-    const itemsText =
-      (items || [])
-        .map(
-          (it) =>
-            `${it.product_name} ×${it.quantity}（${Number(it.price || 0).toLocaleString("ja-JP")}円）`
-        )
-        .join("\n") || "（明細を取得できませんでした）";
+    const itemsText = (items || [])
+      .map((it) => {
+        const name = it.product_name ?? "";
+        const qty = Number(it.quantity ?? 0);
+        const price = Number(it.price ?? 0).toLocaleString("ja-JP");
+        return `${name} ×${qty}（${price}円）`;
+      })
+      .join("\n");
 
-    const totalText = `${Number(order.total || 0).toLocaleString("ja-JP")}円`;
+    // 合計表示（テンプレの「total_text」用）
+    const totalYen = Number(order.total ?? 0).toLocaleString("ja-JP");
+    const disc = Number(order.discount_amount ?? 0);
+    const coupon = order.coupon_code ? `クーポン:${order.coupon_code} ` : "";
+    const totalText =
+      disc > 0
+        ? `${totalYen}円（${coupon}-${disc.toLocaleString("ja-JP")}円）`
+        : `${totalYen}円`;
 
-    // 6) EmailJS（テンプレ変数に合わせる！）
     const payload = {
       service_id: process.env.EMAILJS_SERVICE_ID,
       template_id: process.env.EMAILJS_TEMPLATE_ID,
@@ -83,7 +80,7 @@ export default async function handler(req, res) {
       accessToken: process.env.EMAILJS_PRIVATE_KEY,
       template_params: {
         to_email: toEmail,
-        buyer_name: buyerName,
+        buyer_name: order.name || "",
         order_id: order.id,
         items_text: itemsText,
         total_text: totalText,
@@ -96,11 +93,13 @@ export default async function handler(req, res) {
       body: JSON.stringify(payload),
     });
 
-    const text = await r.text();
-    if (!r.ok) return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail: text });
+    const detail = await r.text();
+    if (!r.ok) return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail });
 
-    // 7) 送信済みフラグ
-    await sb.from("orders").update({ buyer_email_sent_at: new Date().toISOString() }).eq("id", orderId);
+    await sb
+      .from("orders")
+      .update({ buyer_email_sent_at: new Date().toISOString() })
+      .eq("id", orderId);
 
     return res.json({ ok: true, status: "SENT" });
   } catch (e) {
