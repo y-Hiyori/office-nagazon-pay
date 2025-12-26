@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ ok: false, status: "BAD_TOKEN" });
     }
 
-    // ✅ すでに paid の場合も、フロントが遷移できる形で返す
+    // すでに paid
     if (order.status === "paid") {
       return res.status(200).json({
         ok: true,
@@ -54,9 +54,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, status: "NO_MPID" });
     }
 
-    // 3) PayPay照会
+    // PayPay照会
     const body = await new Promise((resolve, reject) => {
-      // SDKが string を想定してる場合があるので一旦 string で
       PAYPAY.GetCodePaymentDetails(merchantPaymentId, (response) => {
         if (!response || !response.BODY) return reject(new Error("NO_BODY"));
         resolve(response.BODY);
@@ -65,7 +64,7 @@ export default async function handler(req, res) {
 
     const paypayStatus = body?.data?.status || "UNKNOWN";
 
-    // ✅ 完了
+    // 完了
     if (paypayStatus === "COMPLETED") {
       await supabaseAdmin
         .from("orders")
@@ -81,7 +80,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // ✅ 未完了は「PENDING」として返す（フロントが待機ループできるように）
+    // 未完了
     return res.status(200).json({
       ok: true,
       paid: false,
