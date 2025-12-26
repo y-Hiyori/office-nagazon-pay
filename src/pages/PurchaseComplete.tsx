@@ -16,7 +16,6 @@ function PurchaseComplete() {
   const [paid, setPaid] = useState(false);
   const [msg, setMsg] = useState("購入完了を確認しています…");
 
-  // ★ OCIのPayPay APIベース（Vercel Envの VITE_PAYPAY_API_BASE を使う）
   const PAYPAY_API_BASE = (import.meta as any).env?.VITE_PAYPAY_API_BASE || "";
 
   useEffect(() => {
@@ -26,7 +25,7 @@ function PurchaseComplete() {
       return;
     }
 
-    // token無し（= 普通に購入履歴から来た等）は確認せず表示
+    // token無し：0円購入 or 購入履歴から表示（確認せずOK表示）
     if (!token) {
       setChecking(false);
       setPaid(true);
@@ -38,7 +37,6 @@ function PurchaseComplete() {
 
     (async () => {
       try {
-        // ✅ 決済確認は「OCIのAPI」に投げる（/api じゃなく）
         const url = `${PAYPAY_API_BASE}/api/confirm-paypay-payment`;
 
         const r = await fetch(url, {
@@ -50,7 +48,11 @@ function PurchaseComplete() {
         const j = await r.json().catch(() => null);
 
         const isPaid =
-          r.ok && (j?.paid === true || j?.status === "paid" || j?.status === "COMPLETED" || j?.paypayStatus === "COMPLETED");
+          r.ok &&
+          (j?.paid === true ||
+            j?.status === "paid" ||
+            j?.status === "COMPLETED" ||
+            j?.paypayStatus === "COMPLETED");
 
         if (stopped) return;
 
@@ -58,8 +60,7 @@ function PurchaseComplete() {
           setPaid(true);
           setMsg("ご購入ありがとうございます！");
 
-          // ✅ 購入者へメール（Vercel APIに投げる：秘密鍵を守るため）
-          // ※サーバ側で「未送信なら送る」(idempotent)にする
+          // ✅ 購入者メール（Vercel API / 二重送信防止はサーバ側）
           await fetch("/api/send-buyer-order-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

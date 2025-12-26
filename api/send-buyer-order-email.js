@@ -15,42 +15,42 @@ export default async function handler(req, res) {
       "EMAILJS_SERVICE_ID",
       "EMAILJS_PUBLIC_KEY",
       "EMAILJS_PRIVATE_KEY",
-      "EMAILJS_TEMPLATE_ID", // ←購入者通知テンプレ（あなたはこれを使ってたはず）
+      "EMAILJS_TEMPLATE_ID",
     ];
     const missing = need.filter((k) => !process.env[k]);
-    if (missing.length) return res.status(500).json({ ok: false, status: "ENV_MISSING", missing });
+    if (missing.length) {
+      return res.status(500).json({ ok: false, status: "ENV_MISSING", missing });
+    }
 
     const { orderId, token } = req.body || {};
     if (!orderId || !token) return res.status(400).json({ ok: false, status: "MISSING" });
 
     const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    // 1) 注文取得 + token検証
     const { data: order, error: getErr } = await sb
       .from("orders")
-      .select("id, status, total, created_at, paypay_return_token, email, name, buyer_email_sent_at")
+      .select("id,status,total,created_at,paypay_return_token,email,name,buyer_email_sent_at")
       .eq("id", orderId)
       .single();
 
     if (getErr || !order) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
     if (order.paypay_return_token !== token) return res.status(403).json({ ok: false, status: "BAD_TOKEN" });
 
-    // 2) 二重送信防止（DB側で一回だけ送る）
-    if (order.buyer_email_sent_at) {
-      return res.json({ ok: true, status: "ALREADY_SENT" });
-    }
+    // 二重送信防止
+    if (order.buyer_email_sent_at) return res.json({ ok: true, status: "ALREADY_SENT" });
 
-    // ※ order_items も欲しければ拾う
     const { data: items } = await sb
       .from("order_items")
-      .select("name, price, quantity")
+      .select("product_name,price,quantity")
       .eq("order_id", orderId);
 
     const itemsText = (items || [])
-      .map((it) => `${it.name} ×${it.quantity}（${Number(it.price).toLocaleString("ja-JP")}円）`)
+      .map(
+        (it) =>
+          `${it.product_name} ×${it.quantity}（${Number(it.price).toLocaleString("ja-JP")}円）`
+      )
       .join("\n");
 
-    // 3) EmailJS送信（購入者へ）
     const toEmail = order.email;
     if (!toEmail) return res.status(500).json({ ok: false, status: "NO_BUYER_EMAIL" });
 
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         to_email: toEmail,
         to_name: order.name || "",
         order_id: order.id,
-        total: order.total,
+        total: Number(order.total || 0).toLocaleString("ja-JP"),
         items: itemsText,
         created_at: order.created_at,
       },
@@ -78,12 +78,16 @@ export default async function handler(req, res) {
     const text = await r.text();
     if (!r.ok) return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail: text });
 
-    // 4) 送信済みフラグ（ordersに buyer_email_sent_at 列が必要）
-    await sb.from("orders").update({ buyer_email_sent_at: new Date().toISOString() }).eq("id", orderId);
+    await sb
+      .from("orders")
+      .update({ buyer_email_sent_at: new Date().toISOString() })
+      .eq("id", orderId);
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, status: "SENT" });
   } catch (e) {
     console.error("SEND_BUYER_EMAIL_ERROR:", e);
-    return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
+    return res
+      .status(500)
+      .json({ ok: false, status: "ERROR", message: String(e?.message || e) });
   }
 }

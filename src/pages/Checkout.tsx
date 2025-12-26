@@ -20,15 +20,12 @@ function Checkout() {
   const location = useLocation();
   const cart = useCart();
 
-  // 支払い方法
   const [method, setMethod] = useState<"paypay" | "">("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 店舗用パスワード入力モーダル
   const [showStoreAuth, setShowStoreAuth] = useState(false);
   const [storeCode, setStoreCode] = useState("");
 
-  // クーポン
   const [couponCode, setCouponCode] = useState("");
   const [discountYen, setDiscountYen] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
@@ -44,13 +41,7 @@ function Checkout() {
   const buyNow = state?.buyNow;
 
   const items = buyNow
-    ? [
-        {
-          id: buyNow.product.id,
-          product: buyNow.product,
-          quantity: buyNow.quantity,
-        },
-      ]
+    ? [{ id: buyNow.product.id, product: buyNow.product, quantity: buyNow.quantity }]
     : cart.cart;
 
   const subtotal = buyNow
@@ -62,23 +53,17 @@ function Checkout() {
     [subtotal, discountYen]
   );
 
-  // ログインチェック
   useEffect(() => {
-    const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         alert("ログインしてください");
         navigate("/login");
-        return;
       }
-    };
-    load();
+    })();
   }, [navigate]);
 
-  // ✅ Supabaseクーポン適用（円/％ 両対応：discount_value版）
+  // クーポン適用
   const applyCoupon = async () => {
     const code = couponCode.trim().toUpperCase();
     setCouponMsg("");
@@ -112,7 +97,6 @@ function Checkout() {
       return;
     }
 
-    // 期間
     if (data.starts_at && nowIso < data.starts_at) {
       clearCoupon();
       setCouponMsg("このクーポンはまだ使えません。");
@@ -124,36 +108,29 @@ function Checkout() {
       return;
     }
 
-    // 最低購入金額
     if (data.min_subtotal != null && subtotal < data.min_subtotal) {
       clearCoupon();
       setCouponMsg(`小計${formatPrice(data.min_subtotal)}円以上で使えます。`);
       return;
     }
 
-    // 回数制限
     if (data.usage_limit != null && (data.used_count ?? 0) >= data.usage_limit) {
       clearCoupon();
       setCouponMsg("このクーポンは上限回数に達しました。");
       return;
     }
 
-    // 値引き計算（％ or 円）
     let discount = 0;
     const v = Number(data.discount_value ?? 0);
-
     if ((data.discount_type ?? "yen") === "percent") {
       discount = Math.floor((subtotal * v) / 100);
     } else {
       discount = v;
     }
 
-    // 上限（任意）
     if (data.max_discount_yen != null) {
       discount = Math.min(discount, Number(data.max_discount_yen));
     }
-
-    // 小計を超えない
     discount = Math.min(discount, subtotal);
 
     if (discount <= 0) {
@@ -186,7 +163,11 @@ function Checkout() {
     setShowStoreAuth(true);
   };
 
-  // 店舗パスワード確認（PayPayのみ）
+  const handleStoreAuthCancel = () => {
+    setShowStoreAuth(false);
+    setStoreCode("");
+  };
+
   const handleStoreAuthConfirm = async () => {
     const correctCode = "20220114";
     if (storeCode !== correctCode) {
@@ -207,17 +188,14 @@ function Checkout() {
     try {
       setIsProcessing(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         alert("ログインしてください");
         navigate("/login");
         return;
       }
 
-      // 購入者名（任意）
+      // 購入者名
       let buyerName = "(名前未設定)";
       try {
         const { data: profile } = await supabase
@@ -236,8 +214,14 @@ function Checkout() {
         stock: Number(item.product.stock ?? 0),
       }));
 
-      // ✅ 0円：PayPayに行かずDB保存→在庫減算→メール→完了へ
+      // ========= 0円購入（クーポンで全額相殺） =========
       if (payableTotal === 0) {
+        const token0yen =
+          (globalThis.crypto as any)?.randomUUID?.() ??
+          `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+        const buyerEmail = user.email ?? "";
+
         const { data: orderRow, error: orderErr } = await supabase
           .from("orders")
           .insert({
@@ -251,6 +235,11 @@ function Checkout() {
             coupon_code: appliedCoupon,
             status: "paid",
             paid_at: new Date().toISOString(),
+
+            // ★重要：購入者メール用（トークン照合・宛先）
+            paypay_return_token: token0yen,
+            email: buyerEmail || null,
+            name: buyerName || null,
           })
           .select("id")
           .single();
@@ -264,7 +253,7 @@ function Checkout() {
         const orderItemsPayload = itemsForStorage.map((it) => ({
           order_id: orderRow.id,
           product_id: Number(it.productId),
-          product_name: it.name,
+          product_name: it.name, // ★あなたのDBに合わせて product_name
           price: it.price,
           quantity: it.quantity,
         }));
@@ -279,6 +268,7 @@ function Checkout() {
           return;
         }
 
+        // 在庫減算
         for (const it of itemsForStorage) {
           const { error } = await supabase.rpc("decrement_stock", {
             p_product_id: Number(it.productId),
@@ -296,34 +286,13 @@ function Checkout() {
           }
         }
 
-        try {
-          const itemsText = itemsForStorage
-            .map(
-              (i) =>
-                `${i.name} × ${i.quantity}個（単価: ${i.price.toLocaleString(
-                  "ja-JP"
-                )}円）`
-            )
-            .join("\n");
-
-          const toEmail = user.email ?? "";
-          if (toEmail) {
-            await fetch("/api/send-admin-order-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                orderId: orderRow.id,
-                buyerName,
-                itemsText,
-                totalText: `0円（クーポン${
-                  appliedCoupon ? `:${appliedCoupon}` : ""
-                } -${formatPrice(discountYen)}円）`,
-                to_email: toEmail,
-              }),
-            });
-          }
-        } catch (e) {
-          console.error("0円購入の購入者メール送信に失敗:", e);
+        // ✅ 購入者メール（Vercel API）
+        if (buyerEmail) {
+          await fetch("/api/send-buyer-order-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: orderRow.id, token: token0yen }),
+          }).catch(() => {});
         }
 
         if (!buyNow && typeof (cart as any).clearCart === "function") {
@@ -335,13 +304,13 @@ function Checkout() {
         return;
       }
 
-      // ✅ PayPayへ
+      // ========= PayPay購入 =========
       if (method !== "paypay") {
         alert("支払い方法を選択してください");
         return;
       }
 
-      // 保険（戻りで使う人もいる）
+      // 保険
       sessionStorage.setItem(
         "paypayCheckout",
         JSON.stringify({
@@ -353,7 +322,6 @@ function Checkout() {
         })
       );
 
-      // ✅ サーバに送る items は "name" が必須
       const res = await fetch("/api/create-paypay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,8 +354,6 @@ function Checkout() {
       const merchantPaymentId: string | null = data.merchantPaymentId ?? null;
       const orderId: string | null = data.orderId ?? null;
       const token: string | null = data.token ?? null;
-      const deeplink: string | null = data.deeplink ?? null;
-      const returnUrl: string | null = data.returnUrl ?? null;
 
       if (!redirectUrl || !merchantPaymentId || !orderId || !token) {
         console.error("create-paypay-order response:", data);
@@ -406,26 +372,19 @@ function Checkout() {
           redirectUrl,
           orderId,
           token,
-          deeplink,
-          returnUrl,
+          deeplink: data.deeplink ?? null,
+          returnUrl: data.returnUrl ?? null,
         })
       );
 
-      // ✅ 端末関係なく PayPay に直接遷移
       redirecting = true;
       window.location.href = redirectUrl;
-      return;
     } catch (e) {
       console.error(e);
       alert("決済の開始に失敗しました。時間をおいてお試しください。");
     } finally {
       if (!redirecting) setIsProcessing(false);
     }
-  };
-
-  const handleStoreAuthCancel = () => {
-    setShowStoreAuth(false);
-    setStoreCode("");
   };
 
   return (
@@ -453,10 +412,7 @@ function Checkout() {
                     </div>
                     <div className="co-item-right">
                       <div className="co-item-subtotal">
-                        {formatPrice(
-                          (Number(item.product.price) || 0) * item.quantity
-                        )}
-                        円
+                        {formatPrice((Number(item.product.price) || 0) * item.quantity)}円
                       </div>
                     </div>
                   </div>
@@ -609,7 +565,6 @@ function Checkout() {
               placeholder="IDを入力してください"
               className="store-auth-input"
             />
-
             <div className="modal-buttons">
               <button className="modal-main-btn" onClick={handleStoreAuthConfirm}>
                 次へ進む
