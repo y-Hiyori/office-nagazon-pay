@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 export default async function handler(req, res) {
+  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -9,6 +10,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false });
 
   try {
+    // ENVチェック
     const need = [
       "SUPABASE_URL",
       "SUPABASE_SERVICE_ROLE_KEY",
@@ -27,7 +29,7 @@ export default async function handler(req, res) {
 
     const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    // orders 取得（user_id必須）
+    // orders 取得
     const { data: order, error: orderErr } = await sb
       .from("orders")
       .select(
@@ -39,6 +41,11 @@ export default async function handler(req, res) {
     if (orderErr || !order) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
     if (order.paypay_return_token !== token) return res.status(403).json({ ok: false, status: "BAD_TOKEN" });
 
+    // ✅ paid の時だけ送る（ここが本番の超重要ポイント）
+    const st = String(order.status || "").toLowerCase();
+    if (st !== "paid") return res.status(409).json({ ok: false, status: "NOT_PAID" });
+
+    // 二重送信防止
     if (order.buyer_email_sent_at) return res.json({ ok: true, status: "ALREADY_SENT" });
 
     // 宛先メールの確定：orders.email → profiles.email → auth.users.email（最終手段）
@@ -56,12 +63,10 @@ export default async function handler(req, res) {
       if (!buyerName) buyerName = prof?.name || "";
     }
 
-    // ★ここが決定打：profiles でも取れない場合、Auth本体から取る
+    // ★ profilesにも無いときの保険：Auth本体から拾う（service role 必須）
     if (!toEmail && order.user_id) {
       const { data: authData, error: authErr } = await sb.auth.admin.getUserById(order.user_id);
-      if (!authErr) {
-        toEmail = authData?.user?.email || "";
-      }
+      if (!authErr) toEmail = authData?.user?.email || "";
     }
 
     if (!toEmail) return res.status(500).json({ ok: false, status: "NO_BUYER_EMAIL" });
@@ -73,7 +78,10 @@ export default async function handler(req, res) {
       .eq("order_id", orderId);
 
     const itemsText = (items || [])
-      .map((it) => `${it.product_name} ×${it.quantity}（単価: ${Number(it.price).toLocaleString("ja-JP")}円）`)
+      .map(
+        (it) =>
+          `${it.product_name} ×${it.quantity}（単価: ${Number(it.price).toLocaleString("ja-JP")}円）`
+      )
       .join("\n");
 
     const totalYen = Number(order.total || 0);

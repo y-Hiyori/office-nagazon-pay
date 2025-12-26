@@ -3,6 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./PurchaseComplete.css";
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 function PurchaseComplete() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -39,34 +43,50 @@ function PurchaseComplete() {
       try {
         const url = `${PAYPAY_API_BASE}/api/confirm-paypay-payment`;
 
-        const r = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId, token }),
-        });
+        // ✅ 反映待ち対策：数回リトライ（例：最大8回、2秒間隔）
+        const maxTry = 8;
+        for (let i = 1; i <= maxTry; i++) {
+          if (stopped) return;
 
-        const j = await r.json().catch(() => null);
+          setMsg(i === 1 ? "購入完了を確認しています…" : `決済反映を待っています…（${i}/${maxTry}）`);
 
-        const isPaid =
-          r.ok &&
-          (j?.paid === true ||
-            j?.status === "paid" ||
-            j?.status === "COMPLETED" ||
-            j?.paypayStatus === "COMPLETED");
-
-        if (stopped) return;
-
-        if (isPaid) {
-          setPaid(true);
-          setMsg("ご購入ありがとうございます！");
-
-          // ✅ 購入者メール（Vercel API / 二重送信防止はサーバ側）
-          await fetch("/api/send-buyer-order-email", {
+          const r = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ orderId, token }),
-          }).catch(() => {});
-        } else {
+          });
+
+          const j = await r.json().catch(() => null);
+
+          const isPaid =
+            r.ok &&
+            (j?.paid === true ||
+              j?.status === "paid" ||
+              j?.status === "COMPLETED" ||
+              j?.paypayStatus === "COMPLETED");
+
+          if (isPaid) {
+            if (stopped) return;
+
+            setPaid(true);
+            setMsg("ご購入ありがとうございます！");
+
+            // ✅ 購入者メール（サーバ側で paid チェック & 二重送信防止）
+            await fetch("/api/send-buyer-order-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderId, token }),
+            }).catch(() => {});
+
+            return;
+          }
+
+          // まだ反映してないなら待って次へ
+          if (i < maxTry) await sleep(2000);
+        }
+
+        // リトライしてもダメなら未完了扱い
+        if (!stopped) {
           setPaid(false);
           setMsg("決済がまだ完了していない可能性があります。");
         }
