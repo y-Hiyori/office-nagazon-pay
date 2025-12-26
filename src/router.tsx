@@ -2,7 +2,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 
-// ▼ 一般ユーザー画面
+// ===== 一般ユーザー画面 =====
 import Home from "./pages/Home";
 import ProductList from "./pages/ProductList";
 import ProductDetail from "./pages/ProductDetail";
@@ -12,14 +12,15 @@ import Contact from "./pages/Contact";
 import HowTo from "./pages/HowTo";
 import Tokushoho from "./pages/Tokushoho";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import PurchaseComplete from "./pages/PurchaseComplete";
 
-// ▼ アカウントメニュー
+// ===== アカウント =====
 import AccountMenu from "./pages/AccountMenu";
 import AccountEdit from "./pages/AccountEdit";
 import OrdersList from "./pages/OrdersList";
 import OrderDetail from "./pages/OrderDetail";
 
-// ▼ 認証
+// ===== 認証 =====
 import AuthSelect from "./pages/AuthSelect";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
@@ -27,7 +28,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AuthCallback from "./pages/AuthCallback";
 
-// ▼ 管理者
+// ===== 管理者 =====
 import AdminMenu from "./pages/AdminMenu";
 import AdminPage from "./pages/AdminPage";
 import AdminAdd from "./pages/AdminAdd";
@@ -42,13 +43,11 @@ import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
 import AdminCoupons from "./pages/AdminCoupons";
 import AdminCouponEdit from "./pages/AdminCouponEdit";
 
-import PurchaseComplete from "./pages/PurchaseComplete";
-
-// ★ ルートガード
+// ===== ルートガード =====
 import AdminRoute from "./components/AdminRoute";
 import UserRoute from "./components/UserRoute";
 
-// ▼ PayPay
+// ===== PayPay =====
 import PayPaySim from "./pages/PayPaySim";
 import PayPayReturn from "./pages/PayPayReturn";
 
@@ -57,19 +56,30 @@ const router = createBrowserRouter([
     path: "/",
     element: <App />,
     children: [
-      // ===== 一般ユーザー =====
+      // ---- Public（ログイン不要）
       { index: true, element: <Home /> },
       { path: "products", element: <ProductList /> },
-
-      // 商品詳細（正/互換）
       { path: "products/:id", element: <ProductDetail /> },
-      { path: "product/:id", element: <ProductDetail /> },
-
+      { path: "product/:id", element: <ProductDetail /> }, // 互換
       { path: "cart", element: <CartPage /> },
+      { path: "how-to", element: <HowTo /> },
+      { path: "contact", element: <Contact /> },
       { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
 
-      // ✅ 購入フロー：ログイン必須
+      // PayPay（戻りはログイン無しでも来る可能性あるのでガード無し推奨）
+      { path: "paypay-sim", element: <PayPaySim /> },
+      { path: "paypay-return", element: <PayPayReturn /> },
+
+      // ---- Auth（ログイン不要）
+      { path: "auth", element: <AuthSelect /> },
+      { path: "signup", element: <Signup /> },
+      { path: "login", element: <Login /> },
+      { path: "forgot-password", element: <ForgotPassword /> },
+      { path: "reset-password", element: <ResetPassword /> },
+      { path: "auth/callback", element: <AuthCallback /> },
+
+      // ---- User protected（ログイン必須）
       {
         path: "checkout",
         element: (
@@ -78,16 +88,6 @@ const router = createBrowserRouter([
           </UserRoute>
         ),
       },
-
-      // PayPay（戻りはログイン無しでも動く想定）
-      { path: "paypay-sim", element: <PayPaySim /> },
-      { path: "paypay-return", element: <PayPayReturn /> },
-
-      // 使い方・問い合わせ（ログイン不要）
-      { path: "how-to", element: <HowTo /> },
-      { path: "contact", element: <Contact /> },
-
-      // ✅ アカウント：ログイン必須
       {
         path: "account",
         element: (
@@ -104,8 +104,6 @@ const router = createBrowserRouter([
           </UserRoute>
         ),
       },
-
-      // ✅ 購入履歴：ログイン必須
       {
         path: "orders",
         element: (
@@ -122,19 +120,16 @@ const router = createBrowserRouter([
           </UserRoute>
         ),
       },
+      {
+        path: "purchase-complete/:id",
+        element: (
+          <UserRoute>
+            <PurchaseComplete />
+          </UserRoute>
+        ),
+      },
 
-      // 認証
-      { path: "auth", element: <AuthSelect /> },
-      { path: "signup", element: <Signup /> },
-      { path: "login", element: <Login /> },
-      { path: "forgot-password", element: <ForgotPassword /> },
-      { path: "reset-password", element: <ResetPassword /> },
-      { path: "auth/callback", element: <AuthCallback /> },
-
-      // ✅ 購入完了：PayPay復帰でセッションが無くても見せたいので「ログイン必須を外す」
-      { path: "purchase-complete/:id", element: <PurchaseComplete /> },
-
-      // ===== 管理者 =====
+      // ---- Admin protected
       {
         path: "admin-menu",
         element: (

@@ -4,6 +4,9 @@
     { "source": "/api/create-paypay-order", "destination": "http://161.33.19.160/api/create-paypay-order" },
     { "source": "/api/paypay-status", "destination": "http://161.33.19.160/api/paypay-status" },
     { "source": "/api/confirm-paypay-payment", "destination": "http://161.33.19.160/api/confirm-paypay-payment" },
+
+    { "source": "/api/send-admin-order-email", "destination": "http://161.33.19.160/api/send-admin-order-email" },
+
     { "source": "/(.*)", "destination": "/" }
   ]
 }
