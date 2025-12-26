@@ -13,7 +13,6 @@ import HowTo from "./pages/HowTo";
 import Tokushoho from "./pages/Tokushoho";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 
-
 // ▼ アカウントメニュー
 import AccountMenu from "./pages/AccountMenu";
 import AccountEdit from "./pages/AccountEdit";
@@ -45,10 +44,8 @@ import AdminCouponEdit from "./pages/AdminCouponEdit";
 
 import PurchaseComplete from "./pages/PurchaseComplete";
 
-// ★ 管理者専用ルートガード
+// ★ ルートガード
 import AdminRoute from "./components/AdminRoute";
-
-// ★ 一般ユーザー用ルートガード（追加）
 import UserRoute from "./components/UserRoute";
 
 // ▼ PayPay
@@ -72,7 +69,7 @@ const router = createBrowserRouter([
       { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
 
-      // ✅ 購入フロー：ログイン必須にする
+      // ✅ 購入フロー：ログイン必須
       {
         path: "checkout",
         element: (
@@ -82,10 +79,9 @@ const router = createBrowserRouter([
         ),
       },
 
-      // PayPay
+      // PayPay（戻りはログイン無しでも動く想定）
       { path: "paypay-sim", element: <PayPaySim /> },
       { path: "paypay-return", element: <PayPayReturn /> },
-
 
       // 使い方・問い合わせ（ログイン不要）
       { path: "how-to", element: <HowTo /> },
@@ -135,15 +131,8 @@ const router = createBrowserRouter([
       { path: "reset-password", element: <ResetPassword /> },
       { path: "auth/callback", element: <AuthCallback /> },
 
-      // ✅ 購入完了：ログイン必須（必要なら外してOK）
-      {
-        path: "purchase-complete/:id",
-        element: (
-          <UserRoute>
-            <PurchaseComplete />
-          </UserRoute>
-        ),
-      },
+      // ✅ 購入完了：PayPay復帰でセッションが無くても見せたいので「ログイン必須を外す」
+      { path: "purchase-complete/:id", element: <PurchaseComplete /> },
 
       // ===== 管理者 =====
       {
