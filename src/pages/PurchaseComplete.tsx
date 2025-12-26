@@ -1,10 +1,8 @@
 // src/pages/PurchaseComplete.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { supabase } from "../lib/supabase"; // ✅ 追加
 import "./PurchaseComplete.css";
-
-const INTERVAL_MS = 3000;       // 3秒おき
-const MAX_WAIT_MS = 5 * 60_000; // 最大5分
 
 function PurchaseComplete() {
   const { id } = useParams();
@@ -17,46 +15,9 @@ function PurchaseComplete() {
 
   const [checking, setChecking] = useState(true);
   const [paid, setPaid] = useState(false);
-  const [msg, setMsg] = useState("PayPayの支払い完了を待っています…（最大5分）");
-  const [detail, setDetail] = useState<string>("");
+  const [msg, setMsg] = useState("購入完了を確認しています…");
 
   const PAYPAY_API_BASE = (import.meta as any).env?.VITE_PAYPAY_API_BASE || "";
-
-  // ✅ 二重実行防止（React StrictMode対策にも効く）
-  const startedRef = useRef(false);
-  const mailSentRef = useRef(false);
-
-  const confirmOnce = async () => {
-    const url = `${PAYPAY_API_BASE}/api/confirm-paypay-payment`;
-
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, token }),
-    });
-
-    const j = await r.json().catch(() => null);
-
-    const isPaid =
-      r.ok &&
-      (j?.paid === true ||
-        j?.status === "paid" ||
-        j?.status === "COMPLETED" ||
-        j?.paypayStatus === "COMPLETED");
-
-    return { isPaid, res: j, ok: r.ok };
-  };
-
-  const sendBuyerEmailOnce = async () => {
-    if (mailSentRef.current) return;
-    mailSentRef.current = true;
-
-    await fetch("/api/send-buyer-order-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, token }),
-    }).catch(() => {});
-  };
 
   useEffect(() => {
     if (!orderId) {
@@ -65,72 +26,116 @@ function PurchaseComplete() {
       return;
     }
 
-    // token無し：0円購入 or 購入履歴から表示（確認せずOK表示）
-    if (!token) {
-      setChecking(false);
-      setPaid(true);
-      setMsg("ご購入ありがとうございます！");
-      return;
-    }
-
-    if (startedRef.current) return;
-    startedRef.current = true;
-
     let stopped = false;
-    const startedAt = Date.now();
-    let timer: number | null = null;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-    const loop = async () => {
-      if (stopped) return;
-
-      try {
-        const { isPaid, res } = await confirmOnce();
-
-        if (stopped) return;
-
-        const paypayStatus = res?.paypayStatus || res?.status || "PENDING";
-        const message = res?.message ? String(res.message) : "";
-
-        if (isPaid) {
-          setPaid(true);
-          setChecking(false);
-          setMsg("ご購入ありがとうございます！");
-          setDetail("");
-          await sendBuyerEmailOnce();
-          return;
-        }
-
-        // まだ未決済
-        setPaid(false);
-        setChecking(true);
-        setMsg("PayPayの支払い完了を待っています…（最大5分）");
-        setDetail(
-          message
-            ? `状態: ${paypayStatus} / ${message}`
-            : `状態: ${paypayStatus}`
-        );
-
-        // タイムアウト判定
-        if (Date.now() - startedAt >= MAX_WAIT_MS) {
-          setChecking(false);
-          setMsg("決済確認が完了しませんでした。支払い後なら再読み込みしてください。");
-          return;
-        }
-
-        timer = window.setTimeout(loop, INTERVAL_MS);
-      } catch {
-        if (stopped) return;
-        setChecking(false);
-        setPaid(false);
-        setMsg("通信に失敗しました。再読み込みしてください。");
-      }
+    const isPaidResp = (rOk: boolean, j: any) => {
+      if (!rOk) return false;
+      return (
+        j?.paid === true ||
+        String(j?.status || "").toLowerCase() === "paid" ||
+        j?.paypayStatus === "COMPLETED"
+      );
     };
 
-    loop();
+    (async () => {
+      setChecking(true);
+      setMsg("購入完了を確認しています…");
+
+      // ✅ token無しでも DB から paid 判定 → 送ってなければメール送信
+      if (!token) {
+        try {
+          const { data: order } = await supabase
+            .from("orders")
+            .select("status,paypay_return_token,buyer_email_sent_at")
+            .eq("id", orderId)
+            .single();
+
+          const st = String(order?.status || "").toLowerCase();
+
+          if (st === "paid") {
+            if (stopped) return;
+
+            setPaid(true);
+            setMsg("ご購入ありがとうございます！");
+            setChecking(false);
+
+            const t = order?.paypay_return_token;
+            if (t && !order?.buyer_email_sent_at) {
+              await fetch("/api/send-buyer-order-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderId, token: t }),
+              }).catch(() => {});
+            }
+            return;
+          }
+
+          if (stopped) return;
+          setPaid(false);
+          setMsg("決済がまだ完了していない可能性があります。");
+          setChecking(false);
+          return;
+        } catch {
+          if (stopped) return;
+          setPaid(false);
+          setMsg("通信に失敗しました。再読み込みしてください。");
+          setChecking(false);
+          return;
+        }
+      }
+
+      // ✅ tokenあり：PayPay推奨 4〜5秒間隔ポーリング
+      const url = `${PAYPAY_API_BASE}/api/confirm-paypay-payment`;
+      const intervalMs = 4500;
+      const maxTry = 20; // 約90秒
+
+      try {
+        for (let i = 0; i < maxTry && !stopped; i++) {
+          const r = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId, token }),
+          });
+
+          const j = await r.json().catch(() => null);
+          if (stopped) return;
+
+          if (isPaidResp(r.ok, j)) {
+            setPaid(true);
+            setMsg("ご購入ありがとうございます！");
+
+            await fetch("/api/send-buyer-order-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderId, token }),
+            }).catch(() => {});
+
+            setChecking(false);
+            return;
+          }
+
+          setPaid(false);
+          setMsg("決済確認中です…（少し待ってください）");
+          await sleep(intervalMs);
+        }
+
+        if (!stopped) {
+          setPaid(false);
+          setMsg("決済確認が完了しませんでした。数秒後に再読み込みしてください。");
+        }
+      } catch {
+        if (!stopped) {
+          setPaid(false);
+          setMsg("通信に失敗しました。再読み込みしてください。");
+        }
+      } finally {
+        if (!stopped) setChecking(false);
+      }
+    })();
 
     return () => {
       stopped = true;
-      if (timer) window.clearTimeout(timer);
     };
   }, [orderId, token, PAYPAY_API_BASE]);
 
@@ -141,10 +146,7 @@ function PurchaseComplete() {
 
       <div className="complete-box">
         {checking ? (
-          <>
-            <p>確認中…</p>
-            {detail ? <p style={{ opacity: 0.7, fontSize: 12 }}>{detail}</p> : null}
-          </>
+          <p>確認中…</p>
         ) : paid ? (
           <>
             <p>お支払いが完了しました。</p>
