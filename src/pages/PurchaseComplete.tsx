@@ -1,3 +1,4 @@
+// src/pages/PurchaseComplete.tsx
 import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./PurchaseComplete.css";
@@ -17,7 +18,7 @@ function PurchaseComplete() {
   const [msg, setMsg] = useState("ご購入ありがとうございます！");
 
   useEffect(() => {
-    // orderIdが無いのはさすがに失敗扱い
+    // orderIdが無いのは失敗扱い
     if (!orderId) {
       setView("failed");
       setMsg("注文IDが見つかりませんでした。");
@@ -49,21 +50,30 @@ function PurchaseComplete() {
       <p>注文番号：{orderId || "不明"}</p>
 
       {view === "success" && (
-        <div className="complete-box">
-          <p>お支払いが完了しました。</p>
-          <p>商品をお取りください。</p>
-        </div>
+        <>
+          <div className="complete-box">
+            <p>お支払いが完了しました。</p>
+            <p>商品をお取りください。</p>
+          </div>
+
+          {/* ✅ ここが消えてたので復活 */}
+          <button className="home-btn" onClick={() => navigate("/", { replace: true })}>
+            トップへ戻る
+          </button>
+        </>
       )}
 
       {view === "failed" && (
-        <div className="complete-box">
-          <p>決済の確認ができませんでした。</p>
-          <p>お手数ですがスタッフへご連絡ください。</p>
+        <>
+          <div className="complete-box">
+            <p>決済の確認ができませんでした。</p>
+            <p>お手数ですがスタッフへご連絡ください。</p>
+          </div>
 
-          <button className="home-btn" onClick={() => navigate("/contact")} style={{ marginTop: 12 }}>
+          <button className="home-btn" onClick={() => navigate("/contact", { replace: true })}>
             お問い合わせへ
           </button>
-        </div>
+        </>
       )}
     </div>
   );
