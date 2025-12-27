@@ -1,4 +1,3 @@
-// src/router.tsx
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 
@@ -67,7 +66,7 @@ const router = createBrowserRouter([
       { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
 
-      // ✅ PurchaseComplete は PayPay戻りでログイン無しでも開ける必要があるのでPublicにする
+      // ✅ PayPay戻りでログイン無しでも開ける必要があるのでPublic
       { path: "purchase-complete", element: <PurchaseComplete /> },
       { path: "purchase-complete/:id", element: <PurchaseComplete /> },
 

@@ -1,6 +1,5 @@
-// src/pages/PurchaseComplete.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import "./PurchaseComplete.css";
 
 type ViewState = "loading" | "success" | "failed";
@@ -26,8 +25,7 @@ function PurchaseComplete() {
       return;
     }
 
-    // ✅ Safariに戻った時にログインセッションが無くても「購入完了画面は必ず表示」したいので、
-    // tokenが無いケース（購入履歴から/セッション消え等）はそのまま成功表示にする
+    // ✅ token無しでも「完了表示」は出す（Safari復帰でログイン消えてもOK）
     if (!token) {
       setView("success");
       setMsg("ご購入ありがとうございます！");
@@ -79,7 +77,6 @@ function PurchaseComplete() {
             return;
           }
 
-          // まだ未確定
           setMsg("決済確認中です…（少し待ってください）");
           await sleep(intervalMs);
         }

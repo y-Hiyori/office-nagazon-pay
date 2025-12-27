@@ -5,17 +5,19 @@ export default function PayPayReturn() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [msg, setMsg] = useState("決済を確認しています…");
-  const [status, setStatus] = useState<string>("PENDING");
-
   const q = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const paypayOrderId = q.get("orderId") || "";
   const token = q.get("token") || "";
 
+  const [phase, setPhase] = useState<"CHECKING" | "FAILED">("CHECKING");
+  const [msg, setMsg] = useState("決済を確認しています…");
+  const [detail, setDetail] = useState<string>("");
+
   useEffect(() => {
     if (!paypayOrderId || !token) {
+      setPhase("FAILED");
       setMsg("URLが不正です（orderId/tokenがありません）");
-      setStatus("BAD_REQUEST");
+      setDetail("BAD_REQUEST");
       return;
     }
 
@@ -23,12 +25,23 @@ export default function PayPayReturn() {
     const start = Date.now();
     let timer: number | null = null;
 
+    const isPaidResp = (rOk: boolean, j: any) => {
+      if (!rOk) return false;
+      return (
+        j?.paid === true ||
+        String(j?.status || "").toLowerCase() === "paid" ||
+        j?.paypayStatus === "COMPLETED"
+      );
+    };
+
     const tick = async () => {
       if (stopped) return;
 
+      // 最大5分
       if (Date.now() - start > 5 * 60 * 1000) {
-        setMsg("時間切れです。支払いが完了している場合は再読み込みしてください。");
-        setStatus("TIMEOUT");
+        setPhase("FAILED");
+        setMsg("決済確認がタイムアウトしました。支払いが完了している場合は店舗にお問い合わせください。");
+        setDetail("TIMEOUT");
         return;
       }
 
@@ -40,30 +53,33 @@ export default function PayPayReturn() {
         });
 
         const j = await r.json().catch(() => null);
+        if (stopped) return;
 
-        // ✅ 決済完了
-        if (r.ok && (j?.paid === true || j?.status === "paid" || j?.status === "COMPLETED")) {
-          const orderDbId = j?.orderDbId; // ← confirm が返す Supabase orders.id
-          if (orderDbId) {
-            navigate(`/purchase-complete/${orderDbId}`, { replace: true });
-          } else {
-            // orderDbId返ってこない時はとりあえずトップへ（ここで止めない）
-            navigate("/", { replace: true });
-          }
+        // ✅ 決済完了 → purchase-complete へ
+        if (isPaidResp(r.ok, j)) {
+          const orderDbId = j?.orderDbId || paypayOrderId;
+          navigate(
+            `/purchase-complete/${orderDbId}?orderId=${encodeURIComponent(orderDbId)}&token=${encodeURIComponent(token)}`,
+            { replace: true }
+          );
           return;
         }
 
-        // PENDING
-        if (r.ok && (j?.status === "PENDING" || j?.paid === false)) {
-          setMsg("PayPayの支払い完了を待っています…（最大5分）");
-          setStatus("PENDING");
+        // ✅ まだ待ち（PENDING）
+        const st = String(j?.status || "").toUpperCase();
+        if (r.ok && (st === "PENDING" || j?.paid === false || st === "CREATED")) {
+          setPhase("CHECKING");
+          setMsg("PayPayの支払い完了を待っています…");
           timer = window.setTimeout(tick, 2500);
           return;
         }
 
-        setMsg(`決済確認に失敗しました（${j?.error || j?.status || r.status}）`);
-        setStatus(j?.error || j?.status || "ERROR");
+        // ❌ 失敗
+        setPhase("FAILED");
+        setMsg("決済確認に失敗しました。お手数ですがお問い合わせください。");
+        setDetail(String(j?.error || j?.status || r.status || "ERROR"));
       } catch {
+        // 通信失敗はリトライ（ボタンは出さない）
         timer = window.setTimeout(tick, 2500);
       }
     };
@@ -76,26 +92,46 @@ export default function PayPayReturn() {
     };
   }, [paypayOrderId, token, navigate]);
 
+  // ✅ 失敗時だけ「お問い合わせへ」
+  if (phase === "FAILED") {
+    return (
+      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
+        <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>決済を確認できませんでした</div>
+          <div style={{ fontSize: 14, opacity: 0.85, marginBottom: 14 }}>{msg}</div>
+
+          <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 18, wordBreak: "break-all" }}>
+            orderId: {paypayOrderId}
+            <br />
+            detail: {detail}
+          </div>
+
+          <button
+            onClick={() => navigate("/contact", { replace: true })}
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 12,
+              border: "1px solid rgba(0,0,0,0.12)",
+              fontWeight: 700,
+            }}
+          >
+            お問い合わせへ
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // ✅ 待機中はボタン無し
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
         <div style={{ fontSize: 16, marginBottom: 10 }}>{msg}</div>
-        <div style={{ opacity: 0.7, fontSize: 13, marginBottom: 18 }}>
+        <div style={{ opacity: 0.7, fontSize: 13 }}>
           PayPay orderId: {paypayOrderId}
           <br />
-          状態: {status}
-        </div>
-
-        <div style={{ display: "grid", gap: 10 }}>
-          <button onClick={() => window.location.reload()} style={{ padding: 12, borderRadius: 12 }}>
-            再読み込み
-          </button>
-          <button onClick={() => navigate("/login")} style={{ padding: 12, borderRadius: 12 }}>
-            ログインする
-          </button>
-          <button onClick={() => navigate("/")} style={{ padding: 12, borderRadius: 12 }}>
-            トップへ戻る
-          </button>
+          確認中…
         </div>
       </div>
     </main>
