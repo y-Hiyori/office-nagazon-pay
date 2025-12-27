@@ -62,13 +62,15 @@
   transform: translateY(1px);
 }
 
-/* 並び替えボタン行（旧：margin-top 70 は削除） */
+/* ✅ フィルター/表示モード ボタン行（1回だけ定義） */
 .admin-sort-row {
   max-width: 1200px;
   margin: 6px auto 12px;
   display: flex;
   justify-content: center;
   gap: 8px;
+  flex-wrap: wrap;          /* ✅ 折り返し */
+  align-items: center;
 }
 
 .admin-sort-btn {
@@ -90,6 +92,16 @@
   color: #ffffff;
   border-color: transparent;
   box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+
+/* 区切り（必要なら使う） */
+.admin-sort-sep{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148,163,184,0.55);
+  display: inline-block;
+  margin: 0 2px;
 }
 
 /* 商品グリッド */
@@ -210,4 +222,46 @@
   color: #0f172a;
   border-color: transparent;
   box-shadow: 0 8px 18px rgba(148, 163, 184, 0.35);
+}
+
+/* ✅ 「＋追加」ボタン（メイン） */
+.admin-add{
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: none;
+
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #fff;
+
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .02em;
+
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(79, 70, 229, 0.28);
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+
+.admin-add:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(79, 70, 229, 0.34);
+  filter: brightness(1.03);
+}
+
+.admin-add:active{
+  transform: translateY(0);
+  box-shadow: 0 10px 22px rgba(79, 70, 229, 0.24);
+}
+
+.admin-add:focus-visible{
+  outline: 3px solid rgba(99,102,241,0.25);
+  outline-offset: 2px;
+}
+
+/* ✅ スマホでも押しやすく */
+@media (max-width: 420px){
+  .admin-add{
+    padding: 11px 14px;
+    font-size: 14px;
+  }
 }

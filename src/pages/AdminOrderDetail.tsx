@@ -9,9 +9,13 @@ import { findProductImage } from "../data/products";
 type OrderRow = {
   id: string;
   user_id?: string | null;
-  total?: number | null;        // 支払合計
+  total?: number | null;           // 支払合計
   created_at?: string | null;
-  subtotal?: number | null;     // もしDBにあるなら使う（無ければ明細から計算）
+  subtotal?: number | null;        // DBにあるなら使う（無ければ明細から計算）
+
+  // ✅ クーポン対応
+  coupon_code?: string | null;
+  discount_amount?: number | null; // DBにあるなら優先（無ければ小計-合計から推定）
 };
 
 type OrderItemRow = {
@@ -74,10 +78,10 @@ export default function AdminOrderDetail() {
         return;
       }
 
-      // ✅ 注文取得
+      // ✅ 注文取得（クーポン列も含める）
       const { data: orderData, error: orderErr } = await supabase
         .from("orders")
-        .select("*")
+        .select("id,user_id,total,created_at,subtotal,coupon_code,discount_amount")
         .eq("id", id)
         .single();
 
@@ -93,7 +97,7 @@ export default function AdminOrderDetail() {
       // ✅ 明細取得
       const { data: itemData, error: itemErr } = await supabase
         .from("order_items")
-        .select("*")
+        .select("id,order_id,product_id,product_name,price,quantity")
         .eq("order_id", id)
         .order("id", { ascending: true });
 
@@ -125,11 +129,23 @@ export default function AdminOrderDetail() {
         ? toNumber(rawSubtotal)
         : subtotalFromItems;
 
-    // ✅ 割引 = 小計 - 支払合計（0未満にならない）
-    const discount = Math.max(0, subtotal - total);
-    const hasDiscount = discount > 0;
+    // ✅ クーポンコード
+    const couponCode = String((order as any)?.coupon_code ?? "").trim();
 
-    return { total, subtotal, discount, hasDiscount };
+    // ✅ 割引額：discount_amount があればそれを優先。無ければ「小計 - 支払合計」から推定
+    const rawDiscount = (order as any)?.discount_amount;
+    const discountFromDb =
+      rawDiscount != null && Number.isFinite(Number(rawDiscount))
+        ? Math.max(0, toNumber(rawDiscount))
+        : 0;
+
+    const discountGuess = Math.max(0, subtotal - total);
+    const discount = discountFromDb > 0 ? discountFromDb : discountGuess;
+
+    const hasDiscount = discount > 0;
+    const hasCoupon = !!couponCode || hasDiscount;
+
+    return { total, subtotal, discount, couponCode, hasDiscount, hasCoupon };
   }, [order, items]);
 
   return (
@@ -178,7 +194,14 @@ export default function AdminOrderDetail() {
                   <strong>小計：</strong> {formatPrice(summary.subtotal)}円
                 </p>
 
-                {/* ✅ 割引は「小計 > 支払合計」のときだけ */}
+                {/* ✅ クーポン */}
+                {summary.couponCode && (
+                  <p>
+                    <strong>クーポンコード：</strong> {summary.couponCode}
+                  </p>
+                )}
+
+                {/* ✅ 割引は「割引額が0より大きい」時だけ */}
                 {summary.hasDiscount && (
                   <p>
                     <strong>割引：</strong> -{formatPrice(summary.discount)}円
@@ -212,7 +235,7 @@ export default function AdminOrderDetail() {
                       )}
 
                       <p>
-                        <strong>商品名：</strong> {i.product_name}
+                        <strong>商品名：</strong> {i.product_name || "商品"}
                       </p>
                       <p>
                         <strong>単価：</strong> {formatPrice(i.price)}円

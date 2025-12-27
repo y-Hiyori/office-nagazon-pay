@@ -9,6 +9,11 @@ type OrderRow = {
   user_id?: string | null;
   total?: number | null;
   created_at?: string | null;
+
+  // ✅ 追加（ordersにある想定）
+  status?: string | null;
+  paypay_status?: string | null;
+  paypayStatus?: string | null;
 };
 
 export default function AdminUserOrders() {
@@ -22,6 +27,31 @@ export default function AdminUserOrders() {
   const [query, setQuery] = useState("");
 
   const formatPrice = (v: any) => (Number(v) || 0).toLocaleString("ja-JP");
+
+  // ✅ ステータス取り出し（どの列名でも拾えるように）
+  const getStatus = (o: OrderRow) => {
+    const raw =
+      (o.status ?? (o as any).paypay_status ?? (o as any).paypayStatus ?? (o as any).paypayStatus) ?? "";
+    return String(raw).trim().toUpperCase();
+  };
+
+  // ✅ バッジ判定
+  const getBadge = (o: OrderRow) => {
+    const st = getStatus(o);
+
+    if (st === "PAID" || st === "COMPLETED") {
+      return { label: "完了", className: "is-paid" as const };
+    }
+
+    // あなたの指定：PENDINGは失敗表示
+    if (st === "PENDING" || st === "CREATED") {
+      return { label: "失敗", className: "is-failed" as const };
+    }
+
+    // それ以外（空や未知）は「不明」にしておく（邪魔なら非表示にもできる）
+    if (!st) return { label: "不明", className: "is-unknown" as const };
+    return { label: st, className: "is-unknown" as const };
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -64,11 +94,7 @@ export default function AdminUserOrders() {
         <main className="admin-orders-page">
           <header className="admin-orders-head">
             {/* ✅ 戻るボタン */}
-            <button
-              type="button"
-              className="admin-orders-back"
-              onClick={() => navigate(-1)}
-            >
+            <button type="button" className="admin-orders-back" onClick={() => navigate(-1)}>
               ← 戻る
             </button>
 
@@ -100,9 +126,7 @@ export default function AdminUserOrders() {
             {/* 件数 */}
             {!loading && (
               <p className="admin-orders-count">
-                {query.trim()
-                  ? `検索結果：${filtered.length}件`
-                  : `全${orders.length}件`}
+                {query.trim() ? `検索結果：${filtered.length}件` : `全${orders.length}件`}
               </p>
             )}
           </header>
@@ -115,44 +139,48 @@ export default function AdminUserOrders() {
             </p>
           ) : (
             <div className="admin-orders-list">
-              {filtered.map((o) => (
-                <div
-                  key={o.id}
-                  className="admin-orders-card"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => navigate(`/admin-order-detail/${o.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      navigate(`/admin-order-detail/${o.id}`);
-                    }
-                  }}
-                >
-                  <div className="admin-orders-card-top">
-                    <div className="admin-orders-id">注文ID：{o.id}</div>
-                    <div className="admin-orders-total">
-                      {formatPrice(o.total)}円
-                    </div>
-                  </div>
+              {filtered.map((o) => {
+                const badge = getBadge(o);
 
-                  <div className="admin-orders-card-bottom">
-                    <div className="admin-orders-date">
-                      日時：
-                      {o.created_at
-                        ? new Date(o.created_at).toLocaleString("ja-JP", {
-                            timeZone: "Asia/Tokyo",
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                return (
+                  <div
+                    key={o.id}
+                    className="admin-orders-card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/admin-order-detail/${o.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") navigate(`/admin-order-detail/${o.id}`);
+                    }}
+                  >
+                    <div className="admin-orders-card-top">
+                      <div className="admin-orders-id">注文ID：{o.id}</div>
+
+                      {/* ✅ ここに表示（合計の左） */}
+                      <span className={`admin-orders-badge ${badge.className}`}>{badge.label}</span>
+
+                      <div className="admin-orders-total">{formatPrice(o.total)}円</div>
                     </div>
-                    <div className="admin-orders-open">詳細を見る ＞</div>
+
+                    <div className="admin-orders-card-bottom">
+                      <div className="admin-orders-date">
+                        日時：
+                        {o.created_at
+                          ? new Date(o.created_at).toLocaleString("ja-JP", {
+                              timeZone: "Asia/Tokyo",
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "-"}
+                      </div>
+                      <div className="admin-orders-open">詳細を見る ＞</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </main>

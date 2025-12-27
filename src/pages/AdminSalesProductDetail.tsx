@@ -1,17 +1,39 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminSalesProductDetail.css";
 
-type BuyerRow = {
+type OrderBaseRow = {
+  id: string;
+  user_id: string | null;
+  created_at: string | null;
+  total: number | null;
+  status?: string | null;
+};
+
+type ItemRow = {
+  order_id: string;
+  product_name: string | null;
+  quantity: number | null;
+  price: number | null;
+};
+
+type ProfileRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+};
+
+type OrderViewRow = {
+  orderId: string;
+  createdAt: string;
   userId: string;
   userName: string;
   userEmail: string;
-  totalQuantity: number;
-  totalSubtotal: number;
-  orderCount: number;
-  lastCreatedAt: string;
+  qty: number;
+  lineSubtotal: number; // この商品の小計（数量×単価の合計）
+  orderTotal: number;   // 注文全体の支払合計（orders.total）
 };
 
 type LocationState = {
@@ -25,11 +47,14 @@ function AdminSalesProductDetail() {
   const location = useLocation();
   const state = (location.state || {}) as LocationState;
 
-  const [buyers, setBuyers] = useState<BuyerRow[]>([]);
+  const productName = name ? decodeURIComponent(name) : "";
+
+  const [rows, setRows] = useState<OrderViewRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const productName = name ? decodeURIComponent(name) : "";
+  // ✅ 検索（注文ID / user_id / 名前 / メール）
+  const [query, setQuery] = useState("");
 
   const formatDateJST = (iso: string) =>
     new Date(iso).toLocaleString("ja-JP", {
@@ -54,6 +79,12 @@ function AdminSalesProductDetail() {
     });
   };
 
+  const formatPrice = (v: any) => (Number(v) || 0).toLocaleString("ja-JP");
+  const toNumber = (v: any) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   useEffect(() => {
     const load = async () => {
       if (!productName) {
@@ -64,16 +95,22 @@ function AdminSalesProductDetail() {
 
       setLoading(true);
       setError("");
-      setBuyers([]);
+      setRows([]);
 
       try {
-        let query = supabase.from("orders").select("id, user_id, created_at, total");
+        // 1) 対象期間の orders を取得（売上画面から来る想定なので paid のみ）
+        let q = supabase
+          .from("orders")
+          .select("id, user_id, created_at, total, status")
+          .eq("status", "paid"); // ✅ 売上＝支払い完了のみ（外したいならこの1行消す）
 
         if (state.startIso && state.endIso) {
-          query = query.gte("created_at", state.startIso).lt("created_at", state.endIso);
+          q = q.gte("created_at", state.startIso).lt("created_at", state.endIso);
         }
 
-        const { data: orders, error: ordersError } = await query;
+        const { data: orders, error: ordersError } = await q.order("created_at", {
+          ascending: false,
+        });
 
         if (ordersError) {
           console.error(ordersError);
@@ -83,14 +120,17 @@ function AdminSalesProductDetail() {
         }
 
         if (!orders || orders.length === 0) {
-          setBuyers([]);
+          setRows([]);
           setLoading(false);
           return;
         }
 
-        const orderIds = orders.map((o) => o.id);
-        const orderMap = new Map(orders.map((o) => [o.id, o] as const));
+        const orderIds = (orders as OrderBaseRow[]).map((o) => o.id);
+        const orderMap = new Map<string, OrderBaseRow>(
+          (orders as OrderBaseRow[]).map((o) => [o.id, o])
+        );
 
+        // 2) その orders の中で、この商品だけの order_items を取得
         const { data: items, error: itemsError } = await supabase
           .from("order_items")
           .select("order_id, product_name, quantity, price")
@@ -105,68 +145,73 @@ function AdminSalesProductDetail() {
         }
 
         if (!items || items.length === 0) {
-          setBuyers([]);
+          setRows([]);
           setLoading(false);
           return;
         }
 
-        const userIds = Array.from(new Set(orders.map((o) => o.user_id as string)));
+        // 3) プロフィール（名前/メール）を取る
+        const userIds = Array.from(
+          new Set((orders as OrderBaseRow[]).map((o) => o.user_id).filter(Boolean))
+        ) as string[];
 
-        const { data: profiles, error: profError } = await supabase
-          .from("profiles")
-          .select("id, name, email")
-          .in("id", userIds);
+        let profileMap = new Map<string, ProfileRow>();
+        if (userIds.length > 0) {
+          const { data: profiles, error: profError } = await supabase
+            .from("profiles")
+            .select("id, name, email")
+            .in("id", userIds);
 
-        if (profError) {
-          console.error(profError);
-          setError("ユーザー情報の取得に失敗しました");
-          setLoading(false);
-          return;
+          if (profError) {
+            console.error(profError);
+            setError("ユーザー情報の取得に失敗しました");
+            setLoading(false);
+            return;
+          }
+          profileMap = new Map((profiles || []).map((p: any) => [p.id, p] as const));
         }
 
-        const profileMap = new Map((profiles || []).map((p) => [p.id, p] as const));
+        // 4) ✅ 注文IDごとに集計（同一注文に同商品行が複数ある可能性も吸収）
+        const byOrder = new Map<string, { qty: number; sub: number }>();
+        for (const it of items as ItemRow[]) {
+          const oid = it.order_id;
+          if (!oid) continue;
+          const qty = toNumber(it.quantity);
+          const price = toNumber(it.price);
+          const sub = qty * price;
 
-        const map = new Map<string, BuyerRow>();
+          if (!byOrder.has(oid)) byOrder.set(oid, { qty: 0, sub: 0 });
+          const cur = byOrder.get(oid)!;
+          cur.qty += qty;
+          cur.sub += sub;
+        }
 
-        for (const it of items) {
-          const order = orderMap.get(it.order_id);
-          if (!order) continue;
+        // 5) 画面用の配列へ
+        const list: OrderViewRow[] = [];
 
-          const userId = order.user_id as string;
+        for (const [orderId, agg] of byOrder.entries()) {
+          const o = orderMap.get(orderId);
+          if (!o) continue;
+
+          const userId = String(o.user_id || "");
           const prof = profileMap.get(userId);
 
-          const qty = Number(it.quantity ?? 0);
-          const price = Number(it.price ?? 0);
-          const sub = qty * price;
-          const createdAt = order.created_at as string;
-
-          if (!map.has(userId)) {
-            map.set(userId, {
-              userId,
-              userName: prof?.name ?? "(名前未設定)",
-              userEmail: prof?.email ?? "",
-              totalQuantity: 0,
-              totalSubtotal: 0,
-              orderCount: 0,
-              lastCreatedAt: createdAt,
-            });
-          }
-
-          const row = map.get(userId)!;
-          row.totalQuantity += qty;
-          row.totalSubtotal += sub;
-          row.orderCount += 1;
-
-          if (new Date(createdAt).getTime() > new Date(row.lastCreatedAt).getTime()) {
-            row.lastCreatedAt = createdAt;
-          }
+          list.push({
+            orderId,
+            createdAt: String(o.created_at || ""),
+            userId,
+            userName: prof?.name || "(名前未設定)",
+            userEmail: prof?.email || "",
+            qty: agg.qty,
+            lineSubtotal: agg.sub,
+            orderTotal: toNumber(o.total),
+          });
         }
 
-        const aggregated = Array.from(map.values()).sort(
-          (a, b) => new Date(b.lastCreatedAt).getTime() - new Date(a.lastCreatedAt).getTime()
-        );
+        // 日時の新しい順
+        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-        setBuyers(aggregated);
+        setRows(list);
       } catch (e) {
         console.error(e);
         setError("予期せぬエラーが発生しました");
@@ -178,6 +223,19 @@ function AdminSalesProductDetail() {
     load();
   }, [productName, state.startIso, state.endIso]);
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      return (
+        (r.orderId || "").toLowerCase().includes(q) ||
+        (r.userId || "").toLowerCase().includes(q) ||
+        (r.userName || "").toLowerCase().includes(q) ||
+        (r.userEmail || "").toLowerCase().includes(q)
+      );
+    });
+  }, [rows, query]);
+
   if (!productName) return <p style={{ padding: 20 }}>商品名が不明です。</p>;
 
   return (
@@ -186,7 +244,6 @@ function AdminSalesProductDetail() {
 
       <div className="admin-sales-product-page" style={{ paddingTop: 80 }}>
         <div className="admin-sales-product-card">
-          {/* ✅ 追加：戻るボタン */}
           <button
             type="button"
             className="admin-sales-product-back"
@@ -199,7 +256,7 @@ function AdminSalesProductDetail() {
           <h2 className="admin-sales-product-title">
             「{productName}」
             <br />
-            購入者
+            注文一覧
           </h2>
 
           {state.startIso && state.endIso && (
@@ -211,51 +268,85 @@ function AdminSalesProductDetail() {
             </p>
           )}
 
+          {/* ✅ 検索 */}
+          <div className="admin-sales-product-search">
+            <input
+              className="admin-sales-product-search-input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="注文ID / user_id / 名前 / メールで検索"
+              inputMode="search"
+              autoComplete="off"
+            />
+            {query.trim() && (
+              <button
+                type="button"
+                className="admin-sales-product-search-clear"
+                onClick={() => setQuery("")}
+                aria-label="検索をクリア"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {!loading && (
+            <p className="admin-sales-product-count">
+              {query.trim() ? `検索結果：${filtered.length}件` : `全${rows.length}件`}
+            </p>
+          )}
+
           {loading ? (
             <p className="admin-sales-product-loading">読み込み中...</p>
           ) : error ? (
             <p className="admin-sales-product-error">{error}</p>
-          ) : buyers.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <p className="admin-sales-product-empty">
-              この期間にこの商品を購入したユーザーはいません
+              {query.trim()
+                ? "該当する注文がありません"
+                : "この期間にこの商品が含まれる注文はありません"}
             </p>
           ) : (
             <div className="admin-sales-product-list">
-              {buyers.map((b) => (
+              {filtered.map((r) => (
                 <div
-                  key={b.userId}
+                  key={r.orderId}
                   className="admin-sales-product-item"
                   role="button"
                   tabIndex={0}
-                  onClick={() => navigate(`/admin-user-detail/${b.userId}`)}
+                  onClick={() => navigate(`/admin-order-detail/${r.orderId}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
-                      navigate(`/admin-user-detail/${b.userId}`);
+                      navigate(`/admin-order-detail/${r.orderId}`);
                     }
                   }}
                 >
                   <p>
-                    <strong>名前：</strong> <span>{b.userName}</span>
-                  </p>
-                  {/* ✅ 追加：メール（型にあるのに表示してなかった） */}
-                  <p>
-                    <strong>メール：</strong> <span>{b.userEmail || "(未設定)"}</span>
+                    <strong>注文ID：</strong> <span>{r.orderId}</span>
                   </p>
                   <p>
-                    <strong>注文回数：</strong>{" "}
-                    <span>{b.orderCount.toLocaleString()} 回</span>
+                    <strong>日時：</strong> <span>{r.createdAt ? formatDateJST(r.createdAt) : "-"}</span>
                   </p>
                   <p>
-                    <strong>最終購入：</strong> <span>{formatDateJST(b.lastCreatedAt)}</span>
+                    <strong>購入者：</strong>{" "}
+                    <span>
+                      {r.userName}（{r.userId || "-"}）
+                    </span>
                   </p>
                   <p>
-                    <strong>数量合計：</strong>{" "}
-                    <span>{b.totalQuantity.toLocaleString()} 個</span>
+                    <strong>メール：</strong> <span>{r.userEmail || "(未設定)"}</span>
                   </p>
                   <p>
-                    <strong>合計金額：</strong>{" "}
-                    <span>{b.totalSubtotal.toLocaleString()} 円</span>
+                    <strong>数量：</strong> <span>{r.qty.toLocaleString()} 個</span>
                   </p>
+                  <p>
+                    <strong>この商品小計：</strong> <span>{formatPrice(r.lineSubtotal)} 円</span>
+                  </p>
+                  <p>
+                    <strong>注文合計：</strong> <span>{formatPrice(r.orderTotal)} 円</span>
+                  </p>
+
+                  <div className="admin-sales-product-open">注文詳細を見る ＞</div>
                 </div>
               ))}
             </div>

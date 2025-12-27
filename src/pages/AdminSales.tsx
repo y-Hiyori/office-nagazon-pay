@@ -21,7 +21,8 @@ const formatWeekday = (dateStr: string) => {
   return weekdayLabels[d.getDay()];
 };
 
-const STORAGE_KEY = "admin-sales-state";
+// ✅ 「モードだけ」覚える（※日付は毎回“開いた日”にリセット）
+const STORAGE_KEY = "admin-sales-state-mode";
 
 function AdminSales() {
   const navigate = useNavigate();
@@ -40,52 +41,30 @@ function AdminSales() {
     return `${y}-${m}`;
   };
 
-  const defaultDay = formatYMD(today);
-  const defaultMonth = formatYM(today);
-  const defaultYear = String(today.getFullYear());
+  // ✅ 画面を開いた日の値（この “render時” の today を基準にする）
+  const openedDay = formatYMD(today);
+  const openedMonth = formatYM(today);
+  const openedYear = String(today.getFullYear());
 
-  const loadInitialState = () => {
-    const fallback = {
-      mode: "day" as RangeMode,
-      day: defaultDay,
-      weekBase: defaultDay,
-      month: defaultMonth,
-      year: defaultYear,
-    };
-
-    if (typeof window === "undefined") return fallback;
-
+  const loadInitialMode = (): RangeMode => {
+    if (typeof window === "undefined") return "day";
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return fallback;
-
-      const parsed = JSON.parse(raw) as Partial<{
-        mode: RangeMode;
-        day: string;
-        weekBase: string;
-        month: string;
-        year: string;
-      }>;
-
-      return {
-        mode: parsed.mode ?? fallback.mode,
-        day: parsed.day ?? fallback.day,
-        weekBase: parsed.weekBase ?? fallback.weekBase,
-        month: parsed.month ?? fallback.month,
-        year: parsed.year ?? fallback.year,
-      };
+      const m = (raw || "").trim() as RangeMode;
+      if (m === "day" || m === "week" || m === "month" || m === "year") return m;
+      return "day";
     } catch {
-      return fallback;
+      return "day";
     }
   };
 
-  const initial = loadInitialState();
+  const [mode, setMode] = useState<RangeMode>(loadInitialMode());
 
-  const [mode, setMode] = useState<RangeMode>(initial.mode);
-  const [day, setDay] = useState<string>(initial.day);
-  const [weekBase, setWeekBase] = useState<string>(initial.weekBase);
-  const [month, setMonth] = useState<string>(initial.month);
-  const [year, setYear] = useState<string>(initial.year);
+  // ✅ 日付系は “開いた日” に必ずリセットされる初期値
+  const [day, setDay] = useState<string>(openedDay);
+  const [weekBase, setWeekBase] = useState<string>(openedDay);
+  const [month, setMonth] = useState<string>(openedMonth);
+  const [year, setYear] = useState<string>(openedYear);
 
   const [totalSales, setTotalSales] = useState<number>(0);
   const [orderCount, setOrderCount] = useState<number>(0);
@@ -96,14 +75,25 @@ function AdminSales() {
   const [currentRange, setCurrentRange] = useState<{
     startIso: string;
     endIso: string;
+    rangeLabel: string;
   } | null>(null);
 
   const getWeekStartDate = (dateStr: string) => {
     const base = new Date(dateStr + "T00:00:00");
     if (Number.isNaN(base.getTime())) return null;
     const dow = base.getDay();
-    base.setDate(base.getDate() - dow);
+    base.setDate(base.getDate() - dow); // 日曜始まり
     return base;
+  };
+
+  const getWeekLabel = (weekBaseStr: string) => {
+    if (!weekBaseStr) return "";
+    const weekStart = getWeekStartDate(weekBaseStr);
+    if (!weekStart) return "";
+    const start = weekStart;
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return `${formatYMD(start)} ～ ${formatYMD(end)}`;
   };
 
   const loadSales = async (
@@ -124,39 +114,24 @@ function AdminSales() {
       let end: Date;
 
       if (mode === "day") {
-        if (!day) {
-          setLoading(false);
-          return;
-        }
+        if (!day) return;
         start = new Date(day + "T00:00:00");
         end = new Date(start);
         end.setDate(end.getDate() + 1);
       } else if (mode === "week") {
-        if (!weekBase) {
-          setLoading(false);
-          return;
-        }
+        if (!weekBase) return;
         const weekStart = getWeekStartDate(weekBase);
-        if (!weekStart) {
-          setLoading(false);
-          return;
-        }
+        if (!weekStart) return;
         start = weekStart;
         end = new Date(weekStart);
         end.setDate(end.getDate() + 7);
       } else if (mode === "month") {
-        if (!month) {
-          setLoading(false);
-          return;
-        }
+        if (!month) return;
         start = new Date(month + "-01T00:00:00");
         end = new Date(start);
         end.setMonth(end.getMonth() + 1);
       } else {
-        if (!year) {
-          setLoading(false);
-          return;
-        }
+        if (!year) return;
         start = new Date(year + "-01-01T00:00:00");
         end = new Date(start);
         end.setFullYear(end.getFullYear() + 1);
@@ -164,19 +139,30 @@ function AdminSales() {
 
       const startIso = start.toISOString();
       const endIso = end.toISOString();
-      setCurrentRange({ startIso, endIso });
 
+      const rangeLabel =
+        mode === "day"
+          ? day
+          : mode === "week"
+          ? getWeekLabel(weekBase)
+          : mode === "month"
+          ? month
+          : `${year}年`;
+
+      setCurrentRange({ startIso, endIso, rangeLabel });
+
+      // ✅ 売上は「支払い完了のみ」
       const { data: orders, error: ordersError } = await supabase
         .from("orders")
-        .select("id, total, created_at")
+        .select("id, total, created_at, status")
         .gte("created_at", startIso)
         .lt("created_at", endIso)
+        .eq("status", "paid")
         .order("created_at", { ascending: true });
 
       if (ordersError) {
         console.error("ordersError:", ordersError);
         setError("売上データの取得に失敗しました（orders）");
-        setLoading(false);
         return;
       }
 
@@ -184,7 +170,6 @@ function AdminSales() {
         setItems([]);
         setTotalSales(0);
         setOrderCount(0);
-        setLoading(false);
         return;
       }
 
@@ -202,19 +187,17 @@ function AdminSales() {
       if (itemsError) {
         console.error("itemsError:", itemsError);
         setError("売上データの取得に失敗しました（order_items）");
-        setLoading(false);
         return;
       }
 
       if (!orderItems || orderItems.length === 0) {
         setItems([]);
-        setLoading(false);
         return;
       }
 
       const map = new Map<string, SalesItem>();
 
-      for (const row of orderItems) {
+      for (const row of orderItems as any[]) {
         const name: string = row.product_name ?? "不明な商品";
         const qty = Number(row.quantity ?? 0);
         const price = Number(row.price ?? 0);
@@ -238,32 +221,29 @@ function AdminSales() {
     }
   };
 
+  // ✅ 初回表示時に「開いた日」に必ず合わせる（深夜跨ぎ等でも“開いた日”のまま）
+  useEffect(() => {
+    setDay(openedDay);
+    setWeekBase(openedDay);
+    setMonth(openedMonth);
+    setYear(openedYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     loadSales(mode, day, weekBase, month, year);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, day, weekBase, month, year]);
 
+  // ✅ モードだけ保存
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ mode, day, weekBase, month, year })
-    );
-  }, [mode, day, weekBase, month, year]);
-
-  const getWeekLabel = () => {
-    if (!weekBase) return "";
-    const weekStart = getWeekStartDate(weekBase);
-    if (!weekStart) return "";
-    const start = weekStart;
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    return `${formatYMD(start)} ～ ${formatYMD(end)}`;
-  };
+    window.localStorage.setItem(STORAGE_KEY, mode);
+  }, [mode]);
 
   const rangeLabel =
     mode === "day" ? day :
-    mode === "week" ? getWeekLabel() :
+    mode === "week" ? getWeekLabel(weekBase) :
     mode === "month" ? month : `${year}年`;
 
   return (
@@ -343,6 +323,7 @@ function AdminSales() {
                           state: {
                             startIso: currentRange.startIso,
                             endIso: currentRange.endIso,
+                            rangeLabel: currentRange.rangeLabel, // ✅ 詳細画面で「その日付」を表示できる
                           },
                         });
                       }}

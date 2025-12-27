@@ -277,3 +277,44 @@
     font-size: 15px;
   }
 }
+
+/* ✅ ステータスバッジ（完了/失敗） */
+.admin-orders-badge{
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+  white-space: nowrap;
+}
+
+.admin-orders-badge.is-paid{
+  background: rgba(34,197,94,0.14);
+  border-color: rgba(34,197,94,0.30);
+  color: rgba(20,83,45,0.95);
+}
+
+.admin-orders-badge.is-failed{
+  background: rgba(239,68,68,0.14);
+  border-color: rgba(239,68,68,0.30);
+  color: rgba(153,27,27,0.95);
+}
+
+.admin-orders-badge.is-unknown{
+  background: rgba(100,116,139,0.14);
+  border-color: rgba(100,116,139,0.25);
+  color: rgba(30,41,59,0.90);
+}
+
+/* スマホで詰まる時の保険 */
+@media (max-width: 420px){
+  .admin-orders-badge{
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+}
