@@ -67,6 +67,10 @@ const router = createBrowserRouter([
       { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
 
+      // ✅ PurchaseComplete は PayPay戻りでログイン無しでも開ける必要があるのでPublicにする
+      { path: "purchase-complete", element: <PurchaseComplete /> },
+      { path: "purchase-complete/:id", element: <PurchaseComplete /> },
+
       // PayPay（戻りはログイン無しでも来る可能性あるのでガード無し推奨）
       { path: "paypay-sim", element: <PayPaySim /> },
       { path: "paypay-return", element: <PayPayReturn /> },
@@ -117,14 +121,6 @@ const router = createBrowserRouter([
         element: (
           <UserRoute>
             <OrderDetail />
-          </UserRoute>
-        ),
-      },
-      {
-        path: "purchase-complete/:id",
-        element: (
-          <UserRoute>
-            <PurchaseComplete />
           </UserRoute>
         ),
       },

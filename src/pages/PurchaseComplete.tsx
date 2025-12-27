@@ -1,8 +1,9 @@
 // src/pages/PurchaseComplete.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { supabase } from "../lib/supabase"; // ✅ 追加
 import "./PurchaseComplete.css";
+
+type ViewState = "loading" | "success" | "failed";
 
 function PurchaseComplete() {
   const { id } = useParams();
@@ -13,16 +14,23 @@ function PurchaseComplete() {
   const orderId = q.get("orderId") || id || "";
   const token = q.get("token") || "";
 
-  const [checking, setChecking] = useState(true);
-  const [paid, setPaid] = useState(false);
+  const [view, setView] = useState<ViewState>("loading");
   const [msg, setMsg] = useState("購入完了を確認しています…");
 
   const PAYPAY_API_BASE = (import.meta as any).env?.VITE_PAYPAY_API_BASE || "";
 
   useEffect(() => {
     if (!orderId) {
-      setChecking(false);
+      setView("failed");
       setMsg("注文IDが見つかりませんでした。");
+      return;
+    }
+
+    // ✅ Safariに戻った時にログインセッションが無くても「購入完了画面は必ず表示」したいので、
+    // tokenが無いケース（購入履歴から/セッション消え等）はそのまま成功表示にする
+    if (!token) {
+      setView("success");
+      setMsg("ご購入ありがとうございます！");
       return;
     }
 
@@ -39,53 +47,9 @@ function PurchaseComplete() {
     };
 
     (async () => {
-      setChecking(true);
+      setView("loading");
       setMsg("購入完了を確認しています…");
 
-      // ✅ token無しでも DB から paid 判定 → 送ってなければメール送信
-      if (!token) {
-        try {
-          const { data: order } = await supabase
-            .from("orders")
-            .select("status,paypay_return_token,buyer_email_sent_at")
-            .eq("id", orderId)
-            .single();
-
-          const st = String(order?.status || "").toLowerCase();
-
-          if (st === "paid") {
-            if (stopped) return;
-
-            setPaid(true);
-            setMsg("ご購入ありがとうございます！");
-            setChecking(false);
-
-            const t = order?.paypay_return_token;
-            if (t && !order?.buyer_email_sent_at) {
-              await fetch("/api/send-buyer-order-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ orderId, token: t }),
-              }).catch(() => {});
-            }
-            return;
-          }
-
-          if (stopped) return;
-          setPaid(false);
-          setMsg("決済がまだ完了していない可能性があります。");
-          setChecking(false);
-          return;
-        } catch {
-          if (stopped) return;
-          setPaid(false);
-          setMsg("通信に失敗しました。再読み込みしてください。");
-          setChecking(false);
-          return;
-        }
-      }
-
-      // ✅ tokenあり：PayPay推奨 4〜5秒間隔ポーリング
       const url = `${PAYPAY_API_BASE}/api/confirm-paypay-payment`;
       const intervalMs = 4500;
       const maxTry = 20; // 約90秒
@@ -102,35 +66,33 @@ function PurchaseComplete() {
           if (stopped) return;
 
           if (isPaidResp(r.ok, j)) {
-            setPaid(true);
+            setView("success");
             setMsg("ご購入ありがとうございます！");
 
+            // ✅ paidになった瞬間だけ購入者メール送信（サーバ側も二重防止）
             await fetch("/api/send-buyer-order-email", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ orderId, token }),
             }).catch(() => {});
 
-            setChecking(false);
             return;
           }
 
-          setPaid(false);
+          // まだ未確定
           setMsg("決済確認中です…（少し待ってください）");
           await sleep(intervalMs);
         }
 
         if (!stopped) {
-          setPaid(false);
-          setMsg("決済確認が完了しませんでした。数秒後に再読み込みしてください。");
+          setView("failed");
+          setMsg("決済確認が完了しませんでした。スタッフにお問い合わせください。");
         }
       } catch {
         if (!stopped) {
-          setPaid(false);
-          setMsg("通信に失敗しました。再読み込みしてください。");
+          setView("failed");
+          setMsg("通信に失敗しました。スタッフにお問い合わせください。");
         }
-      } finally {
-        if (!stopped) setChecking(false);
       }
     })();
 
@@ -144,25 +106,33 @@ function PurchaseComplete() {
       <h2>{msg}</h2>
       <p>注文番号：{orderId || "不明"}</p>
 
-      <div className="complete-box">
-        {checking ? (
+      {view === "loading" && (
+        <div className="complete-box">
           <p>確認中…</p>
-        ) : paid ? (
-          <>
-            <p>お支払いが完了しました。</p>
-            <p>商品をお取りください。</p>
-          </>
-        ) : (
-          <>
-            <p>お支払いが未完了の可能性があります。</p>
-            <button onClick={() => window.location.reload()}>再読み込み</button>
-          </>
-        )}
-      </div>
+        </div>
+      )}
 
-      <button className="home-btn" onClick={() => navigate("/")}>
-        ホームに戻る
-      </button>
+      {view === "success" && (
+        <div className="complete-box">
+          <p>お支払いが完了しました。</p>
+          <p>商品をお取りください。</p>
+        </div>
+      )}
+
+      {view === "failed" && (
+        <div className="complete-box">
+          <p>決済の確認ができませんでした。</p>
+          <p>お手数ですがスタッフへご連絡ください。</p>
+
+          <button
+            className="home-btn"
+            onClick={() => navigate("/contact")}
+            style={{ marginTop: 12 }}
+          >
+            お問い合わせへ
+          </button>
+        </div>
+      )}
     </div>
   );
 }
