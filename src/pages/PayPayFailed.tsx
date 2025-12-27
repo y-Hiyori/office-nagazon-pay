@@ -10,6 +10,30 @@ export default function PayPayFailed() {
   const orderId = q.get("orderId") || "";
   const reason = q.get("reason") || "UNKNOWN";
 
+  const goContact = () => {
+    const subject = "PayPay決済の確認に失敗しました";
+    const detail = `PayPay決済の確認に失敗しました。
+
+【注文ID】
+${orderId || "不明"}
+
+【理由】
+${reason}
+
+【状況】
+・PayPay画面から戻ったあと、決済完了画面が出ない / 決済確認に失敗した
+
+対応をお願いします。`;
+
+    const params = new URLSearchParams();
+    if (orderId) params.set("orderId", orderId);
+    params.set("reason", reason);
+    params.set("subject", subject);
+    params.set("detail", detail);
+
+    navigate(`/contact?${params.toString()}`, { replace: true });
+  };
+
   return (
     <div className="complete-page">
       <h2>決済を確認できませんでした</h2>
@@ -22,7 +46,7 @@ export default function PayPayFailed() {
         </p>
       </div>
 
-      <button className="home-btn" onClick={() => navigate("/contact", { replace: true })}>
+      <button className="home-btn" onClick={goContact}>
         お問い合わせへ
       </button>
     </div>

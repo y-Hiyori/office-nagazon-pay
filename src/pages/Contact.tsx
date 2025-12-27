@@ -1,6 +1,5 @@
-// src/pages/Contact.tsx
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
@@ -8,6 +7,9 @@ import "./Contact.css";
 
 function Contact() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const q = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,6 +22,19 @@ function Contact() {
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  // ✅ URLクエリから自動入力（最初の1回だけ）
+  useEffect(() => {
+    const qsOrderId = q.get("orderId") || "";
+    const qsSubject = q.get("subject") || "";
+    const qsDetail = q.get("detail") || "";
+
+    // ユーザーが既に打ってたら上書きしない
+    if (!orderId && qsOrderId) setOrderId(qsOrderId);
+    if (!subject && qsSubject) setSubject(qsSubject);
+    if (!detail && qsDetail) setDetail(qsDetail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
 
   useEffect(() => {
     const load = async () => {
