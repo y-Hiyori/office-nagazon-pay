@@ -9,15 +9,14 @@ export default function PayPayReturn() {
   const paypayOrderId = q.get("orderId") || "";
   const token = q.get("token") || "";
 
-  const [phase, setPhase] = useState<"CHECKING" | "FAILED">("CHECKING");
   const [msg, setMsg] = useState("決済を確認しています…");
-  const [detail, setDetail] = useState<string>("");
 
   useEffect(() => {
     if (!paypayOrderId || !token) {
-      setPhase("FAILED");
-      setMsg("URLが不正です（orderId/tokenがありません）");
-      setDetail("BAD_REQUEST");
+      navigate(
+        `/paypay-failed?orderId=${encodeURIComponent(paypayOrderId || "")}&reason=BAD_REQUEST`,
+        { replace: true }
+      );
       return;
     }
 
@@ -37,11 +36,12 @@ export default function PayPayReturn() {
     const tick = async () => {
       if (stopped) return;
 
-      // 最大5分
-      if (Date.now() - start > 5 * 60 * 1000) {
-        setPhase("FAILED");
-        setMsg("決済確認がタイムアウトしました。支払いが完了している場合は店舗にお問い合わせください。");
-        setDetail("TIMEOUT");
+      // ✅ 最大20秒
+      if (Date.now() - start > 20 * 1000) {
+        navigate(
+          `/paypay-failed?orderId=${encodeURIComponent(paypayOrderId)}&reason=TIMEOUT_20S`,
+          { replace: true }
+        );
         return;
       }
 
@@ -55,7 +55,7 @@ export default function PayPayReturn() {
         const j = await r.json().catch(() => null);
         if (stopped) return;
 
-        // ✅ 決済完了 → purchase-complete へ
+        // ✅ 決済完了 → purchase-complete（いつも通り）
         if (isPaidResp(r.ok, j)) {
           const orderDbId = j?.orderDbId || paypayOrderId;
           navigate(
@@ -68,18 +68,19 @@ export default function PayPayReturn() {
         // ✅ まだ待ち（PENDING）
         const st = String(j?.status || "").toUpperCase();
         if (r.ok && (st === "PENDING" || j?.paid === false || st === "CREATED")) {
-          setPhase("CHECKING");
           setMsg("PayPayの支払い完了を待っています…");
           timer = window.setTimeout(tick, 2500);
           return;
         }
 
-        // ❌ 失敗
-        setPhase("FAILED");
-        setMsg("決済確認に失敗しました。お手数ですがお問い合わせください。");
-        setDetail(String(j?.error || j?.status || r.status || "ERROR"));
+        // ❌ それ以外は即失敗扱い
+        const reason = String(j?.error || j?.status || r.status || "ERROR");
+        navigate(
+          `/paypay-failed?orderId=${encodeURIComponent(paypayOrderId)}&reason=${encodeURIComponent(reason)}`,
+          { replace: true }
+        );
       } catch {
-        // 通信失敗はリトライ（ボタンは出さない）
+        // 通信失敗はリトライ（20秒までは粘る）
         timer = window.setTimeout(tick, 2500);
       }
     };
@@ -92,43 +93,12 @@ export default function PayPayReturn() {
     };
   }, [paypayOrderId, token, navigate]);
 
-  // ✅ 失敗時だけ「お問い合わせへ」
-  if (phase === "FAILED") {
-    return (
-      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
-        <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>決済を確認できませんでした</div>
-          <div style={{ fontSize: 14, opacity: 0.85, marginBottom: 14 }}>{msg}</div>
-
-          <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 18, wordBreak: "break-all" }}>
-            orderId: {paypayOrderId}
-            <br />
-            detail: {detail}
-          </div>
-
-          <button
-            onClick={() => navigate("/contact", { replace: true })}
-            style={{
-              width: "100%",
-              padding: 12,
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.12)",
-              fontWeight: 700,
-            }}
-          >
-            お問い合わせへ
-          </button>
-        </div>
-      </main>
-    );
-  }
-
   // ✅ 待機中はボタン無し
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
         <div style={{ fontSize: 16, marginBottom: 10 }}>{msg}</div>
-        <div style={{ opacity: 0.7, fontSize: 13 }}>
+        <div style={{ opacity: 0.7, fontSize: 13, wordBreak: "break-all" }}>
           PayPay orderId: {paypayOrderId}
           <br />
           確認中…

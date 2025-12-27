@@ -12,6 +12,7 @@ import HowTo from "./pages/HowTo";
 import Tokushoho from "./pages/Tokushoho";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PurchaseComplete from "./pages/PurchaseComplete";
+import PayPayFailed from "./pages/PayPayFailed";
 
 // ===== アカウント =====
 import AccountMenu from "./pages/AccountMenu";
@@ -69,6 +70,7 @@ const router = createBrowserRouter([
       // ✅ PayPay戻りでログイン無しでも開ける必要があるのでPublic
       { path: "purchase-complete", element: <PurchaseComplete /> },
       { path: "purchase-complete/:id", element: <PurchaseComplete /> },
+      { path: "paypay-failed", element: <PayPayFailed /> },
 
       // PayPay（戻りはログイン無しでも来る可能性あるのでガード無し推奨）
       { path: "paypay-sim", element: <PayPaySim /> },
