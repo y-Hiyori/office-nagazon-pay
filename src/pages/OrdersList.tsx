@@ -12,6 +12,8 @@ type OrderRow = {
   total?: number | null;
   created_at?: string | null;
 
+  status?: string | null; // ✅ 追加（paid判定に必要）
+
   coupon_code?: string | null;
   discount_amount?: number | null;
   subtotal?: number | null;
@@ -83,10 +85,14 @@ function OrdersList() {
         return;
       }
 
+      // ✅ paid だけ表示（DB側でフィルタ）
+      // （念のため paid / Paid / PAID みたいな揺れがあってもOKにしたいなら
+      //  statusを必ず 'paid' で保存する運用に寄せるのが一番安全）
       const { data: ordersData, error: ordersErr } = await supabase
         .from("orders")
         .select("*")
         .eq("user_id", user.id)
+        .eq("status", "paid") // ✅ 追加
         .order("created_at", { ascending: false });
 
       if (ordersErr) {
@@ -148,7 +154,6 @@ function OrdersList() {
 
       <main className="orders-page">
         <header className="orders-header">
-          {/* ✅ 戻るボタン（追加） */}
           <button type="button" className="orders-back" onClick={() => navigate(-1)}>
             ← 戻る
           </button>
@@ -200,7 +205,6 @@ function OrdersList() {
                       : "-"}
                   </p>
 
-                  {/* クーポン内訳 */}
                   {hasCoupon && (
                     <div className="coupon-box">
                       {couponCode && (
@@ -224,7 +228,6 @@ function OrdersList() {
                     </div>
                   )}
 
-                  {/* 明細プレビュー */}
                   {items.length > 0 && (
                     <div className="items-preview">
                       <div className="items-preview-title">購入商品</div>
@@ -240,7 +243,6 @@ function OrdersList() {
                     </div>
                   )}
 
-                  {/* ✅ 詳細を見る（追加） */}
                   <div className="orders-open">詳細を見る ＞</div>
                 </div>
               );
