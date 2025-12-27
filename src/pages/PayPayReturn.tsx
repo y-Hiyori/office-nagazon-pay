@@ -36,10 +36,10 @@ export default function PayPayReturn() {
     const tick = async () => {
       if (stopped) return;
 
-      // ✅ 最大20秒
-      if (Date.now() - start > 20 * 1000) {
+      // ✅ 最大10秒
+      if (Date.now() - start > 15 * 1000) {
         navigate(
-          `/paypay-failed?orderId=${encodeURIComponent(paypayOrderId)}&reason=TIMEOUT_20S`,
+          `/paypay-failed?orderId=${encodeURIComponent(paypayOrderId)}&reason=TIMEOUT_15S`,
           { replace: true }
         );
         return;
@@ -80,7 +80,7 @@ export default function PayPayReturn() {
           { replace: true }
         );
       } catch {
-        // 通信失敗はリトライ（20秒までは粘る）
+        // 通信失敗はリトライ（10秒までは粘る）
         timer = window.setTimeout(tick, 2500);
       }
     };
