@@ -1,64 +1,292 @@
-/* =========================================
-   Home（ホーム画面）
-========================================= */
+/* ===========================
+   Home（NAGAZON Pay style）
+=========================== */
 
 .home-page {
-  min-height: calc(var(--vh, 1vh) * 100);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at top, #f9fbff 0%, #edf2ff 45%, #f5f5f8 100%);
+  color: #0f172a;
+}
+
+.home-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== ヒーロー ===== */
+.hero {
+  position: relative;
   width: 100%;
+  max-width: 1200px;
+  margin: 14px auto 0;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+.hero-slider {
+  position: relative;
+  display: flex;
+
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+}
+
+.hero-slider::-webkit-scrollbar {
+  display: none;
+}
+
+/* ✅ ここが本命：箱の縦横比を固定して、余白を出さない */
+.hero-slide {
+  min-width: 100%;
+  aspect-ratio: 16 / 9;   /* ✅ 横長画像に合わせる（空白消える） */
+  height: auto;
+
+  position: relative;
+  scroll-snap-align: start;
+  overflow: hidden;
+
+  background: rgba(15, 23, 42, 0.08); /* もし微妙に余白出ても変に見えない */
+}
+
+.hero-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;       /* ✅ 縦は全部見える / 横は画面に収まる */
+  object-position: center;
+  display: block;
+}
+
+/* グラデーション（文字読みやすく） */
+.hero-slide::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(15, 23, 42, 0.65),
+    rgba(15, 23, 42, 0.25),
+    rgba(15, 23, 42, 0.05)
+  );
+  pointer-events: none;
+}
+
+/* テキスト */
+.hero-text {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 2;
+  color: #fff;
+  max-width: min(520px, 88%);
+}
+
+.hero-text h2 {
+  font-size: 26px;
+  font-weight: 900;
+  margin: 0 0 6px;
+  letter-spacing: 0.02em;
+}
+
+.hero-text p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  opacity: 0.92;
+}
+
+.hero-text button {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: none;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #fff;
+  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.hero-text button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+  box-shadow: 0 16px 32px rgba(79, 70, 229, 0.42);
+}
+
+.hero-text button:active {
+  transform: translateY(0px);
+}
+
+/* ===== ドット ===== */
+.hero-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 5;
+
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+
+.dot.active {
+  background: #ffffff;
+  transform: scale(1.12);
+}
+
+/* ===== お知らせ / 商品追加情報 ===== */
+.home-panels {
+  max-width: 1200px;
+  margin: 14px auto 0;
+  padding: 0 12px 18px;
   box-sizing: border-box;
 
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-
-  background: radial-gradient(circle at top left, #f5f7ff 0%, #ffffff 40%, #f3f6ff 100%);
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
-/* ⭐ 中央 */
-.home-center {
-  flex: 1;
+.home-panel {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
 
-  width: 100%;
+.home-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.home-panel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.92);
+  letter-spacing: 0.02em;
+}
+
+.home-panel-skel,
+.home-panel-empty {
+  padding: 14px;
+  color: rgba(15, 23, 42, 0.7);
+  font-weight: 800;
+}
+
+.home-list {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+
+  /* ✅ 最新10件だけ表示でスクロール無し */
+  max-height: none;
+  overflow: visible;
+}
+
+.home-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 92px 1fr 18px;
+  gap: 10px;
   align-items: center;
 
-  gap: 28px;
-  padding: 24px 0;
-}
-
-.home-logo {
-  width: 120px;
-  height: auto;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12));
-}
-
-.home-main-btn {
-  width: 76%;
-  max-width: 320px;
-  padding: 15px 18px;
-
-  background: linear-gradient(135deg, #4f6ee9, #5f85db);
-  color: #ffffff;
+  padding: 12px 14px;
   border: none;
-  border-radius: 999px;
+  background: transparent;
+  text-align: left;
 
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  cursor: default;
+}
+
+.home-item:last-child {
+  border-bottom: none;
+}
+
+.home-item.clickable {
+  cursor: pointer;
+}
+
+.home-item.clickable:hover {
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.home-date {
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.home-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-item-title {
+  font-size: 13px;
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.92);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-item-sub {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(15, 23, 42, 0.64);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-arrow {
+  text-align: right;
+  color: rgba(15, 23, 42, 0.4);
   font-size: 18px;
-  font-weight: 700;
-  text-align: center;
-
-  box-shadow: 0 14px 28px rgba(83, 120, 224, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  font-weight: 900;
 }
 
-.home-main-btn + .home-main-btn {
-  margin-top: 14px;
+/* レスポンシブ */
+@media (max-width: 820px) {
+  .home-panels {
+    grid-template-columns: 1fr;
+  }
 }
 
-.home-main-btn:active {
-  transform: translateY(2px);
-  box-shadow: 0 8px 18px rgba(83, 120, 224, 0.25);
-  opacity: 0.95;
+@media (max-width: 420px) {
+  .hero-text h2 {
+    font-size: 22px;
+  }
 }

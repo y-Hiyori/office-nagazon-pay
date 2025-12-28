@@ -1,0 +1,145 @@
+.ane-page{
+  min-height: 100vh;
+  padding: 80px 12px 20px;
+  box-sizing: border-box;
+  background: radial-gradient(circle at top, #f9fbff 0%, #edf2ff 45%, #f5f5f8 100%);
+}
+
+.ane-head{
+  max-width: 900px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ane-title{
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  color: rgba(15,23,42,0.92);
+}
+
+.ane-actions{
+  display: flex;
+  gap: 10px;
+}
+
+.ane-mini{
+  border: 1px solid rgba(148,163,184,0.25);
+  background: rgba(255,255,255,0.85);
+  border-radius: 999px;
+  padding: 10px 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ane-save{
+  border: none;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 900;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  box-shadow: 0 14px 28px rgba(79,70,229,0.22);
+}
+
+.ane-loading{
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+  color: rgba(15,23,42,0.7);
+  font-weight: 800;
+}
+
+.ane-form{
+  max-width: 900px;
+  margin: 0 auto;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(148,163,184,0.24);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(15,23,42,0.08);
+  padding: 14px;
+}
+
+.ane-label{
+  display: block;
+  margin: 10px 2px 6px;
+  font-weight: 900;
+  color: rgba(15,23,42,0.8);
+  font-size: 13px;
+}
+
+.ane-input{
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,0.30);
+  background: rgba(255,255,255,0.92);
+  font-weight: 800;
+  box-sizing: border-box;
+}
+
+.ane-textarea{
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,0.30);
+  background: rgba(255,255,255,0.92);
+  font-weight: 800;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.ane-row{
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.ane-check{
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 900;
+  color: rgba(15,23,42,0.78);
+}
+
+.ane-preview{
+  margin-top: 14px;
+}
+
+.ane-preview-title{
+  font-weight: 900;
+  color: rgba(15,23,42,0.75);
+  margin-bottom: 8px;
+}
+
+.ane-preview-box{
+  border-radius: 14px;
+  border: 1px solid rgba(148,163,184,0.22);
+  background: rgba(255,255,255,0.85);
+  padding: 12px;
+}
+
+.ane-preview-h{
+  font-weight: 900;
+  color: rgba(15,23,42,0.92);
+  margin-bottom: 6px;
+}
+
+.ane-preview-b{
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-weight: 800;
+  color: rgba(15,23,42,0.72);
+  margin-bottom: 8px;
+}
+
+.ane-preview-l{
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(79,70,229,0.95);
+}

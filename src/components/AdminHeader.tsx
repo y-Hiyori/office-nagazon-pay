@@ -12,6 +12,7 @@ export default function AdminHeader() {
     () => [
       { label: "管理メニュー", to: "/admin-menu" },
       { label: "商品管理", to: "/admin-page" },
+      { label: "お知らせ管理", to: "/admin-notices" }, // ✅ 追加
       { label: "売上", to: "/admin-sales" },
       { label: "ユーザー管理", to: "/admin-users" },
       { label: "クーポン", to: "/admin-coupons" },

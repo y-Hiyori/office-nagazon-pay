@@ -23,6 +23,9 @@ function Checkout() {
   const [method, setMethod] = useState<"paypay" | "">("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // ✅ 在庫再確認中フラグ
+  const [isCheckingStock, setIsCheckingStock] = useState(false);
+
   const [showStoreAuth, setShowStoreAuth] = useState(false);
   const [storeCode, setStoreCode] = useState("");
 
@@ -56,7 +59,9 @@ function Checkout() {
   // ログインチェック
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         alert("ログインしてください");
         navigate("/login");
@@ -152,7 +157,55 @@ function Checkout() {
     setCouponMsg("");
   };
 
-  const handleClickConfirmButton = () => {
+  // ✅ 「確定」押下前に在庫を再チェック（最新DBのstockを見る）
+  const recheckStockBeforeConfirm = async () => {
+    const ids = Array.from(
+      new Set(items.map((it: any) => Number(it?.product?.id)).filter((v) => Number.isFinite(v)))
+    ) as number[];
+
+    if (ids.length === 0) return { ok: false as const, ngNames: ["（商品不明）"] };
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("id,name,stock,is_visible")
+      .in("id", ids);
+
+    if (error) {
+      console.error("stock recheck error:", error);
+      throw error;
+    }
+
+    const map = new Map<number, { name: string; stock: number; is_visible: boolean }>();
+    (data ?? []).forEach((p: any) => {
+      map.set(Number(p.id), {
+        name: String(p.name ?? ""),
+        stock: Number(p.stock ?? 0),
+        is_visible: p.is_visible !== false,
+      });
+    });
+
+    const ngNames: string[] = [];
+
+    for (const it of items as any[]) {
+      const pid = Number(it?.product?.id);
+      const row = map.get(pid);
+
+      const name = String(it?.product?.name ?? row?.name ?? "（商品名不明）");
+      const qty = Number(it?.quantity ?? 0);
+
+      // 商品が見つからない / 非表示 / 在庫不足
+      if (!row || row.is_visible === false || (row.stock ?? 0) < qty) {
+        ngNames.push(name);
+      }
+    }
+
+    return { ok: ngNames.length === 0, ngNames };
+  };
+
+  // ✅ ここで在庫チェックして、OKなら認証モーダル、NGならカートリセットしてHome
+  const handleClickConfirmButton = async () => {
+    if (isProcessing || isCheckingStock) return;
+
     if (!buyNow && cart.cart.length === 0) {
       alert("カートが空です");
       return;
@@ -161,7 +214,33 @@ function Checkout() {
       alert("支払い方法を選択してください");
       return;
     }
-    setShowStoreAuth(true);
+
+    setIsCheckingStock(true);
+    try {
+      const result = await recheckStockBeforeConfirm();
+
+      if (!result.ok) {
+        alert(
+          `商品の確保ができません。\n在庫不足または非表示：\n・${result.ngNames.join(
+            "\n・"
+          )}\n\nカートをリセットしてホームに戻ります。`
+        );
+
+        if (!buyNow && typeof (cart as any).clearCart === "function") {
+          (cart as any).clearCart();
+        }
+
+        navigate("/", { replace: true });
+        return;
+      }
+
+      setShowStoreAuth(true);
+    } catch (e) {
+      console.error(e);
+      alert("在庫確認に失敗しました。時間をおいてお試しください。");
+    } finally {
+      setIsCheckingStock(false);
+    }
   };
 
   const handleStoreAuthCancel = () => {
@@ -184,7 +263,9 @@ function Checkout() {
     try {
       setIsProcessing(true);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         alert("ログインしてください");
         navigate("/login");
@@ -204,7 +285,7 @@ function Checkout() {
 
       const buyerEmail = user.email ?? "";
 
-      const itemsForStorage: StoredItem[] = items.map((item) => ({
+      const itemsForStorage: StoredItem[] = items.map((item: any) => ({
         productId: item.product.id,
         name: item.product.name,
         price: Number(item.product.price) || 0,
@@ -252,9 +333,7 @@ function Checkout() {
           quantity: it.quantity,
         }));
 
-        const { error: itemsErr } = await supabase
-          .from("order_items")
-          .insert(orderItemsPayload);
+        const { error: itemsErr } = await supabase.from("order_items").insert(orderItemsPayload);
 
         if (itemsErr) {
           console.error(itemsErr);
@@ -271,7 +350,11 @@ function Checkout() {
 
           if (error) {
             console.error("decrement_stock error:", error);
-            alert((error.message ?? "").includes("在庫不足") ? `在庫が足りません：${it.name}` : "在庫更新に失敗しました");
+            alert(
+              (error.message ?? "").includes("在庫不足")
+                ? `在庫が足りません：${it.name}`
+                : "在庫更新に失敗しました"
+            );
             return;
           }
         }
@@ -355,7 +438,7 @@ function Checkout() {
             <section className="co-section">
               <h3 className="co-section-title">購入商品</h3>
               <div className="co-card">
-                {items.map((item) => (
+                {items.map((item: any) => (
                   <div className="co-item" key={item.id}>
                     <img
                       src={item.product.imageData ?? "/no-image.png"}
@@ -494,9 +577,13 @@ function Checkout() {
                 <button
                   className="side-pay-btn"
                   onClick={handleClickConfirmButton}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isCheckingStock}
                 >
-                  {isProcessing ? "処理中..." : "購入を確定する"}
+                  {isCheckingStock
+                    ? "在庫確認中..."
+                    : isProcessing
+                    ? "処理中..."
+                    : "購入を確定する"}
                 </button>
               </div>
             </section>
@@ -508,9 +595,9 @@ function Checkout() {
         <button
           className="checkout-btn checkout-btn-full"
           onClick={handleClickConfirmButton}
-          disabled={isProcessing}
+          disabled={isProcessing || isCheckingStock}
         >
-          {isProcessing ? "処理中..." : "購入を確定する"}
+          {isCheckingStock ? "在庫確認中..." : isProcessing ? "処理中..." : "購入を確定する"}
         </button>
       </div>
 

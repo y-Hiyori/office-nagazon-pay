@@ -13,6 +13,7 @@ import Tokushoho from "./pages/Tokushoho";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PurchaseComplete from "./pages/PurchaseComplete";
 import PayPayFailed from "./pages/PayPayFailed";
+import NoticeDetail from "./pages/NoticeDetail";
 
 // ===== アカウント =====
 import AccountMenu from "./pages/AccountMenu";
@@ -42,6 +43,10 @@ import AdminSales from "./pages/AdminSales";
 import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
 import AdminCoupons from "./pages/AdminCoupons";
 import AdminCouponEdit from "./pages/AdminCouponEdit";
+import AdminHomeSlides from "./pages/AdminHomeSlides";
+import AdminHomeSlideEdit from "./pages/AdminHomeSlideEdit";
+import AdminNotices from "./pages/AdminNotices";
+import AdminNoticeEdit from "./pages/AdminNoticeEdit";
 
 // ===== ルートガード =====
 import AdminRoute from "./components/AdminRoute";
@@ -66,6 +71,9 @@ const router = createBrowserRouter([
       { path: "contact", element: <Contact /> },
       { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
+
+      // ✅ お知らせ詳細（Public）
+      { path: "notice/:id", element: <NoticeDetail /> },
 
       // ✅ PayPay戻りでログイン無しでも開ける必要があるのでPublic
       { path: "purchase-complete", element: <PurchaseComplete /> },
@@ -236,6 +244,58 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminCouponEdit mode="edit" />
+          </AdminRoute>
+        ),
+      },
+
+      // ✅ ホームスライド管理
+      {
+        path: "admin-home",
+        element: (
+          <AdminRoute>
+            <AdminHomeSlides />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-home-new",
+        element: (
+          <AdminRoute>
+            <AdminHomeSlideEdit mode="new" />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-home-edit/:id",
+        element: (
+          <AdminRoute>
+            <AdminHomeSlideEdit mode="edit" />
+          </AdminRoute>
+        ),
+      },
+
+      // ✅ お知らせ管理
+      {
+        path: "admin-notices",
+        element: (
+          <AdminRoute>
+            <AdminNotices />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-notice-new",
+        element: (
+          <AdminRoute>
+            <AdminNoticeEdit mode="new" />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-notice-edit/:id",
+        element: (
+          <AdminRoute>
+            <AdminNoticeEdit mode="edit" />
           </AdminRoute>
         ),
       },
