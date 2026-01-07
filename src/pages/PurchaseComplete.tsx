@@ -1,4 +1,3 @@
-// src/pages/PurchaseComplete.tsx
 import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import "./PurchaseComplete.css";
@@ -24,16 +23,12 @@ function PurchaseComplete() {
       return;
     }
 
-    // メールは1回だけ（リロード対策）
-    const key = `mail_sent_${orderId}`;
-    if (!localStorage.getItem(key)) {
-      fetch("/api/send-buyer-order-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, token }),
-      }).catch(() => {});
-      localStorage.setItem(key, "1");
-    }
+    // ✅ token無しでも送る（OCI側は token 任意の設計）
+    fetch("/api/send-buyer-order-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId, token }),
+    }).catch(() => {});
 
     setView("success");
     setMsg("ご購入ありがとうございます！");
@@ -50,7 +45,6 @@ function PurchaseComplete() {
             <p>お支払いが完了しました。</p>
             <p>商品をお取りください。</p>
           </div>
-
           <button className="home-btn" onClick={() => navigate("/", { replace: true })}>
             トップへ戻る
           </button>
@@ -63,7 +57,6 @@ function PurchaseComplete() {
             <p>決済の確認ができませんでした。</p>
             <p>お手数ですがスタッフへご連絡ください。</p>
           </div>
-
           <button className="home-btn" onClick={() => navigate("/contact", { replace: true })}>
             お問い合わせへ
           </button>

@@ -6,17 +6,16 @@ export default function PayPayReturn() {
   const location = useLocation();
 
   const q = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const paypayOrderId = q.get("orderId") || "";
-  const merchantPaymentId = q.get("merchantPaymentId") || ""; // ✅ 追加
-  const token = q.get("token") || ""; // ✅ あってもなくてもOKにする
+  const orderId = q.get("orderId") || "";
+  const merchantPaymentId = q.get("merchantPaymentId") || "";
+  const token = q.get("token") || ""; // あってもOK、なくても動く設計にする
 
   const [msg, setMsg] = useState("決済を確認しています…");
 
   useEffect(() => {
-    // ✅ token必須をやめて merchantPaymentId 必須へ
-    if (!paypayOrderId || !merchantPaymentId) {
+    if (!orderId || !merchantPaymentId) {
       navigate(
-        `/paypay-failed?orderId=${encodeURIComponent(paypayOrderId || "")}&reason=BAD_REQUEST`,
+        `/paypay-failed?orderId=${encodeURIComponent(orderId || "")}&reason=BAD_REQUEST`,
         { replace: true }
       );
       return;
@@ -31,63 +30,64 @@ export default function PayPayReturn() {
       return (
         j?.paid === true ||
         String(j?.status || "").toLowerCase() === "paid" ||
-        String(j?.paypayStatus || j?.paypay_status || "").toUpperCase() === "COMPLETED"
+        String(j?.paypayStatus || "").toUpperCase() === "COMPLETED"
       );
     };
 
     const tick = async () => {
       if (stopped) return;
 
-      // ✅ 最大15秒（コメントも合わせる）
+      // 最大15秒
       if (Date.now() - start > 15 * 1000) {
         navigate(
-          `/paypay-failed?orderId=${encodeURIComponent(paypayOrderId)}&reason=TIMEOUT_15S`,
+          `/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=TIMEOUT_15S`,
           { replace: true }
         );
         return;
       }
 
       try {
+        // ① PayPay決済確認（OCIへ）
         const r = await fetch("/api/confirm-paypay-payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // ✅ tokenじゃなく merchantPaymentId を送る
-          body: JSON.stringify({ orderId: paypayOrderId, merchantPaymentId }),
+          body: JSON.stringify({ orderId, merchantPaymentId }),
         });
 
         const j = await r.json().catch(() => null);
         if (stopped) return;
 
+        // ✅ 決済完了
         if (isPaidResp(r.ok, j)) {
-          const orderDbId = j?.orderDbId || paypayOrderId;
+          setMsg("決済完了！仕上げ処理中…");
 
-          // ✅ 成功時に finalize（ポイント減算）を先に叩く
-          await fetch("/api/finalize-order", {
+          // ② ポイント減算（失敗しても画面は進める）
+          fetch("/api/finalize-order", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: orderDbId, token }), // tokenはあれば送る
+            body: JSON.stringify({ orderId, token }),
           }).catch(() => {});
 
+          // ③ 完了画面へ
           navigate(
-            `/purchase-complete/${orderDbId}?orderId=${encodeURIComponent(orderDbId)}${
-              token ? `&token=${encodeURIComponent(token)}` : ""
-            }`,
+            `/purchase-complete/${encodeURIComponent(orderId)}?orderId=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`,
             { replace: true }
           );
           return;
         }
 
-        // ✅ まだ待ち（PENDING）
-        const st = String(j?.status || j?.paypayStatus || j?.paypay_status || "").toUpperCase();
+        // まだ待つ
+        const st = String(j?.paypayStatus || j?.status || "").toUpperCase();
         if (r.ok && (st === "PENDING" || st === "CREATED" || j?.paid === false)) {
           setMsg("PayPayの支払い完了を待っています…");
           timer = window.setTimeout(tick, 2500);
           return;
         }
 
-        const reason = String(j?.error || j?.status || r.status || "ERROR");
+        // 失敗扱い
+        const reason = String(j?.status || j?.error || r.status || "ERROR");
         navigate(
-          `/paypay-failed?orderId=${encodeURIComponent(paypayOrderId)}&reason=${encodeURIComponent(reason)}`,
+          `/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=${encodeURIComponent(reason)}`,
           { replace: true }
         );
       } catch {
@@ -101,14 +101,14 @@ export default function PayPayReturn() {
       stopped = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [paypayOrderId, merchantPaymentId, token, navigate]);
+  }, [orderId, merchantPaymentId, token, navigate]);
 
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
         <div style={{ fontSize: 16, marginBottom: 10 }}>{msg}</div>
         <div style={{ opacity: 0.7, fontSize: 13, wordBreak: "break-all" }}>
-          PayPay orderId: {paypayOrderId}
+          orderId: {orderId}
           <br />
           merchantPaymentId: {merchantPaymentId}
           <br />
