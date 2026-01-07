@@ -1,0 +1,135 @@
+.admin-points-page{
+  padding: 84px 0 40px;
+  background: #fff;
+  min-height: 100vh;
+}
+
+.admin-points-container{
+  width: min(820px, 100% - 28px);
+  margin: 0 auto;
+}
+
+.admin-points-title{
+  margin: 0 0 14px;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.admin-points-msg{
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15,23,42,0.12);
+  border-radius: 12px;
+  background: rgba(99,102,241,0.08);
+  font-weight: 800;
+}
+
+.ap-card{
+  border: 1px solid rgba(15,23,42,0.10);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 10px 20px rgba(15,23,42,0.08);
+}
+
+.ap-card-title{
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.ap-row{
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.ap-label{
+  font-weight: 800;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.ap-input{
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(15,23,42,0.14);
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.ap-btn{
+  width: 100%;
+  height: 46px;
+  border-radius: 12px;
+  border: none;
+  background: rgba(79,70,229,0.92);
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ap-btn:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ap-btn-sub{
+  background: rgba(15,23,42,0.82);
+}
+
+.ap-search{
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.ap-list{
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ap-user{
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15,23,42,0.10);
+  background: #fff;
+  cursor: pointer;
+}
+
+.ap-user.active{
+  border-color: rgba(79,70,229,0.6);
+  background: rgba(99,102,241,0.08);
+}
+
+.ap-user-name{
+  font-weight: 900;
+}
+
+.ap-user-email{
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.ap-selected{
+  margin: 10px 0 6px;
+  font-weight: 800;
+}
+
+.ap-wallet{
+  margin: 0 0 10px;
+  font-weight: 800;
+}
+
+.ap-wallet-sub{
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: 0.7;
+}

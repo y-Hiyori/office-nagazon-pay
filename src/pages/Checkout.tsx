@@ -15,6 +15,9 @@ type StoredItem = {
   stock: number;
 };
 
+// ✅ 予約なし：balance と available だけ
+type Wallet = { balance: number; available: number };
+
 function Checkout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,13 +37,15 @@ function Checkout() {
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponMsg, setCouponMsg] = useState<string>("");
 
-  const formatPrice = (value: number | string) =>
-    Number(value || 0).toLocaleString("ja-JP");
+  // ✅ ポイント（最初から表示）
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [pointsToUse, setPointsToUse] = useState(0);
+  const [pointsMsg, setPointsMsg] = useState("");
 
-  const state = location.state as
-    | { buyNow?: { product: any; quantity: number } }
-    | undefined;
+  const formatPrice = (value: number | string) => Number(value || 0).toLocaleString("ja-JP");
 
+  const state =
+    (location.state as { buyNow?: { product: any; quantity: number } } | undefined) ?? undefined;
   const buyNow = state?.buyNow;
 
   const items = buyNow
@@ -51,23 +56,60 @@ function Checkout() {
     ? (Number(buyNow.product.price) || 0) * buyNow.quantity
     : cart.getTotalPrice();
 
+  // ✅ ポイント上限（クーポン後の残額・保有ptの小さい方）
+  const pointsMax = useMemo(() => {
+    const maxUsable = Math.max(subtotal - discountYen, 0);
+    const available = Number(wallet?.available ?? 0);
+    return Math.max(Math.min(available, maxUsable), 0);
+  }, [wallet?.available, subtotal, discountYen]);
+
+  // ✅ ポイント割引（常に丸め）
+  const pointsDiscountYen = useMemo(() => {
+    const p = Math.max(Math.floor(pointsToUse || 0), 0);
+    return Math.min(p, pointsMax);
+  }, [pointsToUse, pointsMax]);
+
   const payableTotal = useMemo(
-    () => Math.max(subtotal - discountYen, 0),
-    [subtotal, discountYen]
+    () => Math.max(subtotal - discountYen - pointsDiscountYen, 0),
+    [subtotal, discountYen, pointsDiscountYen]
   );
 
-  // ログインチェック
+  // ✅ ログインチェック + ポイント取得（予約なしRPC）
   useEffect(() => {
     (async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       if (!user) {
         alert("ログインしてください");
         navigate("/login");
+        return;
       }
+
+      const { data: w, error: wErr } = await supabase.rpc("points_get_my_wallet");
+      if (wErr) {
+        console.error("points_get_my_wallet error:", wErr);
+        setWallet({ balance: 0, available: 0 });
+        return;
+      }
+
+      const row = Array.isArray(w) ? w?.[0] : (w as any);
+      const balance = Number(row?.balance ?? 0);
+      const available = Number(row?.available ?? balance);
+      setWallet({ balance, available });
     })();
   }, [navigate]);
+
+  // ✅ 入力値を上限で強制丸め
+  const setPointsClamped = (raw: number) => {
+    const v = Math.max(Math.floor(raw || 0), 0);
+    const clamped = Math.min(v, pointsMax);
+    setPointsToUse(clamped);
+
+    if (clamped <= 0) setPointsMsg("");
+    else setPointsMsg(`ポイント適用：-${formatPrice(clamped)}円`);
+  };
 
   // クーポン適用
   const applyCoupon = async () => {
@@ -128,15 +170,10 @@ function Checkout() {
 
     let discount = 0;
     const v = Number(data.discount_value ?? 0);
-    if ((data.discount_type ?? "yen") === "percent") {
-      discount = Math.floor((subtotal * v) / 100);
-    } else {
-      discount = v;
-    }
+    if ((data.discount_type ?? "yen") === "percent") discount = Math.floor((subtotal * v) / 100);
+    else discount = v;
 
-    if (data.max_discount_yen != null) {
-      discount = Math.min(discount, Number(data.max_discount_yen));
-    }
+    if (data.max_discount_yen != null) discount = Math.min(discount, Number(data.max_discount_yen));
     discount = Math.min(discount, subtotal);
 
     if (discount <= 0) {
@@ -148,6 +185,8 @@ function Checkout() {
     setDiscountYen(discount);
     setAppliedCoupon(data.code);
     setCouponMsg(`クーポン適用：-${formatPrice(discount)}円`);
+
+    setTimeout(() => setPointsClamped(pointsToUse), 0);
   };
 
   const clearCoupon = () => {
@@ -157,7 +196,7 @@ function Checkout() {
     setCouponMsg("");
   };
 
-  // ✅ 「確定」押下前に在庫を再チェック（最新DBのstockを見る）
+  // ✅ 在庫再チェック
   const recheckStockBeforeConfirm = async () => {
     const ids = Array.from(
       new Set(items.map((it: any) => Number(it?.product?.id)).filter((v) => Number.isFinite(v)))
@@ -165,11 +204,7 @@ function Checkout() {
 
     if (ids.length === 0) return { ok: false as const, ngNames: ["（商品不明）"] };
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("id,name,stock,is_visible")
-      .in("id", ids);
-
+    const { data, error } = await supabase.from("products").select("id,name,stock,is_visible").in("id", ids);
     if (error) {
       console.error("stock recheck error:", error);
       throw error;
@@ -185,7 +220,6 @@ function Checkout() {
     });
 
     const ngNames: string[] = [];
-
     for (const it of items as any[]) {
       const pid = Number(it?.product?.id);
       const row = map.get(pid);
@@ -193,16 +227,11 @@ function Checkout() {
       const name = String(it?.product?.name ?? row?.name ?? "（商品名不明）");
       const qty = Number(it?.quantity ?? 0);
 
-      // 商品が見つからない / 非表示 / 在庫不足
-      if (!row || row.is_visible === false || (row.stock ?? 0) < qty) {
-        ngNames.push(name);
-      }
+      if (!row || row.is_visible === false || (row.stock ?? 0) < qty) ngNames.push(name);
     }
-
     return { ok: ngNames.length === 0, ngNames };
   };
 
-  // ✅ ここで在庫チェックして、OKなら認証モーダル、NGならカートリセットしてHome
   const handleClickConfirmButton = async () => {
     if (isProcessing || isCheckingStock) return;
 
@@ -218,22 +247,14 @@ function Checkout() {
     setIsCheckingStock(true);
     try {
       const result = await recheckStockBeforeConfirm();
-
       if (!result.ok) {
         alert(
-          `商品の確保ができません。\n在庫不足または非表示：\n・${result.ngNames.join(
-            "\n・"
-          )}\n\nカートをリセットしてホームに戻ります。`
+          `商品の確保ができません。\n在庫不足または非表示：\n・${result.ngNames.join("\n・")}\n\nカートをリセットしてホームに戻ります。`
         );
-
-        if (!buyNow && typeof (cart as any).clearCart === "function") {
-          (cart as any).clearCart();
-        }
-
+        if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
         navigate("/", { replace: true });
         return;
       }
-
       setShowStoreAuth(true);
     } catch (e) {
       console.error(e);
@@ -266,6 +287,7 @@ function Checkout() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       if (!user) {
         alert("ログインしてください");
         navigate("/login");
@@ -275,11 +297,7 @@ function Checkout() {
       // 購入者名
       let buyerName = "(名前未設定)";
       try {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("name")
-          .eq("id", user.id)
-          .maybeSingle();
+        const { data: profile } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();
         if (profile?.name) buyerName = profile.name;
       } catch {}
 
@@ -293,25 +311,26 @@ function Checkout() {
         stock: Number(item.product.stock ?? 0),
       }));
 
-      // ========= 0円購入 =========
+      const pointsUsed = Number(pointsDiscountYen || 0);
+
+      // ========= 0円購入（クーポン/ポイントで0円） =========
       if (payableTotal === 0) {
         const token0yen =
-          (globalThis.crypto as any)?.randomUUID?.() ??
-          `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+        const paymentMethod = pointsUsed > 0 ? "points" : "coupon";
 
         const { data: orderRow, error: orderErr } = await supabase
           .from("orders")
           .insert({
             user_id: user.id,
             total: 0,
-            payment_method: "coupon",
+            payment_method: paymentMethod,
             subtotal,
             discount_amount: discountYen,
             coupon_code: appliedCoupon,
-            status: "paid",
-            paid_at: new Date().toISOString(),
-
-            // ★購入者通知用
+            points_used: pointsUsed,
+            status: "pending",
             paypay_return_token: token0yen,
             email: buyerEmail || null,
             name: buyerName || null,
@@ -328,17 +347,29 @@ function Checkout() {
         const orderItemsPayload = itemsForStorage.map((it) => ({
           order_id: orderRow.id,
           product_id: Number(it.productId),
-          product_name: it.name, // ★order_itemsはproduct_name
+          product_name: it.name,
           price: it.price,
           quantity: it.quantity,
         }));
 
         const { error: itemsErr } = await supabase.from("order_items").insert(orderItemsPayload);
-
         if (itemsErr) {
           console.error(itemsErr);
           alert("注文商品の保存に失敗しました");
           return;
+        }
+
+        // ✅ 0円購入はここでポイント差し引き
+        if (pointsUsed > 0) {
+          const { error: useErr } = await supabase.rpc("points_use_for_order", {
+            p_order_id: orderRow.id,
+            p_points: pointsUsed,
+          });
+          if (useErr) {
+            console.error("points_use_for_order error:", useErr);
+            alert("ポイント使用に失敗しました（残高不足など）");
+            return;
+          }
         }
 
         // 在庫減算
@@ -347,19 +378,15 @@ function Checkout() {
             p_product_id: Number(it.productId),
             p_qty: Number(it.quantity),
           });
-
           if (error) {
             console.error("decrement_stock error:", error);
-            alert(
-              (error.message ?? "").includes("在庫不足")
-                ? `在庫が足りません：${it.name}`
-                : "在庫更新に失敗しました"
-            );
+            alert((error.message ?? "").includes("在庫不足") ? `在庫が足りません：${it.name}` : "在庫更新に失敗しました");
             return;
           }
         }
 
-        // ✅ 購入者メール（Vercel API）
+        await supabase.from("orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", orderRow.id);
+
         if (buyerEmail) {
           await fetch("/api/send-buyer-order-email", {
             method: "POST",
@@ -368,10 +395,7 @@ function Checkout() {
           }).catch(() => {});
         }
 
-        if (!buyNow && typeof (cart as any).clearCart === "function") {
-          (cart as any).clearCart();
-        }
-
+        if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
         navigate(`/purchase-complete/${orderRow.id}`, { replace: true });
         return;
       }
@@ -382,16 +406,21 @@ function Checkout() {
         return;
       }
 
-      // PayPay注文作成（Vercelの /api/create-paypay-order を使う前提）
+      // ✅ orderId を先に作って、OCIとフロントで同じIDを使う
+      const orderIdForPayPay =
+        (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
       const res = await fetch("/api/create-paypay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          orderId: orderIdForPayPay,
           total: payableTotal,
           userId: user.id,
           subtotal,
           discountYen,
           coupon: appliedCoupon,
+          pointsUsed,
           buyerEmail: buyerEmail || null,
           buyerName,
           items: itemsForStorage.map((it) => ({
@@ -410,15 +439,17 @@ function Checkout() {
       }
 
       const data = await res.json();
-      const redirectUrl: string | null = data.redirectUrl ?? null;
 
-      if (!redirectUrl) {
+      // ✅ PayPayへ飛ぶURLはここ（redirectUrlじゃない）
+      const paypayUrl: string | null = data?.paypay?.url ?? null;
+
+      if (!paypayUrl) {
         console.error("create-paypay-order response:", data);
-        throw new Error("PayPay API response invalid");
+        throw new Error("PayPay URL が取得できませんでした");
       }
 
       redirecting = true;
-      window.location.href = redirectUrl;
+      window.location.href = paypayUrl;
     } catch (e) {
       console.error(e);
       alert("決済の開始に失敗しました。時間をおいてお試しください。");
@@ -491,6 +522,57 @@ function Checkout() {
               </div>
             </section>
 
+            {/* ✅ ポイント */}
+            <section className="co-section">
+              <h3 className="co-section-title">ポイント</h3>
+              <div className="co-card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                  <div style={{ fontSize: 13, opacity: 0.8, fontWeight: 800 }}>
+                    利用可能：{Number(wallet?.available ?? 0).toLocaleString("ja-JP")} pt
+                  </div>
+                  <div style={{ fontSize: 13, opacity: 0.8, fontWeight: 800 }}>
+                    上限：{Number(pointsMax ?? 0).toLocaleString("ja-JP")} pt
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+                  <input
+                    className="coupon-input"
+                    inputMode="numeric"
+                    value={String(pointsToUse)}
+                    onChange={(e) => {
+                      const v = Number(e.target.value.replace(/[^\d]/g, "") || 0);
+                      setPointsClamped(v);
+                    }}
+                    placeholder="使用ポイント"
+                  />
+                  <button className="coupon-apply" type="button" onClick={() => setPointsClamped(pointsMax)}>
+                    最大
+                  </button>
+                </div>
+
+                {(pointsMsg || pointsDiscountYen > 0) && (
+                  <div className="coupon-msg ok" style={{ marginTop: 10 }}>
+                    <span>{pointsMsg || `ポイント適用：-${formatPrice(pointsDiscountYen)}円`}</span>
+                    <button
+                      className="coupon-clear"
+                      type="button"
+                      onClick={() => {
+                        setPointsToUse(0);
+                        setPointsMsg("");
+                      }}
+                    >
+                      クリア
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7, fontWeight: 800 }}>
+                  ※ 0ならポイント未使用。クーポン適用後の残額まで（1pt=1円）
+                </div>
+              </div>
+            </section>
+
             {/* 支払い方法（モバイル） */}
             <section className="co-section only-mobile">
               <h3 className="co-section-title">支払い方法</h3>
@@ -521,8 +603,12 @@ function Checkout() {
                 </div>
                 <div className="sum-row">
                   <span>クーポン</span>
-                  <span className={discountYen > 0 ? "sum-discount" : ""}>
-                    -{formatPrice(discountYen)}円
+                  <span className={discountYen > 0 ? "sum-discount" : ""}>-{formatPrice(discountYen)}円</span>
+                </div>
+                <div className="sum-row">
+                  <span>ポイント</span>
+                  <span className={pointsDiscountYen > 0 ? "sum-discount" : ""}>
+                    -{formatPrice(pointsDiscountYen)}円
                   </span>
                 </div>
                 <div className="sum-sep" />
@@ -564,8 +650,12 @@ function Checkout() {
                 </div>
                 <div className="sum-row">
                   <span>クーポン</span>
-                  <span className={discountYen > 0 ? "sum-discount" : ""}>
-                    -{formatPrice(discountYen)}円
+                  <span className={discountYen > 0 ? "sum-discount" : ""}>-{formatPrice(discountYen)}円</span>
+                </div>
+                <div className="sum-row">
+                  <span>ポイント</span>
+                  <span className={pointsDiscountYen > 0 ? "sum-discount" : ""}>
+                    -{formatPrice(pointsDiscountYen)}円
                   </span>
                 </div>
                 <div className="sum-sep" />
@@ -579,11 +669,7 @@ function Checkout() {
                   onClick={handleClickConfirmButton}
                   disabled={isProcessing || isCheckingStock}
                 >
-                  {isCheckingStock
-                    ? "在庫確認中..."
-                    : isProcessing
-                    ? "処理中..."
-                    : "購入を確定する"}
+                  {isCheckingStock ? "在庫確認中..." : isProcessing ? "処理中..." : "購入を確定する"}
                 </button>
               </div>
             </section>

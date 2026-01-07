@@ -18,27 +18,22 @@ function PurchaseComplete() {
   const [msg, setMsg] = useState("ご購入ありがとうございます！");
 
   useEffect(() => {
-    // orderIdが無いのは失敗扱い
     if (!orderId) {
       setView("failed");
       setMsg("注文IDが見つかりませんでした。");
       return;
     }
 
-    // token無しでも「完了表示」は出す（Safari復帰でログイン消えてもOK）
-    if (!token) {
-      setView("success");
-      setMsg("ご購入ありがとうございます！");
-      return;
+    // メールは1回だけ（リロード対策）
+    const key = `mail_sent_${orderId}`;
+    if (!localStorage.getItem(key)) {
+      fetch("/api/send-buyer-order-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, token }),
+      }).catch(() => {});
+      localStorage.setItem(key, "1");
     }
-
-    // tokenがある＝PayPayReturnで確定してから来る想定
-    // 念のためメール送信だけ叩く（失敗しても購入表示は崩さない）
-    fetch("/api/send-buyer-order-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, token }),
-    }).catch(() => {});
 
     setView("success");
     setMsg("ご購入ありがとうございます！");
@@ -56,7 +51,6 @@ function PurchaseComplete() {
             <p>商品をお取りください。</p>
           </div>
 
-          {/* ✅ ここが消えてたので復活 */}
           <button className="home-btn" onClick={() => navigate("/", { replace: true })}>
             トップへ戻る
           </button>

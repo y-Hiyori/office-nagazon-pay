@@ -47,6 +47,7 @@ import AdminHomeSlides from "./pages/AdminHomeSlides";
 import AdminHomeSlideEdit from "./pages/AdminHomeSlideEdit";
 import AdminNotices from "./pages/AdminNotices";
 import AdminNoticeEdit from "./pages/AdminNoticeEdit";
+import AdminPoints from "./pages/AdminPoints";
 
 // ===== ルートガード =====
 import AdminRoute from "./components/AdminRoute";
@@ -80,7 +81,7 @@ const router = createBrowserRouter([
       { path: "purchase-complete/:id", element: <PurchaseComplete /> },
       { path: "paypay-failed", element: <PayPayFailed /> },
 
-      // PayPay（戻りはログイン無しでも来る可能性あるのでガード無し推奨）
+      // PayPay
       { path: "paypay-sim", element: <PayPaySim /> },
       { path: "paypay-return", element: <PayPayReturn /> },
 
@@ -296,6 +297,16 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminNoticeEdit mode="edit" />
+          </AdminRoute>
+        ),
+      },
+
+      // ✅ ポイント管理
+      {
+        path: "admin-points",
+        element: (
+          <AdminRoute>
+            <AdminPoints />
           </AdminRoute>
         ),
       },

@@ -26,11 +26,15 @@ function AdminMenu() {
             </button>
 
             <button className="admin-menu-btn" onClick={() => navigate("/admin-notices")}>
-  お知らせ管理
-</button>
+              お知らせ管理
+            </button>
 
             <button className="admin-menu-btn" onClick={() => navigate("/admin-coupons")}>
               クーポン管理
+            </button>
+
+            <button className="admin-menu-btn" onClick={() => navigate("/admin-points")}>
+              ポイント管理
             </button>
 
             <button className="admin-menu-btn" onClick={() => navigate("/admin-users")}>

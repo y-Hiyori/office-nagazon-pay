@@ -6,18 +6,46 @@ import "./AccountMenu.css";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 
-type Profile = {
+type SiteProfile = {
   id: string;
   name: string | null;
   email: string | null;
   is_admin?: boolean;
 };
 
+type Wallet = {
+  balance: number;
+};
+
 function AccountMenu() {
   const navigate = useNavigate();
+
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<SiteProfile | null>(null);
+
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
+
+  const fmt = (n: number) => Number(n || 0).toLocaleString("ja-JP");
+
+  const loadWallet = async () => {
+    setWalletLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("points_get_my_wallet");
+      if (error) {
+        console.error("points_get_my_wallet error:", error);
+        setWallet({ balance: 0 });
+        return;
+      }
+
+      const row: any = Array.isArray(data) ? data?.[0] : data;
+      setWallet({ balance: Number(row?.balance ?? 0) });
+    } finally {
+      setWalletLoading(false);
+    }
+  };
 
   useEffect(() => {
     const loadUser = async () => {
@@ -56,7 +84,8 @@ function AccountMenu() {
         return;
       }
 
-      setProfile(data as Profile);
+      setProfile(data as SiteProfile);
+      await loadWallet();
     };
 
     loadUser();
@@ -122,7 +151,6 @@ function AccountMenu() {
 
       <main className="account-main">
         <div className="account-shell">
-          {/* ✅ プロフィール（基本情報の枠は作らない） */}
           <section className="account-profile">
             <div className="account-avatar" aria-hidden="true">
               {initials}
@@ -137,7 +165,24 @@ function AccountMenu() {
             </div>
           </section>
 
-          {/* ✅ 操作ボタン */}
+          <section className="account-points">
+            <div className="account-points-head">
+              <h3 className="account-points-title">ポイント</h3>
+              <button className="account-points-reload" onClick={loadWallet} disabled={walletLoading}>
+                {walletLoading ? "更新中..." : "更新"}
+              </button>
+            </div>
+
+            <div className="account-points-row">
+              <div className="account-points-label">保有ポイント</div>
+              <div className="account-points-value">
+                {walletLoading ? "…" : fmt(wallet?.balance ?? 0)} pt
+              </div>
+            </div>
+
+            <div className="account-points-note">決済時にポイントを使用できます（1pt = 1円）。</div>
+          </section>
+
           <section className="account-actions">
             <button className="acc-btn" onClick={() => navigate("/orders")}>
               購入履歴を見る
@@ -148,10 +193,7 @@ function AccountMenu() {
             </button>
 
             {profile.is_admin && (
-              <button
-                className="acc-btn acc-btn-admin"
-                onClick={() => navigate("/admin-menu")}
-              >
+              <button className="acc-btn acc-btn-admin" onClick={() => navigate("/admin-menu")}>
                 管理者メニューへ
               </button>
             )}

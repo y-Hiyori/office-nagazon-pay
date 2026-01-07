@@ -87,6 +87,7 @@ export default function Home() {
         const { data, error } = await supabase
           .from("home_notices")
           .select("id,title,body,link_url,created_at")
+          .eq("is_visible", true) // ✅ 追加：非表示のお知らせは除外
           .order("created_at", { ascending: false })
           .limit(10);
 
@@ -142,7 +143,11 @@ export default function Home() {
                   <p>{s.desc}</p>
 
                   {/* ✅ スライドごとにボタン文字を変えられる */}
-                  <button onClick={() => navigate((s.link || "").trim() || "/products")}>
+                  <button
+                    onClick={() =>
+                      navigate((s.link || "").trim() || "/products")
+                    }
+                  >
                     {s.buttonText?.trim() || "詳しく見る"}
                   </button>
                 </div>
@@ -193,8 +198,12 @@ export default function Home() {
                   >
                     <div className="home-date">{fmtDate(n.created_at)}</div>
                     <div className="home-text">
-                      <div className="home-item-title">{n.title || "（無題）"}</div>
-                      <div className="home-item-sub">{(n.body || "").trim() || "—"}</div>
+                      <div className="home-item-title">
+                        {n.title || "（無題）"}
+                      </div>
+                      <div className="home-item-sub">
+                        {(n.body || "").trim() || "—"}
+                      </div>
                     </div>
                     <div className="home-arrow">›</div>
                   </button>
