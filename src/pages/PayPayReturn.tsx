@@ -8,12 +8,14 @@ export default function PayPayReturn() {
   const q = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const orderId = q.get("orderId") || "";
   const merchantPaymentId = q.get("merchantPaymentId") || "";
-
   const [msg, setMsg] = useState("決済を確認しています…");
 
   useEffect(() => {
     if (!orderId || !merchantPaymentId) {
-      navigate(`/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=BAD_REQUEST`, { replace: true });
+      navigate(
+        `/paypay-failed?orderId=${encodeURIComponent(orderId || "")}&reason=BAD_REQUEST`,
+        { replace: true }
+      );
       return;
     }
 
@@ -23,18 +25,27 @@ export default function PayPayReturn() {
 
     const isPaidResp = (rOk: boolean, j: any) => {
       if (!rOk) return false;
-      return j?.paid === true || String(j?.status || "").toLowerCase() === "paid" || j?.paypayStatus === "COMPLETED";
+      return (
+        j?.paid === true ||
+        String(j?.status || "").toLowerCase() === "paid" ||
+        j?.paypayStatus === "COMPLETED"
+      );
     };
 
     const tick = async () => {
       if (stopped) return;
 
+      // 最大15秒
       if (Date.now() - start > 15 * 1000) {
-        navigate(`/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=TIMEOUT_15S`, { replace: true });
+        navigate(
+          `/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=TIMEOUT_15S`,
+          { replace: true }
+        );
         return;
       }
 
       try {
+        // 1) PayPay決済確認
         const r = await fetch("/api/confirm-paypay-payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -44,42 +55,48 @@ export default function PayPayReturn() {
         const j = await r.json().catch(() => null);
         if (stopped) return;
 
+        // ✅ 決済完了
         if (isPaidResp(r.ok, j)) {
-          // ✅ ここで finalize を叩く（ポイント減算・在庫・paid反映をサーバ側で確定）
+          const orderDbId = j?.orderDbId || orderId;
+
+          // 2) ✅ 確定処理（DB更新・ポイント減算・在庫確定・メール等）
+          //    ※あなたのOCI server.cjs の /api/finalize-order がここで動く想定
           await fetch("/api/finalize-order", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId, merchantPaymentId }),
+            body: JSON.stringify({ orderId: orderDbId, merchantPaymentId }),
           }).catch(() => {});
 
-          // ✅ 完了画面へ（merchantPaymentId も渡す）
+          // 3) 完了画面へ
           navigate(
-            `/purchase-complete/${orderId}?orderId=${encodeURIComponent(orderId)}&merchantPaymentId=${encodeURIComponent(
-              merchantPaymentId
-            )}`,
+            `/purchase-complete/${encodeURIComponent(orderDbId)}?orderId=${encodeURIComponent(
+              orderDbId
+            )}&merchantPaymentId=${encodeURIComponent(merchantPaymentId)}`,
             { replace: true }
           );
           return;
         }
 
-        const st = String(j?.status || "").toUpperCase();
-        if (r.ok && (st === "PENDING" || j?.paid === false || st === "CREATED")) {
+        // まだ待ち
+        const st = String(j?.paypayStatus || j?.status || "").toUpperCase();
+        if (r.ok && (st === "PENDING" || st === "CREATED" || j?.paid === false)) {
           setMsg("PayPayの支払い完了を待っています…");
           timer = window.setTimeout(tick, 2500);
           return;
         }
 
-        const reason = String(j?.error || j?.status || r.status || "ERROR");
-        navigate(`/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=${encodeURIComponent(reason)}`, {
-          replace: true,
-        });
+        // 失敗扱い
+        const reason = String(j?.message || j?.error || j?.status || r.status || "ERROR");
+        navigate(
+          `/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=${encodeURIComponent(reason)}`,
+          { replace: true }
+        );
       } catch {
         timer = window.setTimeout(tick, 2500);
       }
     };
 
     tick();
-
     return () => {
       stopped = true;
       if (timer) window.clearTimeout(timer);
@@ -94,6 +111,8 @@ export default function PayPayReturn() {
           orderId: {orderId}
           <br />
           merchantPaymentId: {merchantPaymentId}
+          <br />
+          確認中…
         </div>
       </div>
     </main>

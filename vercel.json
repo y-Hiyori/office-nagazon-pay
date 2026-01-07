@@ -6,8 +6,9 @@
     { "source": "/api/paypay-status", "destination": "http://161.33.19.160/api/paypay-status" },
 
     { "source": "/api/finalize-order", "destination": "http://161.33.19.160/api/finalize-order" },
-    { "source": "/api/send-buyer-order-email", "destination": "http://161.33.19.160/api/send-buyer-order-email" },
+
     { "source": "/api/send-admin-order-email", "destination": "http://161.33.19.160/api/send-admin-order-email" },
+    { "source": "/api/send-buyer-order-email", "destination": "http://161.33.19.160/api/send-buyer-order-email" },
     { "source": "/api/send-contact-email", "destination": "http://161.33.19.160/api/send-contact-email" },
 
     { "source": "/(.*)", "destination": "/" }
