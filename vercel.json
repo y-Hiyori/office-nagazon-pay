@@ -7,7 +7,6 @@
 
     { "source": "/api/finalize-order", "destination": "http://161.33.19.160/api/finalize-order" },
     { "source": "/api/send-buyer-order-email", "destination": "http://161.33.19.160/api/send-buyer-order-email" },
-
     { "source": "/api/send-admin-order-email", "destination": "http://161.33.19.160/api/send-admin-order-email" },
 
     { "source": "/(.*)", "destination": "/" }
