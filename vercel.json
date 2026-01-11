@@ -1,14 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/health", "destination": "http://161.33.19.160:3000/api/health" },
-    { "source": "/api/create-paypay-order", "destination": "http://161.33.19.160:3000/api/create-paypay-order" },
-    { "source": "/api/confirm-paypay-payment", "destination": "http://161.33.19.160:3000/api/confirm-paypay-payment" },
-
-    { "source": "/api/order-status", "destination": "http://161.33.19.160:3000/api/order-status" },
-
-    { "source": "/api/send-buyer-order-email", "destination": "http://161.33.19.160:3000/api/send-buyer-order-email" },
-    { "source": "/api/send-admin-order-email", "destination": "http://161.33.19.160:3000/api/send-admin-order-email" },
-
+    { "source": "/api/(.*)", "destination": "http://161.33.19.160:3000/api/$1" },
     { "source": "/(.*)", "destination": "/" }
   ]
 }
