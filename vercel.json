@@ -1,6 +1,7 @@
 {
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "http://161.33.19.160:3000/api/:path*" },
-    { "source": "/(.*)", "destination": "/" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "http://161.33.19.160:3000/api/$1" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/" }
   ]
 }
