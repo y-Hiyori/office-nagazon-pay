@@ -17,7 +17,6 @@
   overflow: hidden;
 }
 
-/* カードの上部にうっすらアクセント */
 .admin-sales-product-card::before {
   content: "";
   position: absolute;
@@ -31,7 +30,7 @@
   pointer-events: none;
 }
 
-/* 戻るボタン（ヒットエリア広め） */
+/* 戻るボタン */
 .admin-sales-product-back {
   position: absolute;
   left: 14px;
@@ -52,18 +51,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
 
   z-index: 2;
   transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
 }
-
 .admin-sales-product-back:hover {
   background: #e5e7eb;
   box-shadow: 0 4px 12px rgba(148, 163, 184, 0.6);
   transform: translateY(-1px);
 }
-
 .admin-sales-product-back:active {
   transform: translateY(0);
   box-shadow: 0 2px 8px rgba(148, 163, 184, 0.45);
@@ -74,13 +70,11 @@
   text-align: center;
   margin-top: 4px;
   font-size: 18px;
-  font-weight: 650;
+  font-weight: 750;
   color: #111827;
   position: relative;
   z-index: 1;
 }
-
-/* タイトル下に細いライン */
 .admin-sales-product-title::after {
   content: "";
   display: block;
@@ -91,7 +85,7 @@
   background: linear-gradient(90deg, #4f46e5, #8b5cf6);
 }
 
-/* 期間表示 */
+/* 期間 */
 .admin-sales-product-range {
   margin-top: 14px;
   font-size: 13px;
@@ -100,146 +94,44 @@
   z-index: 1;
   position: relative;
 }
-
 .admin-sales-product-range span {
   display: inline-block;
   padding: 4px 10px;
   border-radius: 999px;
   background: #eef2ff;
   color: #4338ca;
-  font-weight: 500;
-}
-
-/* 状態表示（読み込み中 / エラー / 空） */
-.admin-sales-product-loading,
-.admin-sales-product-error,
-.admin-sales-product-empty {
-  margin-top: 24px;
-  text-align: center;
-  font-size: 14px;
-  position: relative;
-  z-index: 1;
-}
-
-.admin-sales-product-error {
-  color: #ef4444;
-}
-
-/* 一覧全体 */
-.admin-sales-product-list {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-/* 各ユーザーのカード */
-.admin-sales-product-item {
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  font-size: 14px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s;
-  cursor: pointer;
-}
-
-.admin-sales-product-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
-  border-color: #c7d2fe;
-}
-
-/* ラベル＆値 */
-.admin-sales-product-item p {
-  margin: 3px 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.admin-sales-product-item strong {
-  color: #6b7280;
-  min-width: 70px;
-}
-
-/* 名前は少し太く */
-.admin-sales-product-item p:first-of-type {
-  font-weight: 600;
-  color: #111827;
-}
-
-/* メールは小さめ＆グレー（2行目がメール想定） */
-.admin-sales-product-item p:nth-of-type(2) span {
-  font-size: 13px;
-  color: #4b5563;
-  word-break: break-all;
-}
-
-/* 金額・数量を少し目立たせる（末尾2つ） */
-.admin-sales-product-item p:last-of-type,
-.admin-sales-product-item p:nth-last-of-type(2) {
-  margin-top: 4px;
-  font-weight: 500;
-  color: #111827;
-}
-
-/* ✅ スマホ微調整 */
-@media (max-width: 420px) {
-  .admin-sales-product-card {
-    padding: 20px 16px 22px;
-  }
-
-  .admin-sales-product-title {
-    font-size: 17px;
-  }
-
-  .admin-sales-product-back {
-    left: 12px;
-    top: 12px;
-    padding: 7px 14px;
-    min-width: 64px;
-    min-height: 38px;
-    font-size: 13px;
-  }
+  font-weight: 650;
 }
 
 /* ===== 検索 ===== */
-.admin-sales-product-search{
+.admin-sales-product-search {
   position: relative;
   width: 100%;
   margin: 16px auto 0;
   z-index: 1;
 }
-
-.admin-sales-product-search-input{
+.admin-sales-product-search-input {
   width: 100%;
   height: 52px;
   border-radius: 999px;
   border: 1px solid #e5e7eb;
-  background: rgba(249,250,251,0.95);
+  background: rgba(249, 250, 251, 0.95);
   padding: 0 46px 0 18px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 650;
   color: #111827;
   outline: none;
   box-sizing: border-box;
 }
-
-.admin-sales-product-search-input::placeholder{
+.admin-sales-product-search-input::placeholder {
   color: #6b7280;
-  font-weight: 500;
+  font-weight: 550;
 }
-
-.admin-sales-product-search-input:focus{
+.admin-sales-product-search-input:focus {
   border-color: #c7d2fe;
-  box-shadow: 0 0 0 4px rgba(99,102,241,0.14);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
 }
-
-.admin-sales-product-search-clear{
+.admin-sales-product-search-clear {
   position: absolute;
   right: 14px;
   top: 50%;
@@ -255,18 +147,210 @@
   color: #6b7280;
 }
 
-.admin-sales-product-count{
+.admin-sales-product-count {
   margin-top: 10px;
   text-align: center;
   font-size: 13px;
   color: #6b7280;
-  font-weight: 600;
+  font-weight: 650;
+}
+
+/* 状態 */
+.admin-sales-product-loading,
+.admin-sales-product-error,
+.admin-sales-product-empty {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+}
+.admin-sales-product-error {
+  color: #ef4444;
+}
+
+/* 一覧 */
+.admin-sales-product-list {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* カード */
+.admin-sales-product-item {
+  padding: 14px 14px 12px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s;
+  cursor: pointer;
+}
+.admin-sales-product-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+  border-color: #c7d2fe;
+}
+
+/* ====== 追加：中身の構造 ====== */
+.aspi-head{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.aspi-oid{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aspi-label{
+  font-size: 11px;
+  font-weight: 800;
+  color: #6b7280;
+}
+
+.aspi-oid-value{
+  font-size: 13px;
+  font-weight: 900;
+  color: #111827;
+  word-break: break-all;
+  line-height: 1.25;
+}
+
+.aspi-date{
+  font-size: 12px;
+  font-weight: 750;
+  color: #4b5563;
+  background: rgba(226,232,240,0.7);
+  border: 1px solid rgba(148,163,184,0.35);
+  padding: 6px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.aspi-badges{
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.aspi-badge{
+  font-size: 12px;
+  font-weight: 850;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid rgba(99,102,241,0.25);
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+
+.aspi-badge-strong{
+  color: #0f172a;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(15,23,42,0.16);
+}
+
+.aspi-user{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(148,163,184,0.5);
+}
+
+.aspi-user-name{
+  font-size: 14px;
+  font-weight: 900;
+  color: #111827;
+}
+
+.aspi-user-sub{
+  margin-top: 2px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.aspi-user-email{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #4b5563;
+  word-break: break-all;
+  font-weight: 650;
+}
+
+.aspi-metrics{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(148,163,184,0.5);
+  display: grid;
+  gap: 10px;
+}
+
+.aspi-metric{
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.aspi-metric-label{
+  font-size: 12px;
+  font-weight: 850;
+  color: #6b7280;
+}
+
+.aspi-metric-value{
+  font-size: 14px;
+  font-weight: 900;
+  color: #111827;
+}
+
+.aspi-metric-main .aspi-metric-value{
+  font-size: 16px;
+}
+
+.aspi-metric-sub{
+  grid-column: 2 / 3;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 700;
 }
 
 /* 「注文詳細を見る」 */
 .admin-sales-product-open{
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 900;
   color: #4f46e5;
+}
+
+/* ✅ スマホ */
+@media (max-width: 420px) {
+  .admin-sales-product-card {
+    padding: 20px 16px 22px;
+  }
+  .admin-sales-product-title {
+    font-size: 17px;
+  }
+  .admin-sales-product-back {
+    left: 12px;
+    top: 12px;
+    padding: 7px 14px;
+    min-width: 64px;
+    min-height: 38px;
+    font-size: 13px;
+  }
+  .aspi-date{
+    padding: 6px 8px;
+  }
+  .aspi-metric{
+    grid-template-columns: 96px 1fr;
+  }
 }

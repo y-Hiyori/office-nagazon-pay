@@ -1,3 +1,4 @@
+// src/pages/AdminSales.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -6,11 +7,43 @@ import "./AdminSales.css";
 
 type SalesItem = {
   product_name: string;
+
+  // 合計
   quantity: number;
-  subtotal: number;
+
+  // ✅ 割引前（= order_items の 数量×単価 合計）
+  subtotal_raw: number;
+
+  // ✅ 割引後（注文全体の割引を “この商品” に割合按分して反映）
+  subtotal_after_discount: number;
+
+  // ✅ 件数（この商品が含まれる注文のうち）
+  coupon_orders_count: number; // クーポン使用
+  points_orders_count: number; // ポイント使用
 };
 
 type RangeMode = "day" | "week" | "month" | "year";
+
+type OrderRow = {
+  id: string;
+  total: number | null;
+  created_at: string | null;
+  status?: string | null;
+
+  // ✅ CSVにある列
+  subtotal: number | null;
+  discount_amount: number | null;
+  coupon_code: string | null;
+  points_used: number | null;
+  points_applied: number | null;
+};
+
+type OrderItemRow = {
+  order_id: string;
+  product_name: string | null;
+  quantity: number | null;
+  price: number | null;
+};
 
 const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -24,7 +57,14 @@ const formatWeekday = (dateStr: string) => {
 // ✅ 「モードだけ」覚える（※日付は毎回“開いた日”にリセット）
 const STORAGE_KEY = "admin-sales-state-mode";
 
-function AdminSales() {
+const toNumber = (v: any) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const round0 = (v: any) => Math.max(0, Math.round(toNumber(v)));
+
+export default function AdminSales() {
   const navigate = useNavigate();
   const today = new Date();
 
@@ -41,7 +81,7 @@ function AdminSales() {
     return `${y}-${m}`;
   };
 
-  // ✅ 画面を開いた日の値（この “render時” の today を基準にする）
+  // ✅ 画面を開いた日の値
   const openedDay = formatYMD(today);
   const openedMonth = formatYM(today);
   const openedYear = String(today.getFullYear());
@@ -60,13 +100,13 @@ function AdminSales() {
 
   const [mode, setMode] = useState<RangeMode>(loadInitialMode());
 
-  // ✅ 日付系は “開いた日” に必ずリセットされる初期値
+  // ✅ 日付系は “開いた日” に必ずリセット
   const [day, setDay] = useState<string>(openedDay);
   const [weekBase, setWeekBase] = useState<string>(openedDay);
   const [month, setMonth] = useState<string>(openedMonth);
   const [year, setYear] = useState<string>(openedYear);
 
-  const [totalSales, setTotalSales] = useState<number>(0);
+  const [totalSales, setTotalSales] = useState<number>(0); // 支払合計（割引後）
   const [orderCount, setOrderCount] = useState<number>(0);
   const [items, setItems] = useState<SalesItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -94,6 +134,11 @@ function AdminSales() {
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
     return `${formatYMD(start)} ～ ${formatYMD(end)}`;
+  };
+
+  // ✅ 注文全体の割引額（確定）は “subtotal - total”
+  const getOrderDiscountTotal = (orderSubtotal: number, orderTotal: number) => {
+    return Math.max(0, round0(orderSubtotal) - round0(orderTotal));
   };
 
   const loadSales = async (
@@ -151,10 +196,12 @@ function AdminSales() {
 
       setCurrentRange({ startIso, endIso, rangeLabel });
 
-      // ✅ 売上は「支払い完了のみ」
+      // ✅ orders（割引やクーポン判定に必要な列も取得）
       const { data: orders, error: ordersError } = await supabase
         .from("orders")
-        .select("id, total, created_at, status")
+        .select(
+          "id,total,created_at,status,subtotal,discount_amount,coupon_code,points_used,points_applied"
+        )
         .gte("created_at", startIso)
         .lt("created_at", endIso)
         .eq("status", "paid")
@@ -173,12 +220,15 @@ function AdminSales() {
         return;
       }
 
-      const orderIds = orders.map((o) => o.id);
-      setOrderCount(orders.length);
+      const orderRows = orders as any as OrderRow[];
+      const orderIds = orderRows.map((o) => o.id);
+      setOrderCount(orderRows.length);
 
-      const sumTotal = orders.reduce((sum, o) => sum + Number(o.total ?? 0), 0);
+      // ✅ 売上合計（割引後＝orders.total）
+      const sumTotal = orderRows.reduce((sum, o) => sum + round0(o.total), 0);
       setTotalSales(sumTotal);
 
+      // ✅ order_items（この期間の全注文の明細）
       const { data: orderItems, error: itemsError } = await supabase
         .from("order_items")
         .select("order_id, product_name, quantity, price")
@@ -195,23 +245,119 @@ function AdminSales() {
         return;
       }
 
-      const map = new Map<string, SalesItem>();
+      // --- ここから集計（割引按分も含む） ---
 
-      for (const row of orderItems as any[]) {
-        const name: string = row.product_name ?? "不明な商品";
-        const qty = Number(row.quantity ?? 0);
-        const price = Number(row.price ?? 0);
-        const sub = qty * price;
+      // 注文メタ
+      const orderMap = new Map<string, OrderRow>(orderRows.map((o) => [o.id, o]));
 
-        if (!map.has(name)) {
-          map.set(name, { product_name: name, quantity: 0, subtotal: 0 });
+      // 注文の割引前小計（itemsから計算）※ orders.subtotal が null の時の保険
+      const orderSubtotalFromItems = new Map<string, number>();
+
+      // 注文×商品 単位で一旦集計（同じ商品が同一注文で複数行あっても合算）
+      const byOrderProduct = new Map<
+        string,
+        { orderId: string; productName: string; qty: number; rawSub: number }
+      >();
+
+      for (const row of orderItems as any as OrderItemRow[]) {
+        const orderId = String(row.order_id || "");
+        if (!orderId) continue;
+
+        const productName = (row.product_name ?? "不明な商品") as string;
+        const qty = round0(row.quantity);
+        const price = round0(row.price);
+        const rawSub = qty * price;
+
+        // 注文小計（明細合計）
+        orderSubtotalFromItems.set(
+          orderId,
+          (orderSubtotalFromItems.get(orderId) || 0) + rawSub
+        );
+
+        const key = `${orderId}__${productName}`;
+        if (!byOrderProduct.has(key)) {
+          byOrderProduct.set(key, { orderId, productName, qty: 0, rawSub: 0 });
         }
-        const current = map.get(name)!;
-        current.quantity += qty;
-        current.subtotal += sub;
+        const cur = byOrderProduct.get(key)!;
+        cur.qty += qty;
+        cur.rawSub += rawSub;
       }
 
-      const list = Array.from(map.values()).sort((a, b) => b.subtotal - a.subtotal);
+      // 商品ごとの集計
+      const productAgg = new Map<
+        string,
+        {
+          quantity: number;
+          subtotal_raw: number;
+          subtotal_after_discount: number;
+          couponOrders: Set<string>;
+          pointsOrders: Set<string>;
+        }
+      >();
+
+      const isCouponUsed = (o: OrderRow) => {
+        const code = String(o.coupon_code || "").trim();
+        // discount_amount が入る運用でもOK。両方0でも code があればクーポン使用扱い
+        return !!code || round0(o.discount_amount) > 0;
+      };
+
+      const isPointsUsed = (o: OrderRow) => {
+        return round0(o.points_used) > 0 || round0(o.points_applied) > 0;
+      };
+
+      // 按分：注文全体の割引を “商品rawSubの比率” で配分して、この商品の割引後小計を作る
+      for (const { orderId, productName, qty, rawSub } of byOrderProduct.values()) {
+        const o = orderMap.get(orderId);
+        if (!o) continue;
+
+        // 注文小計（orders.subtotal が正なら優先。無いなら items 合計）
+        const orderSubtotal =
+          round0(o.subtotal) > 0
+            ? round0(o.subtotal)
+            : round0(orderSubtotalFromItems.get(orderId) || 0);
+
+        const orderTotal = round0(o.total);
+        const orderDiscountTotal = getOrderDiscountTotal(orderSubtotal, orderTotal);
+
+        let share = 0;
+        if (orderSubtotal > 0 && orderDiscountTotal > 0 && rawSub > 0) {
+          const ratio = Math.min(1, Math.max(0, rawSub / orderSubtotal));
+          share = Math.min(rawSub, Math.round(orderDiscountTotal * ratio));
+        }
+
+        const after = Math.max(0, rawSub - share);
+
+        if (!productAgg.has(productName)) {
+          productAgg.set(productName, {
+            quantity: 0,
+            subtotal_raw: 0,
+            subtotal_after_discount: 0,
+            couponOrders: new Set<string>(),
+            pointsOrders: new Set<string>(),
+          });
+        }
+
+        const p = productAgg.get(productName)!;
+        p.quantity += qty;
+        p.subtotal_raw += rawSub;
+        p.subtotal_after_discount += after;
+
+        if (isCouponUsed(o)) p.couponOrders.add(orderId);
+        if (isPointsUsed(o)) p.pointsOrders.add(orderId);
+      }
+
+      const list: SalesItem[] = Array.from(productAgg.entries())
+        .map(([product_name, v]) => ({
+          product_name,
+          quantity: v.quantity,
+          subtotal_raw: Math.round(v.subtotal_raw),
+          subtotal_after_discount: Math.round(v.subtotal_after_discount),
+          coupon_orders_count: v.couponOrders.size,
+          points_orders_count: v.pointsOrders.size,
+        }))
+        // ✅ 並び：割引後売上の高い順
+        .sort((a, b) => b.subtotal_after_discount - a.subtotal_after_discount);
+
       setItems(list);
     } catch (e) {
       console.error(e);
@@ -221,7 +367,7 @@ function AdminSales() {
     }
   };
 
-  // ✅ 初回表示時に「開いた日」に必ず合わせる（深夜跨ぎ等でも“開いた日”のまま）
+  // ✅ 初回表示時に「開いた日」に必ず合わせる
   useEffect(() => {
     setDay(openedDay);
     setWeekBase(openedDay);
@@ -242,9 +388,13 @@ function AdminSales() {
   }, [mode]);
 
   const rangeLabel =
-    mode === "day" ? day :
-    mode === "week" ? getWeekLabel(weekBase) :
-    mode === "month" ? month : `${year}年`;
+    mode === "day"
+      ? day
+      : mode === "week"
+      ? getWeekLabel(weekBase)
+      : mode === "month"
+      ? month
+      : `${year}年`;
 
   return (
     <>
@@ -255,10 +405,30 @@ function AdminSales() {
           <h2 className="admin-sales-title">売上状況</h2>
 
           <div className="admin-sales-mode">
-            <button className={mode === "day" ? "mode-btn active" : "mode-btn"} onClick={() => setMode("day")}>日</button>
-            <button className={mode === "week" ? "mode-btn active" : "mode-btn"} onClick={() => setMode("week")}>週</button>
-            <button className={mode === "month" ? "mode-btn active" : "mode-btn"} onClick={() => setMode("month")}>月</button>
-            <button className={mode === "year" ? "mode-btn active" : "mode-btn"} onClick={() => setMode("year")}>年</button>
+            <button
+              className={mode === "day" ? "mode-btn active" : "mode-btn"}
+              onClick={() => setMode("day")}
+            >
+              日
+            </button>
+            <button
+              className={mode === "week" ? "mode-btn active" : "mode-btn"}
+              onClick={() => setMode("week")}
+            >
+              週
+            </button>
+            <button
+              className={mode === "month" ? "mode-btn active" : "mode-btn"}
+              onClick={() => setMode("month")}
+            >
+              月
+            </button>
+            <button
+              className={mode === "year" ? "mode-btn active" : "mode-btn"}
+              onClick={() => setMode("year")}
+            >
+              年
+            </button>
           </div>
 
           <div className="admin-sales-date-row">
@@ -272,7 +442,11 @@ function AdminSales() {
             {mode === "week" && (
               <>
                 <label>週の任意の日付：</label>
-                <input type="date" value={weekBase} onChange={(e) => setWeekBase(e.target.value)} />
+                <input
+                  type="date"
+                  value={weekBase}
+                  onChange={(e) => setWeekBase(e.target.value)}
+                />
               </>
             )}
 
@@ -286,7 +460,13 @@ function AdminSales() {
             {mode === "year" && (
               <>
                 <label>年：</label>
-                <input type="number" min="2000" max="2100" value={year} onChange={(e) => setYear(e.target.value)} />
+                <input
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                />
               </>
             )}
           </div>
@@ -303,9 +483,7 @@ function AdminSales() {
                   {mode === "day" && formatWeekday(day) && `（${formatWeekday(day)}）`}
                 </p>
 
-                <p className="admin-sales-total">
-                  売上合計：{totalSales.toLocaleString()} 円
-                </p>
+                <p className="admin-sales-total">売上合計：{totalSales.toLocaleString()} 円</p>
                 <p>注文件数：{orderCount.toLocaleString()} 件</p>
               </div>
 
@@ -313,26 +491,60 @@ function AdminSales() {
                 <p className="admin-sales-empty">この期間の売上はありません</p>
               ) : (
                 <div className="admin-sales-list">
-                  {items.map((item) => (
-                    <div
-                      key={item.product_name}
-                      className="admin-sales-item"
-                      onClick={() => {
-                        if (!currentRange) return;
-                        navigate(`/admin-sales-product/${encodeURIComponent(item.product_name)}`, {
-                          state: {
-                            startIso: currentRange.startIso,
-                            endIso: currentRange.endIso,
-                            rangeLabel: currentRange.rangeLabel, // ✅ 詳細画面で「その日付」を表示できる
-                          },
-                        });
-                      }}
-                    >
-                      <p className="sales-name">{item.product_name}</p>
-                      <p className="sales-qty">個数：{item.quantity.toLocaleString()} 個</p>
-                      <p className="sales-subtotal">小計：{item.subtotal.toLocaleString()} 円</p>
-                    </div>
-                  ))}
+                  {items.map((item) => {
+                    const showCoupon = item.coupon_orders_count > 0;
+                    const showPoints = item.points_orders_count > 0;
+                    const showBadges = showCoupon || showPoints;
+
+                    return (
+                      <div
+                        key={item.product_name}
+                        className="admin-sales-item"
+                        onClick={() => {
+                          if (!currentRange) return;
+                          navigate(
+                            `/admin-sales-product/${encodeURIComponent(item.product_name)}`,
+                            {
+                              state: {
+                                startIso: currentRange.startIso,
+                                endIso: currentRange.endIso,
+                                rangeLabel: currentRange.rangeLabel,
+                              },
+                            }
+                          );
+                        }}
+                      >
+                        <p className="sales-name">{item.product_name}</p>
+
+                        {/* ✅ 0件は非表示（ある時だけ出す） */}
+                        {showBadges && (
+                          <div className="sales-badges">
+                            {showCoupon && (
+                              <span className="sales-badge">
+                                クーポン：{item.coupon_orders_count}件
+                              </span>
+                            )}
+                            {showPoints && (
+                              <span className="sales-badge">
+                                ポイント：{item.points_orders_count}件
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <p className="sales-qty">個数：{item.quantity.toLocaleString()} 個</p>
+
+                        {/* ✅ 表示順：割引前 → 割引後 */}
+                        <p className="sales-subtotal-raw">
+                          小計（割引前）：{item.subtotal_raw.toLocaleString()} 円
+                        </p>
+
+                        <p className="sales-subtotal">
+                          売上（割引後）：{item.subtotal_after_discount.toLocaleString()} 円
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -342,5 +554,3 @@ function AdminSales() {
     </>
   );
 }
-
-export default AdminSales;

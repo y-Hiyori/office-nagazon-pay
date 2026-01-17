@@ -4,22 +4,23 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./AdminEdit.css";
 
-function AdminEdit() {
+export default function AdminEdit() {
   const navigate = useNavigate();
-  const { id: urlId } = useParams<{ id: string }>(); // URL の元のID
+  const { id: urlId } = useParams<{ id: string }>();
 
   const [loading, setLoading] = useState(true);
 
-  // 編集用の「商品ID」
+  // 編集用（表示＆更新に使う）
   const [editId, setEditId] = useState("");
-
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
 
   const [isSaving, setIsSaving] = useState(false);
 
-  // 商品読み込み（id / name / price / stock）
+  // ✅ ID変更は事故りやすいので分離（必要な時だけ開く）
+  const [openIdEdit, setOpenIdEdit] = useState(false);
+
   const loadProduct = async () => {
     if (!urlId) {
       alert("商品のIDが不正です");
@@ -52,7 +53,6 @@ function AdminEdit() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlId]);
 
-  // 保存（ID も含めて更新）
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
@@ -82,12 +82,12 @@ function AdminEdit() {
     const { error } = await supabase
       .from("products")
       .update({
-        id: idNum, // ID も更新
-        name,
+        id: idNum,
+        name: name.trim(),
         price: priceNum,
         stock: stockNum,
       })
-      .eq("id", urlId); // 元のIDで探す
+      .eq("id", urlId);
 
     if (error) {
       alert("商品更新に失敗しました: " + error.message);
@@ -103,68 +103,111 @@ function AdminEdit() {
   if (loading) return <p style={{ padding: 20 }}>読み込み中...</p>;
 
   return (
-    <div className="edit-container">
-      <header className="edit-header">
-        <button className="back-button" onClick={() => navigate("/admin-page")}>
+    <div className="ae-page">
+      {/* ヘッダー */}
+      <header className="ae-header">
+        <button className="ae-back" onClick={() => navigate("/admin-page")} aria-label="戻る">
           ←
         </button>
-        <h2 className="edit-title">商品編集</h2>
+        <div className="ae-header-title">
+          <h2>商品編集</h2>
+          <p>商品ID: <strong>{urlId}</strong></p>
+        </div>
       </header>
 
-      {/* ▼ フローティングラベル付きフィールドたち */}
-      <div className="edit-field">
-        <input
-          className="edit-input"
-          value={editId}
-          onChange={(e) => setEditId(e.target.value)}
-          type="number"
-          placeholder=" "            // ← 空白1文字がポイント
-        />
-        <label className="edit-label">商品ID</label>
-      </div>
+      {/* メインカード */}
+      <main className="ae-card">
+        <div className="ae-section-title">
+          <h3>基本情報</h3>
+          <p>必要な項目を更新して保存してください</p>
+        </div>
 
-      <div className="edit-field">
-        <input
-          className="edit-input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          type="text"
-          placeholder=" "
-        />
-        <label className="edit-label">商品名</label>
-      </div>
+        {/* 商品名 */}
+        <div className="ae-field">
+          <label className="ae-label">商品名</label>
+          <input
+            className="ae-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            type="text"
+            placeholder="例：NAGAZON ステッカー"
+          />
+        </div>
 
-      <div className="edit-field">
-        <input
-          className="edit-input"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          type="number"
-          placeholder=" "
-        />
-        <label className="edit-label">価格</label>
-      </div>
+        {/* 価格・在庫（2列） */}
+        <div className="ae-grid2">
+          <div className="ae-field">
+            <label className="ae-label">価格</label>
+            <div className="ae-input-wrap">
+              <input
+                className="ae-input"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                type="number"
+                inputMode="numeric"
+                placeholder="0"
+              />
+              <span className="ae-suffix">円</span>
+            </div>
+          </div>
 
-      <div className="edit-field">
-        <input
-          className="edit-input"
-          value={stock}
-          onChange={(e) => setStock(e.target.value)}
-          type="number"
-          placeholder=" "
-        />
-        <label className="edit-label">在庫数</label>
-      </div>
+          <div className="ae-field">
+            <label className="ae-label">在庫数</label>
+            <div className="ae-input-wrap">
+              <input
+                className="ae-input"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                type="number"
+                inputMode="numeric"
+                placeholder="0"
+              />
+              <span className="ae-suffix">個</span>
+            </div>
+          </div>
+        </div>
 
-      <button
-        className="save-button"
-        onClick={handleSave}
-        disabled={isSaving}
-      >
-        {isSaving ? "保存中..." : "保存する"}
-      </button>
+        {/* ✅ ID変更（必要なときだけ） */}
+        <div className="ae-danger">
+          <button
+            type="button"
+            className="ae-danger-toggle"
+            onClick={() => setOpenIdEdit((v) => !v)}
+          >
+            {openIdEdit ? "▲ 商品ID変更を閉じる" : "▼ 商品ID変更（注意）"}
+          </button>
+
+          {openIdEdit && (
+            <div className="ae-danger-body">
+              <p className="ae-danger-text">
+                商品IDの変更はリンク切れや参照ズレの原因になります。必要な場合のみ変更してください。
+              </p>
+
+              <div className="ae-field">
+                <label className="ae-label">商品ID</label>
+                <input
+                  className="ae-input"
+                  value={editId}
+                  onChange={(e) => setEditId(e.target.value)}
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="例：101"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 下部余白（固定ボタンに被らないように） */}
+        <div className="ae-bottom-space" />
+      </main>
+
+      {/* ✅ 固定フッター：保存ボタン */}
+      <footer className="ae-footer">
+        <button className="ae-save" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? "保存中..." : "保存する"}
+        </button>
+      </footer>
     </div>
   );
 }
-
-export default AdminEdit;

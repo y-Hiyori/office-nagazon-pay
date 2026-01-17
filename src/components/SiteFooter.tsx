@@ -11,9 +11,8 @@ export default function SiteFooter() {
             <Link className="site-footer-link" to="/how-to">アプリの使い方</Link>
             <Link className="site-footer-link" to="/contact">お問い合わせ</Link>
             <Link className="site-footer-link" to="/tokushoho">特定商取引法に基づく表記</Link>
-
-            {/* ✅ 追加：プライバシーポリシー */}
             <Link className="site-footer-link" to="/privacy">プライバシーポリシー</Link>
+            <Link className="site-footer-link" to="/terms">利用規約</Link>
           </div>
 
           <div className="site-footer-col">
@@ -26,12 +25,13 @@ export default function SiteFooter() {
           <div className="site-footer-col">
             <div className="site-footer-head">アカウント</div>
             <Link className="site-footer-link" to="/account">アカウント</Link>
-            <Link className="site-footer-link" to="/account-edit">登録情報の変更</Link>
-            <Link className="site-footer-link" to="/login">ログイン</Link>
+            {/* ❌ 登録情報の変更 は削除 */}
+            {/* ❌ ログイン は削除 */}
           </div>
 
           <div className="site-footer-col">
             <div className="site-footer-head">ポリシー</div>
+
             <a
               className="site-footer-link"
               href="https://nagazon2022.jimdosite.com/"
@@ -57,12 +57,15 @@ export default function SiteFooter() {
             <Link to="/tokushoho">特定商取引法に基づく表記</Link>
             <span className="site-footer-dot">•</span>
 
-            {/* ✅ 追加：プライバシーポリシー */}
             <Link to="/privacy">プライバシーポリシー</Link>
+            <span className="site-footer-dot">•</span>
+
+            <Link to="/terms">利用規約</Link>
             <span className="site-footer-dot">•</span>
 
             <Link to="/contact">お問い合わせ</Link>
           </div>
+
           <div className="site-footer-copy">© 株式会社NAGAZON</div>
         </div>
       </div>

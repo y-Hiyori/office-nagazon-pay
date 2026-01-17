@@ -42,7 +42,7 @@
   display: grid;
   grid-template-columns: 170px 1fr;
   gap: 10px;
-  align-items: center;
+  align-items: start;
   margin: 10px 0;
 }
 
@@ -50,14 +50,23 @@
   font-weight: 800;
   font-size: 13px;
   opacity: 0.85;
+  padding-top: 10px;
 }
 
 .ap-input{
   height: 44px;
+  width: 100%;
+  box-sizing: border-box;
   border-radius: 12px;
   border: 1px solid rgba(15,23,42,0.14);
   padding: 0 12px;
   font-weight: 800;
+}
+
+.ap-hint{
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 6px;
 }
 
 .ap-btn{
@@ -101,6 +110,7 @@
   border: 1px solid rgba(15,23,42,0.10);
   background: #fff;
   cursor: pointer;
+  width: 100%;
 }
 
 .ap-user.active{
@@ -119,7 +129,7 @@
 }
 
 .ap-selected{
-  margin: 10px 0 6px;
+  margin: 6px 0 6px;
   font-weight: 800;
 }
 
@@ -128,8 +138,24 @@
   font-weight: 800;
 }
 
-.ap-wallet-sub{
-  margin-left: 6px;
-  font-size: 12px;
-  opacity: 0.7;
+/* ✅ 選択した行の直下に出るフォーム */
+.ap-inline-form{
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(99,102,241,0.06);
+}
+
+/* ✅ スマホ崩れ対策 */
+@media (max-width: 640px){
+  .ap-row{
+    grid-template-columns: 1fr;
+  }
+  .ap-label{
+    padding-top: 0;
+  }
+  .ap-search{
+    grid-template-columns: 1fr;
+  }
 }

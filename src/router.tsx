@@ -14,6 +14,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PurchaseComplete from "./pages/PurchaseComplete";
 import PayPayFailed from "./pages/PayPayFailed";
 import NoticeDetail from "./pages/NoticeDetail";
+import Terms from "./pages/Terms";
+
 
 // ===== アカウント =====
 import AccountMenu from "./pages/AccountMenu";
@@ -72,6 +74,7 @@ const router = createBrowserRouter([
       { path: "contact", element: <Contact /> },
       { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
+      { path: "terms", element: <Terms /> },
 
       // ✅ お知らせ詳細（Public）
       { path: "notice/:id", element: <NoticeDetail /> },

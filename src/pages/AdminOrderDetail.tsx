@@ -9,13 +9,23 @@ import { findProductImage } from "../data/products";
 type OrderRow = {
   id: string;
   user_id?: string | null;
-  total?: number | null;           // 支払合計
+  total?: number | null; // 支払合計
   created_at?: string | null;
-  subtotal?: number | null;        // DBにあるなら使う（無ければ明細から計算）
+  subtotal?: number | null; // DBにあるなら使う（無ければ明細から計算）
 
-  // ✅ クーポン対応
+  // ✅ クーポン
   coupon_code?: string | null;
-  discount_amount?: number | null; // DBにあるなら優先（無ければ小計-合計から推定）
+  discount_amount?: number | null;
+
+  // ✅ ポイント（列名ゆれ吸収用）
+  points_used?: number | null;
+  points_spent?: number | null;
+  used_points?: number | null;
+  points_amount?: number | null;
+
+  points_discount_amount?: number | null;
+  points_discount?: number | null;
+  points_value?: number | null;
 };
 
 type OrderItemRow = {
@@ -43,6 +53,22 @@ export default function AdminOrderDetail() {
     return Number.isFinite(n) ? n : 0;
   };
 
+  const pickNumber = (obj: any, keys: string[]) => {
+    for (const k of keys) {
+      const v = obj?.[k];
+      if (v != null && Number.isFinite(Number(v))) return toNumber(v);
+    }
+    return 0;
+  };
+
+  const pickString = (obj: any, keys: string[]) => {
+    for (const k of keys) {
+      const v = obj?.[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return "";
+  };
+
   const getImageByProductId = (productId: number | null | undefined) => {
     if (productId == null) return "";
     return findProductImage(Number(productId)) ?? "";
@@ -53,7 +79,7 @@ export default function AdminOrderDetail() {
       setLoading(true);
       setErrorMsg("");
 
-      // ✅ 管理者ログイン確認（AdminRouteがあっても念のため）
+      // ✅ 管理者ログイン確認
       const { data: authData, error: authErr } = await supabase.auth.getUser();
       if (authErr || !authData.user) {
         navigate("/admin-login");
@@ -78,10 +104,12 @@ export default function AdminOrderDetail() {
         return;
       }
 
-      // ✅ 注文取得（クーポン列も含める）
+      // ✅ 注文取得
+      // 注意：存在しない列名を select に混ぜると Supabase がエラーになるため、
+      // まず * を取得して、後で pickNumber/pickString で吸収する（これが一番安全）
       const { data: orderData, error: orderErr } = await supabase
         .from("orders")
-        .select("id,user_id,total,created_at,subtotal,coupon_code,discount_amount")
+        .select("*")
         .eq("id", id)
         .single();
 
@@ -122,30 +150,71 @@ export default function AdminOrderDetail() {
       0
     );
 
-    // ✅ DBに subtotal があるなら使う。無い/不正なら明細から計算
+    // ✅ subtotal（DB優先）
     const rawSubtotal = (order as any)?.subtotal;
     const subtotal =
       rawSubtotal != null && Number.isFinite(Number(rawSubtotal))
         ? toNumber(rawSubtotal)
         : subtotalFromItems;
 
-    // ✅ クーポンコード
-    const couponCode = String((order as any)?.coupon_code ?? "").trim();
+    // ✅ クーポン
+    const couponCode = pickString(order, ["coupon_code", "couponCode"]);
+    const discountFromDb = pickNumber(order, ["discount_amount", "discountAmount"]);
 
-    // ✅ 割引額：discount_amount があればそれを優先。無ければ「小計 - 支払合計」から推定
-    const rawDiscount = (order as any)?.discount_amount;
-    const discountFromDb =
-      rawDiscount != null && Number.isFinite(Number(rawDiscount))
-        ? Math.max(0, toNumber(rawDiscount))
-        : 0;
-
+    // discount_amount が無い運用なら、小計-合計から推定（ポイントと併用時は0になりやすいので後で調整）
     const discountGuess = Math.max(0, subtotal - total);
-    const discount = discountFromDb > 0 ? discountFromDb : discountGuess;
+    const couponDiscount = discountFromDb > 0 ? Math.max(0, discountFromDb) : 0;
 
-    const hasDiscount = discount > 0;
-    const hasCoupon = !!couponCode || hasDiscount;
+    // ✅ ポイント
+    const pointsUsed = Math.floor(
+      pickNumber(order, ["points_used", "points_spent", "used_points", "points_amount"])
+    );
 
-    return { total, subtotal, discount, couponCode, hasDiscount, hasCoupon };
+    // ✅ ポイント値引き額（円換算）が別列で持てるなら優先
+    const pointsDiscountFromDb = pickNumber(order, [
+      "points_discount_amount",
+      "points_discount",
+      "points_value",
+    ]);
+
+    // 1pt=1円 の運用なら pointsUsed を円としてもOK
+    const pointsDiscount =
+      pointsDiscountFromDb > 0 ? Math.max(0, pointsDiscountFromDb) : Math.max(0, pointsUsed);
+
+    const hasPoints = pointsUsed > 0 || pointsDiscount > 0;
+
+    // ✅ 「クーポンを使った」と見なす条件
+    // - コードがある or discount_amountがある
+    // （推定はポイント併用だとズレるから、ここでは判断材料にしない）
+    const hasCoupon = !!couponCode || couponDiscount > 0;
+
+    // ✅ もし discount_amount が無くて couponCode はあるのに couponDiscount が 0 の場合、
+    // 推定値（小計-合計）から「ポイント値引き」を引いて残った分をクーポン値引き扱いにする
+    // （二重計算を防ぐため）
+    let resolvedCouponDiscount = couponDiscount;
+    if (hasCoupon && resolvedCouponDiscount === 0) {
+      const rest = Math.max(0, discountGuess - (hasPoints ? pointsDiscount : 0));
+      resolvedCouponDiscount = rest;
+    }
+
+    const afterCoupon = Math.max(0, subtotal - (hasCoupon ? resolvedCouponDiscount : 0));
+    const afterPoints = Math.max(0, afterCoupon - (hasPoints ? pointsDiscount : 0));
+
+    return {
+      total,
+      subtotal,
+
+      couponCode,
+      couponDiscount: resolvedCouponDiscount,
+      hasCoupon,
+
+      pointsUsed,
+      pointsDiscount,
+      hasPoints,
+
+      afterCoupon,
+      afterPoints,
+    };
   }, [order, items]);
 
   return (
@@ -190,27 +259,56 @@ export default function AdminOrderDetail() {
                     : "-"}
                 </p>
 
-                <p>
-                  <strong>小計：</strong> {formatPrice(summary.subtotal)}円
-                </p>
+                {/* ✅ 内訳 */}
+<div className="admin-order-breakdown">
+  <div className="aob-row">
+    <span>小計</span>
+    <strong>{formatPrice(summary.subtotal)}円</strong>
+  </div>
 
-                {/* ✅ クーポン */}
-                {summary.couponCode && (
-                  <p>
-                    <strong>クーポンコード：</strong> {summary.couponCode}
-                  </p>
-                )}
+  {summary.hasCoupon && (
+    <>
+      {summary.couponCode && (
+        <div className="aob-row">
+          <span>クーポンコード</span>
+          <strong>{summary.couponCode}</strong>
+        </div>
+      )}
 
-                {/* ✅ 割引は「割引額が0より大きい」時だけ */}
-                {summary.hasDiscount && (
-                  <p>
-                    <strong>割引：</strong> -{formatPrice(summary.discount)}円
-                  </p>
-                )}
+      {summary.couponDiscount > 0 && (
+        <div className="aob-row">
+          <span>クーポン値引き</span>
+          <strong className="aob-minus">
+            -{formatPrice(summary.couponDiscount)}円
+          </strong>
+        </div>
+      )}
+    </>
+  )}
 
-                <p>
-                  <strong>支払合計：</strong> {formatPrice(summary.total)}円
-                </p>
+  {summary.hasPoints && (
+    <>
+      <div className="aob-row">
+        <span>ポイント使用</span>
+        <strong>{formatPrice(summary.pointsUsed)} pt</strong>
+      </div>
+
+      {summary.pointsDiscount > 0 && (
+        <div className="aob-row">
+          <span>ポイント値引き</span>
+          <strong className="aob-minus">
+            -{formatPrice(summary.pointsDiscount)}円
+          </strong>
+        </div>
+      )}
+    </>
+  )}
+
+  <div className="aob-row aob-total">
+    <span>支払合計</span>
+    <strong>{formatPrice(summary.total)}円</strong>
+  </div>
+</div>
               </div>
 
               <h3 className="admin-items-title">購入した商品</h3>

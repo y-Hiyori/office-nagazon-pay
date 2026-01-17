@@ -19,9 +19,8 @@ export default function AdminPoints() {
   const [msg, setMsg] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
-  // 全員付与
-  const [allAmount, setAllAmount] = useState(100);
-  const [allReason, setAllReason] = useState("");
+  // ✅ 全員付与（初期値は空白）
+  const [allAmount, setAllAmount] = useState<string>("");
 
   // ユーザー検索
   const [q, setQ] = useState("");
@@ -31,10 +30,8 @@ export default function AdminPoints() {
   // 選択ユーザーのwallet
   const [wallet, setWallet] = useState<WalletRow | null>(null);
 
-  // ✅ 「変更後の残高」入力（初期値＝現在残高）
+  // 「変更後の残高」入力（初期値＝現在残高）
   const [newBalance, setNewBalance] = useState<number>(0);
-
-  const [reason, setReason] = useState("");
 
   const selectedLabel = useMemo(() => {
     if (!selected) return "";
@@ -57,9 +54,9 @@ export default function AdminPoints() {
       return;
     }
 
-    const b = Number((data as any).balance ?? 0);
+    const b = Math.floor(Number((data as any).balance ?? 0));
     setWallet({ user_id: data.user_id, balance: b });
-    setNewBalance(b); // ✅ 初期値＝現在残高
+    setNewBalance(b);
   };
 
   const searchUsers = async () => {
@@ -90,12 +87,18 @@ export default function AdminPoints() {
     if ((data ?? []).length === 0) setMsg("見つかりませんでした");
   };
 
-  // 全員付与
+  // ✅ 全員付与（理由なし）
   const grantAll = async () => {
     setMsg("");
+
+    if (!allAmount.trim()) {
+      setMsg("付与ポイントを入力してください");
+      return;
+    }
+
     const v = Math.floor(Number(allAmount || 0));
-    if (v <= 0) {
-      setMsg("付与ポイントは 1以上にしてください");
+    if (!Number.isFinite(v) || v <= 0) {
+      setMsg("付与ポイントは 1以上の数字にしてください");
       return;
     }
 
@@ -103,7 +106,6 @@ export default function AdminPoints() {
     try {
       const { data, error } = await supabase.rpc("points_admin_grant_all", {
         p_amount: v,
-        p_reason: allReason || null,
       });
 
       if (error) {
@@ -113,14 +115,14 @@ export default function AdminPoints() {
       }
 
       setMsg(`全員に ${v}pt 付与しました（対象 ${Number(data ?? 0)} 件）`);
-      setAllReason("");
+      setAllAmount(""); // ✅ 付与後は空白に戻す
       if (selected) await loadWallet(selected.id);
     } finally {
       setBusy(false);
     }
   };
 
-  // ✅ 変更後残高へ「増減どっちも」合わせる
+  // ✅ 変更後残高へ合わせる（理由なし）
   const applyNewBalance = async () => {
     setMsg("");
 
@@ -134,21 +136,20 @@ export default function AdminPoints() {
     }
 
     const cur = Math.floor(Number(wallet.balance || 0));
-    const next = Math.max(Math.floor(Number(newBalance || 0)), 0); // 0未満は禁止
+    const next = Math.max(Math.floor(Number(newBalance || 0)), 0);
 
     if (next === cur) {
       setMsg("変更がありません");
       return;
     }
 
-    const delta = next - cur; // ✅ +なら付与 / -なら減算
+    const delta = next - cur;
 
     setBusy(true);
     try {
       const { error } = await supabase.rpc("points_admin_adjust_user", {
         p_user_id: selected.id,
         p_amount: delta,
-        p_reason: reason || null,
       });
 
       if (error) {
@@ -159,8 +160,7 @@ export default function AdminPoints() {
 
       const sign = delta > 0 ? "+" : "-";
       setMsg(`残高を ${next}pt に変更しました（${sign}${Math.abs(delta)}pt）`);
-      setReason("");
-      await loadWallet(selected.id); // ✅ 再読み込みで入力欄も更新
+      await loadWallet(selected.id);
     } finally {
       setBusy(false);
     }
@@ -190,19 +190,9 @@ export default function AdminPoints() {
               <input
                 className="ap-input"
                 inputMode="numeric"
-                value={String(allAmount)}
-                onChange={(e) =>
-                  setAllAmount(Number(e.target.value.replace(/[^\d]/g, "") || 0))
-                }
-              />
-            </div>
-
-            <div className="ap-row">
-              <label className="ap-label">理由（任意）</label>
-              <input
-                className="ap-input"
-                value={allReason}
-                onChange={(e) => setAllReason(e.target.value)}
+                value={allAmount}
+                placeholder="例：100"
+                onChange={(e) => setAllAmount(e.target.value.replace(/[^\d]/g, ""))}
               />
             </div>
 
@@ -229,62 +219,71 @@ export default function AdminPoints() {
 
             {users.length > 0 && (
               <div className="ap-list">
-                {users.map((u) => (
-                  <button
-                    key={u.id}
-                    className={`ap-user ${selected?.id === u.id ? "active" : ""}`}
-                    onClick={async () => {
-                      setSelected(u);
-                      await loadWallet(u.id);
-                    }}
-                    type="button"
-                  >
-                    <div className="ap-user-name">{u.name || "（名前なし）"}</div>
-                    <div className="ap-user-email">{u.email || ""}</div>
-                  </button>
-                ))}
+                {users.map((u) => {
+                  const isActive = selected?.id === u.id;
+                  const walletReady = wallet && wallet.user_id === u.id;
+
+                  return (
+                    <div key={u.id}>
+                      <button
+                        className={`ap-user ${isActive ? "active" : ""}`}
+                        onClick={async () => {
+                          setSelected(u);
+                          await loadWallet(u.id);
+                        }}
+                        type="button"
+                      >
+                        <div className="ap-user-name">{u.name || "（名前なし）"}</div>
+                        <div className="ap-user-email">{u.email || ""}</div>
+                      </button>
+
+                      {/* ✅ 選択したアカウントの直下に表示 */}
+                      {isActive && (
+                        <div className="ap-inline-form">
+                          <div className="ap-selected">
+                            選択中：<b>{selectedLabel}</b>
+                          </div>
+
+                          <div className="ap-wallet">
+                            現在残高：
+                            <b>
+                              {" "}
+                              {walletReady
+                                ? Number(wallet.balance ?? 0).toLocaleString("ja-JP")
+                                : "…"}
+                              pt
+                            </b>
+                          </div>
+
+                          <div className="ap-row">
+                            <label className="ap-label">変更後の残高</label>
+                            <div>
+                              <input
+                                className="ap-input"
+                                inputMode="numeric"
+                                value={String(newBalance)}
+                                onChange={(e) =>
+                                  setNewBalance(
+                                    Number(e.target.value.replace(/[^\d]/g, "") || 0)
+                                  )
+                                }
+                                placeholder="例：200"
+                              />
+                              <div className="ap-hint">
+                                ※ 数字を増やすと付与 / 減らすと減算（変更後の残高に合わせます）
+                              </div>
+                            </div>
+                          </div>
+
+                          <button className="ap-btn" disabled={busy} onClick={applyNewBalance}>
+                            反映
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            )}
-
-            {selected && (
-              <>
-                <div className="ap-selected">
-                  選択中：<b>{selectedLabel}</b>
-                </div>
-
-                <div className="ap-wallet">
-                  現在残高：<b>{Number(wallet?.balance ?? 0).toLocaleString("ja-JP")} pt</b>
-                </div>
-
-                <div className="ap-row">
-                  <label className="ap-label">変更後の残高</label>
-                  <input
-                    className="ap-input"
-                    inputMode="numeric"
-                    value={String(newBalance)}
-                    onChange={(e) =>
-                      setNewBalance(Number(e.target.value.replace(/[^\d]/g, "") || 0))
-                    }
-                    placeholder="例：200"
-                  />
-                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-                    ※ 数字を増やすと付与 / 減らすと減算されます（変更後の残高に合わせます）
-                  </div>
-                </div>
-
-                <div className="ap-row">
-                  <label className="ap-label">理由（任意）</label>
-                  <input
-                    className="ap-input"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                </div>
-
-                <button className="ap-btn" disabled={busy} onClick={applyNewBalance}>
-                  反映
-                </button>
-              </>
             )}
           </section>
         </div>

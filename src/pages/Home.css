@@ -1,12 +1,20 @@
 /* ===========================
-   Home（NAGAZON Pay style）
+   Home（NAGAZON Pay style） 完全版CSS
+   ✅ クイック4ボタン：PC=横1列（1行で横並び） / スマホ=2列（2×2）
+   ✅ 商品一覧へも白（グラデなし）
+   ✅ SNSの二重枠：内側を消す
 =========================== */
 
 .home-page {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(circle at top, #f9fbff 0%, #edf2ff 45%, #f5f5f8 100%);
+  background: radial-gradient(
+    circle at top,
+    #f9fbff 0%,
+    #edf2ff 45%,
+    #f5f5f8 100%
+  );
   color: #0f172a;
 }
 
@@ -45,28 +53,26 @@
   display: none;
 }
 
-/* ✅ ここが本命：箱の縦横比を固定して、余白を出さない */
 .hero-slide {
   min-width: 100%;
-  aspect-ratio: 16 / 9;   /* ✅ 横長画像に合わせる（空白消える） */
+  aspect-ratio: 16 / 9;
   height: auto;
 
   position: relative;
   scroll-snap-align: start;
   overflow: hidden;
 
-  background: rgba(15, 23, 42, 0.08); /* もし微妙に余白出ても変に見えない */
+  background: rgba(15, 23, 42, 0.08);
 }
 
 .hero-slide img {
   width: 100%;
   height: 100%;
-  object-fit: contain;       /* ✅ 縦は全部見える / 横は画面に収まる */
+  object-fit: contain;
   object-position: center;
   display: block;
 }
 
-/* グラデーション（文字読みやすく） */
 .hero-slide::after {
   content: "";
   position: absolute;
@@ -80,7 +86,6 @@
   pointer-events: none;
 }
 
-/* テキスト */
 .hero-text {
   position: absolute;
   left: 18px;
@@ -157,7 +162,195 @@
   transform: scale(1.12);
 }
 
-/* ===== お知らせ / 商品追加情報 ===== */
+/* ===========================
+   ヒーロー直下：クイック4ボタン
+   ✅ PC: 横1列（1行で4つ）
+   ✅ スマホ: 2列（2×2）
+=========================== */
+.home-quick {
+  max-width: 1200px;
+  margin: 12px auto 0;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+.home-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); /* ✅ PCは横1列（4つ横並び） */
+  gap: 12px;
+}
+
+.home-quick-btn {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+
+  padding: 14px 14px;
+  border-radius: 18px;
+
+  background: rgba(255, 255, 255, 0.86); /* ✅ 全部白 */
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: rgba(15, 23, 42, 0.92);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.home-quick-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.home-quick-btn:active {
+  transform: translateY(0);
+}
+
+.home-quick-arrow {
+  font-size: 18px;
+  font-weight: 900;
+  opacity: 0.9;
+}
+
+/* ✅ タブレット以下：2列に落としてもOK（見やすさ優先） */
+@media (max-width: 900px) {
+  .home-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ✅ スマホ：2列（2×2）固定 */
+@media (max-width: 640px) {
+  .home-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .home-quick-btn {
+    padding: 12px 12px;
+    font-size: 14px;
+    border-radius: 16px;
+  }
+
+  .home-quick-arrow {
+    font-size: 16px;
+  }
+}
+
+/* ===========================
+   SNSロゴ表示（公式SNSもチェック！付き）
+   ✅ 二重枠の内側を消す
+=========================== */
+.home-social {
+  max-width: 1200px;
+  margin: 12px auto 0;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+.home-social-card {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  padding: 10px 10px;
+}
+
+/* 見出し */
+.home-social-head {
+  padding: 10px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.home-social-title {
+  font-size: 14px;
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.92);
+  letter-spacing: 0.02em;
+}
+
+.home-social-sub {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.home-social-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 4px 6px;
+}
+
+/* 外側（ボタン枠） */
+.home-social-link {
+  text-decoration: none;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 56px;
+
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.home-social-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.home-social-link:active {
+  transform: translateY(0);
+}
+
+/* ✅ 内側（二重枠の原因）を完全OFF */
+.home-social-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+
+  display: grid;
+  place-items: center;
+
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  padding: 0;
+  overflow: hidden;
+}
+
+.home-social-icon img,
+.home-social-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* ===========================
+   お知らせ / 商品追加情報
+=========================== */
 .home-panels {
   max-width: 1200px;
   margin: 14px auto 0;
@@ -204,8 +397,6 @@
 .home-list {
   display: flex;
   flex-direction: column;
-
-  /* ✅ 最新10件だけ表示でスクロール無し */
   max-height: none;
   overflow: visible;
 }
@@ -288,5 +479,109 @@
 @media (max-width: 420px) {
   .hero-text h2 {
     font-size: 22px;
+  }
+
+  .home-social-row {
+    gap: 10px;
+  }
+  .home-social-link {
+    width: 58px;
+    height: 54px;
+  }
+  .home-social-icon {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+/* ===== ヒーロー（既存：スマホ/共通） ===== */
+/* ここまでは今のままでOK */
+
+/* ===========================
+   ✅ PCだけ：ヒーローを「画像左 / テキスト右」にして
+   高さを clamp で制限（デカくなりすぎ防止）
+   ※スマホは今のまま残る
+=========================== */
+@media (min-width: 900px) {
+  /* ヒーロー全体の余白感（参考サイトっぽく） */
+  .hero {
+    margin-top: 18px;
+    padding: 0 16px;
+  }
+
+  /* 1枚のスライドを“横並びカード”に */
+  .hero-slide {
+    aspect-ratio: auto;                 /* ✅ 16:9固定を解除 */
+    height: clamp(320px, 34vw, 460px);  /* ✅ 高さ上限を作る（大きくなりすぎない） */
+    display: flex;
+    align-items: stretch;
+    background: rgba(255, 255, 255, 0.75);
+  }
+
+  /* 画像は左：大きいけどはみ出さない */
+  .hero-slide img {
+    width: 62%;
+    height: 100%;
+    object-fit: contain;     /* 画像が切れない */
+    object-position: center;
+    background: rgba(15, 23, 42, 0.04);
+  }
+
+  /* スマホ用の暗いグラデはPCでは消す（テキストが右に来るので不要） */
+  .hero-slide::after {
+    display: none;
+  }
+
+  /* テキストを右側のカードとして配置 */
+  .hero-text {
+    position: static;        /* ✅ absolute解除 */
+    max-width: none;
+    width: 38%;
+    color: #0f172a;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 22px 22px;
+  }
+
+  /* 右側カード感（GAMSUNG SOUNDの情報ブロックっぽく） */
+  .hero-text {
+    background: rgba(255, 255, 255, 0.72);
+    border-left: 1px solid rgba(148, 163, 184, 0.18);
+    backdrop-filter: blur(10px);
+  }
+
+  .hero-text h2 {
+    font-size: 28px;
+    font-weight: 950;
+    margin: 0 0 10px;
+    letter-spacing: 0.02em;
+  }
+
+  .hero-text p {
+    margin: 0 0 16px;
+    font-size: 14px;
+    font-weight: 800;
+    color: rgba(15, 23, 42, 0.72);
+    line-height: 1.6;
+  }
+
+  .hero-text button {
+    align-self: flex-start;
+    padding: 12px 18px;
+  }
+
+  /* ドット位置：カード下で安定させる */
+  .hero-dots {
+    bottom: 12px;
+  }
+}
+
+/* ✅ さらに大画面だけちょい抑える（任意） */
+@media (min-width: 1200px) {
+  .hero-slide {
+    height: 440px; /* clampの上限に近いが、さらに安定させたい場合 */
   }
 }

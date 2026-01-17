@@ -11,13 +11,20 @@ type Profile = {
   email: string | null;
 };
 
+type WalletRow = {
+  user_id: string;
+  balance: number;
+};
+
 export default function AdminUserDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [editName, setEditName] = useState("");
+  const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -38,31 +45,60 @@ export default function AdminUserDetail() {
       }
 
       setProfile(prof);
-      setEditName(prof.name || "");
+
+      // ✅ ポイント残高（存在しなければ0）
+      const { data: w } = await supabase
+        .from("points_wallet")
+        .select("user_id,balance")
+        .eq("user_id", id)
+        .maybeSingle();
+
+      if (w) {
+        setWallet({
+          user_id: w.user_id,
+          balance: Number((w as any).balance ?? 0),
+        });
+      } else {
+        setWallet({ user_id: id, balance: 0 });
+      }
+
       setLoading(false);
     };
 
     load();
   }, [id, navigate]);
 
-  const handleUpdateName = async () => {
-    if (!id) return;
-    const nextName = editName.trim();
-    if (!nextName) {
-      alert("名前を入力してください");
-      return;
-    }
+  // ✅ 管理者がこのユーザーへ「パスワード再設定メール」を送る（アプリだけで完結）
+const handleSendResetMail = async () => {
+  if (!profile?.email) {
+    alert("このユーザーはメールアドレスが未設定です");
+    return;
+  }
 
-    const { error } = await supabase.from("profiles").update({ name: nextName }).eq("id", id);
+  // ✅ 追加：送信前の確認
+  const ok = confirm(`${profile.email} にパスワード再設定メールを送ります。よろしいですか？`);
+  if (!ok) return;
+
+  setSending(true);
+  try {
+    const redirectTo =
+      (import.meta as any).env?.VITE_RESET_REDIRECT_TO ||
+      `${window.location.origin}/reset-password`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+      redirectTo,
+    });
 
     if (error) {
-      alert("名前の変更に失敗しました: " + error.message);
+      alert("送信に失敗しました: " + error.message);
       return;
     }
 
-    alert("名前を更新しました！");
-    setProfile((p) => (p ? { ...p, name: nextName } : p));
-  };
+    alert("パスワード再設定メールを送信しました。");
+  } finally {
+    setSending(false);
+  }
+};
 
   const handleDeleteUser = async () => {
     if (!id) return;
@@ -119,27 +155,25 @@ export default function AdminUserDetail() {
                     {profile.email || "(未設定)"}
                   </div>
                 </div>
+
+                <div className="admin-user-detail-row">
+                  <div className="admin-user-detail-label">ポイント</div>
+                  <div className="admin-user-detail-value">
+                    {Number(wallet?.balance ?? 0).toLocaleString("ja-JP")} pt
+                  </div>
+                </div>
               </section>
 
+              {/* ✅ 追加：再設定メール送信 */}
               <section className="admin-user-detail-card">
-                <h3 className="admin-user-detail-cardtitle">名前を変更</h3>
-
-                <div className="admin-user-detail-inputrow">
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="admin-user-detail-input"
-                    placeholder="新しい名前"
-                  />
-                  <button
-                    className="admin-user-detail-primary"
-                    onClick={handleUpdateName}
-                    type="button"
-                  >
-                    更新
-                  </button>
-                </div>
+                <button
+                  className="admin-user-detail-secondary"
+                  onClick={handleSendResetMail}
+                  type="button"
+                  disabled={sending}
+                >
+                  {sending ? "送信中..." : "パスワード再設定メールを送る"}
+                </button>
               </section>
 
               <section className="admin-user-detail-card">

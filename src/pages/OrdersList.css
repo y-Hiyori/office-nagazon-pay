@@ -279,3 +279,78 @@
   white-space: nowrap;
   text-align: right;
 }
+
+/* --- 追加：商品サムネ + 計算ブロック + ポイント色 --- */
+
+.preview-left{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 75%;
+}
+
+.preview-thumb{
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  object-fit: cover;
+  flex: 0 0 26px;
+  border: 1px solid rgba(15,23,42,0.08);
+}
+
+.preview-thumb-placeholder{
+  background: rgba(0,0,0,0.06);
+}
+
+.calc-box{
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--card2);
+  border: 1px solid rgba(15,23,42,0.10);
+}
+
+.calc-row{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(30,41,59,0.92);
+  line-height: 1.65;
+  padding: 2px 0;
+}
+
+.calc-total-row{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(15,23,42,0.12);
+  font-size: 13px;
+}
+
+.calc-total{
+  font-weight: 900;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+/* ✅ ポイントはオレンジ */
+.calc-points{
+  color: #ff7a00;
+  font-weight: 900;
+}
+
+.points-amount{
+  color: #ff7a00;
+  font-weight: 900;
+}
+
+/* バッジもポイントだけオレンジに */
+.order-badge-points{
+  border: 1px solid rgba(255,122,0,0.28);
+  background: rgba(255,122,0,0.12);
+  color: #c2410c;
+}

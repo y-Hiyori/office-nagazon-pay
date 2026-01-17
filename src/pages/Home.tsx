@@ -34,15 +34,48 @@ const fmtDate = (iso: string) => {
   }
 };
 
+const SOCIALS = [
+  {
+    key: "youtube",
+    label: "YouTube",
+    href: "https://www.youtube.com/channel/UCeOK1unnDoj_56lch2ycfCw",
+    img: "/assets/social/youtube.png",
+  },
+  {
+    key: "x",
+    label: "X",
+    href: "https://x.com/nagatachs?ref_src=twsrc%5Egoogle%7Ctwcamp%5Eserp%7Ctwgr%5Eauthor",
+    img: "/assets/social/x.png",
+  },
+  {
+    key: "instagram",
+    label: "Instagram",
+    href: "https://www.instagram.com/nagazon_1/",
+    img: "/assets/social/instagram.png",
+  },
+  {
+    key: "facebook",
+    label: "Facebook",
+    href: "https://www.facebook.com/nagasyo/",
+    img: "/assets/social/facebook.png",
+  },
+  {
+    key: "tiktok",
+    label: "TikTok",
+    href: "https://www.tiktok.com/@nagazon1",
+    img: "/assets/social/tiktok.png",
+  },
+] as const;
+
 export default function Home() {
   const navigate = useNavigate();
   const sliderRef = useRef<HTMLDivElement>(null);
 
   // ✅ 表示ONだけ & 並び順
   const slides = useMemo(() => {
-    return HOME_SLIDES
-      .filter((s) => s.isVisible !== false)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    return HOME_SLIDES.filter((s) => s.isVisible !== false).sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
   }, []);
 
   const [index, setIndex] = useState(0);
@@ -62,7 +95,7 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [index, slides.length]);
 
-  // ✅ 手動スクロールでも index 更新（自分でもスクロールOK）
+  // ✅ 手動スクロールでも index 更新
   const onScroll = () => {
     if (!sliderRef.current) return;
     const i = Math.round(
@@ -87,7 +120,7 @@ export default function Home() {
         const { data, error } = await supabase
           .from("home_notices")
           .select("id,title,body,link_url,created_at")
-          .eq("is_visible", true) // ✅ 追加：非表示のお知らせは除外
+          .eq("is_visible", true)
           .order("created_at", { ascending: false })
           .limit(10);
 
@@ -107,7 +140,7 @@ export default function Home() {
         const { data, error } = await supabase
           .from("products")
           .select("id,name,created_at")
-          .eq("is_visible", true) // ✅ 非表示商品は除外
+          .eq("is_visible", true)
           .order("created_at", { ascending: false })
           .limit(10);
 
@@ -135,14 +168,12 @@ export default function Home() {
           <div className="hero-slider" ref={sliderRef} onScroll={onScroll}>
             {slides.map((s) => (
               <div className="hero-slide" key={s.id}>
-                {/* ✅ homeSlides.ts で import した画像がそのまま出る */}
                 <img src={s.image} alt={s.title} />
 
                 <div className="hero-text">
                   <h2>{s.title}</h2>
                   <p>{s.desc}</p>
 
-                  {/* ✅ スライドごとにボタン文字を変えられる */}
                   <button
                     onClick={() =>
                       navigate((s.link || "").trim() || "/products")
@@ -175,9 +206,74 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ===== お知らせ / 商品追加情報（最新10件だけ・スクロール無し） ===== */}
+        {/* ✅ ① ヒーロー直下：クイック4ボタン（PC=横1列 / スマホ=2列） */}
+        <section className="home-quick">
+          <div className="home-quick-grid" role="navigation" aria-label="クイックメニュー">
+            <button
+              type="button"
+              className="home-quick-btn"
+              onClick={() => navigate("/products")}
+            >
+              商品一覧へ <span className="home-quick-arrow">→</span>
+            </button>
+
+            <button
+              type="button"
+              className="home-quick-btn"
+              onClick={() => navigate("/contact")}
+            >
+              お問い合わせ <span className="home-quick-arrow">→</span>
+            </button>
+
+            <button
+              type="button"
+              className="home-quick-btn"
+              onClick={() => navigate("/how-to")}
+            >
+              アプリの使い方 <span className="home-quick-arrow">→</span>
+            </button>
+
+            <button
+              type="button"
+              className="home-quick-btn"
+              onClick={() => navigate("/orders")}
+            >
+              購入履歴 <span className="home-quick-arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        {/* ✅ ② SNSロゴ表示（画像） */}
+        <section className="home-social">
+          <div className="home-social-card">
+            <div className="home-social-head">
+              <div className="home-social-title">公式SNSもチェック！</div>
+              <div className="home-social-sub">最新情報はこちら</div>
+            </div>
+
+            <div className="home-social-row">
+              {SOCIALS.map((s) => (
+                <a
+                  key={s.key}
+                  className="home-social-link"
+                  href={s.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={s.label}
+                  title={s.label}
+                >
+                  <span className="home-social-icon" aria-hidden="true">
+                    <img src={s.img} alt="" />
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ✅ ③ お知らせ / 商品追加情報 */}
         <section className="home-panels">
-          {/* お知らせ：押したら詳細へ */}
+          {/* お知らせ */}
           <div className="home-panel">
             <div className="home-panel-head">
               <h3 className="home-panel-title">お知らせ</h3>
@@ -236,7 +332,9 @@ export default function Home() {
                       <div className="home-item-title">
                         {p.name || "（商品名なし）"} 発売開始！
                       </div>
-                      <div className="home-item-sub">タップして商品ページへ</div>
+                      <div className="home-item-sub">
+                        タップして商品ページへ
+                      </div>
                     </div>
                     <div className="home-arrow">›</div>
                   </button>

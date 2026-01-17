@@ -1,214 +1,228 @@
-/* ===============================
-   商品編集ページ（洗練デザイン）
-   =============================== */
+/* src/pages/AdminEdit.css */
 
-/* ページ全体 */
-.edit-container {
-  padding-top: 90px;
-  padding-inline: 16px;
-  padding-bottom: 32px;
-  max-width: 480px;
-  margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", Arial, sans-serif;
-  color: #111827;
-  background: #f3f4f6;
+/* ===== ページ全体 ===== */
+.ae-page{
+  min-height: 100vh;
+  padding: 86px 16px 90px;
+  background:
+    radial-gradient(1100px 500px at 20% -10%, rgba(99,102,241,0.14), transparent 60%),
+    radial-gradient(900px 500px at 90% 0%, rgba(59,130,246,0.12), transparent 55%),
+    linear-gradient(180deg, #f6f8ff, #eef2ff);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", Arial, sans-serif;
+  color: #0f172a;
   box-sizing: border-box;
 }
 
-/* ===== 固定ヘッダー ===== */
-.edit-header {
+/* ===== ヘッダー ===== */
+.ae-header{
   position: fixed;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
-  height: 70px;
-  background: #ffffffee;
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid #e5e7eb;
+  width: min(520px, 100%);
+  height: 72px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 200;
-}
-
-/* ← 戻るボタン */
-.back-button {
-  position: absolute;
-  left: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  font-size: 14px;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  color: #111827;
-  background: #f3f4f6;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
-  transition: background 0.15s ease, transform 0.1s ease,
-    box-shadow 0.1s ease;
-}
-
-.back-button:hover {
-  background: #e5e7eb;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.16);
-}
-
-.back-button:active {
-  transform: translateY(0);
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.1);
-}
-
-/* タイトル */
-.edit-title {
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0;
-}
-
-/* ===== 入力フォーム（フローティングラベル） ===== */
-
-/* 1項目分のラッパー */
-.edit-field {
-  position: relative;
-  margin-top: 20px;
-}
-
-.edit-field:first-of-type {
-  margin-top: 12px;
-}
-
-/* 入力欄：ふつうのテキストボックスの余白 */
-.edit-input {
-  width: 100%;
-  padding: 14px 16px;
-  margin-top: 0;
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background: #f3f4f6;
-  font-size: 15px;
+  gap: 12px;
+  background: rgba(255,255,255,0.86);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.10);
+  z-index: 50;
   box-sizing: border-box;
-  transition: border-color 0.15s ease;
 }
 
-/* フォーカス時も同じ色のままにしておく */
-.edit-input:focus {
+.ae-back{
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
+}
+
+.ae-header-title h2{
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+.ae-header-title p{
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: rgba(30,41,59,0.75);
+}
+
+/* ===== カード ===== */
+.ae-card{
+  width: min(520px, 100%);
+  margin: 0 auto;
+  background: rgba(255,255,255,0.90);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  border-radius: 22px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(10px);
+  padding: 16px 16px 8px;
+  box-sizing: border-box;
+}
+
+.ae-section-title{
+  padding: 4px 2px 12px;
+  border-bottom: 1px dashed rgba(15,23,42,0.12);
+  margin-bottom: 14px;
+}
+
+.ae-section-title h3{
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.ae-section-title p{
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: rgba(30,41,59,0.70);
+}
+
+/* ===== フィールド ===== */
+.ae-field{
+  margin-top: 14px;
+}
+
+.ae-label{
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(30,41,59,0.70);
+  margin: 0 0 6px;
+}
+
+.ae-input-wrap{
+  position: relative;
+}
+
+.ae-input{
+  width: 100%;
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(15,23,42,0.10);
+  background: rgba(248,250,252,0.95);
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
   outline: none;
-  border-color: #4f46e5;
-  box-shadow: none;
-  background: #f3f4f6;
+  box-sizing: border-box;
+  transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
 }
 
-/* ラベル（通常時：枠の中） */
-.edit-label {
+.ae-input:focus{
+  border-color: rgba(99,102,241,0.55);
+  box-shadow: 0 0 0 4px rgba(99,102,241,0.14);
+}
+
+.ae-suffix{
   position: absolute;
-  left: 18px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 13px;
-  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(30,41,59,0.55);
   pointer-events: none;
-  background: transparent;
-  padding: 0;
-  z-index: 1;
-  transition: all 0.15s ease;
 }
 
-/* ★ ラベルの下にだけ出る「板」 */
-.edit-label::before {
-  content: "";
-  position: absolute;
-  left: -6px;
-  right: -6px;
-  height: 4px;                 /* ボーダーをまたぐ細い板 */
-  bottom: -3px;                /* 上側ボーダーの位置あたり */
-
-  /* 背景と同じグレーで塗りつぶす（＝板が見えない） */
-  background: #f3f4f6;
-
-  opacity: 0;                  /* 普段は非表示 */
-  z-index: -1;                 /* ラベルの“裏側”に置く */
+/* 2列 */
+.ae-grid2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-/* フォーカス / 値あり：ラベルを線の上に出す＋板ON */
-.edit-input:focus + .edit-label,
-.edit-input:not(:placeholder-shown) + .edit-label {
-  top: 0;                      /* 線の高さあたり */
-  transform: translateY(-50%);
-  font-size: 11px;
-  color: #4f46e5;
-  background: transparent;
-  padding: 0 4px;
-  border-radius: 999px;
+@media (max-width: 420px){
+  .ae-grid2{
+    grid-template-columns: 1fr;
+  }
 }
 
-.edit-input:focus + .edit-label::before,
-.edit-input:not(:placeholder-shown) + .edit-label::before {
-  opacity: 1;                  /* この時だけ板を表示 */
+/* ===== 危険エリア（ID変更） ===== */
+.ae-danger{
+  margin-top: 16px;
+  border-top: 1px dashed rgba(15,23,42,0.12);
+  padding-top: 14px;
 }
 
-/* ===== プレビューエリア（今は未使用でも一応残す） ===== */
-
-.file-input {
-  margin-top: 20px;
-  font-size: 14px;
-}
-
-.preview-section {
-  margin-top: 26px;
-}
-
-.preview-label {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-
-.preview-images {
+.ae-danger-toggle{
   width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 22px;
+  border: 1px solid rgba(239,68,68,0.22);
+  background: rgba(239,68,68,0.06);
+  color: rgba(185,28,28,0.95);
+  border-radius: 14px;
+  padding: 12px 12px;
+  font-weight: 900;
+  cursor: pointer;
 }
 
-.preview-images img {
-  width: 100%;
-  max-width: 260px;
-  border-radius: 18px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
-  background: #ffffff;
+.ae-danger-body{
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(239,68,68,0.18);
 }
 
-/* ===== 保存ボタン ===== */
+.ae-danger-text{
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(185,28,28,0.85);
+}
 
-.save-button {
+/* 固定ボタンに被らない余白 */
+.ae-bottom-space{
+  height: 8px;
+}
+
+/* ===== 固定フッター ===== */
+.ae-footer{
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(520px, 100%);
+  padding: 10px 16px 16px;
+  background: linear-gradient(180deg, rgba(246,248,255,0.0), rgba(246,248,255,0.85) 30%, rgba(246,248,255,0.95));
+  backdrop-filter: blur(10px);
+  box-sizing: border-box;
+  z-index: 60;
+}
+
+.ae-save{
   width: 100%;
-  margin-top: 26px;
-  padding: 15px;
+  height: 52px;
   border: none;
   border-radius: 999px;
   cursor: pointer;
   font-size: 16px;
-  font-weight: 700;
-  color: #ffffff;
+  font-weight: 900;
+  color: #fff;
   background: linear-gradient(135deg, #4f46e5, #6366f1);
   box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+  transition: transform .1s ease, box-shadow .15s ease, opacity .15s ease;
 }
 
-.save-button:hover {
+.ae-save:hover{
   transform: translateY(-1px);
   box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
-  opacity: 0.97;
 }
 
-.save-button:active {
-  transform: translateY(0);
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.28);
+.ae-save:disabled{
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.20);
 }

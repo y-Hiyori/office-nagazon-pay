@@ -10,6 +10,12 @@ type OrderBaseRow = {
   created_at: string | null;
   total: number | null;
   status?: string | null;
+
+  subtotal: number | null;
+  discount_amount: number | null;
+  coupon_code: string | null;
+  points_used: number | null;
+  points_applied: number | null;
 };
 
 type ItemRow = {
@@ -28,12 +34,30 @@ type ProfileRow = {
 type OrderViewRow = {
   orderId: string;
   createdAt: string;
+
   userId: string;
   userName: string;
   userEmail: string;
+
   qty: number;
-  lineSubtotal: number; // この商品の小計（数量×単価の合計）
-  orderTotal: number;   // 注文全体の支払合計（orders.total）
+
+  // この商品（割引前）
+  lineSubtotalRaw: number;
+
+  // この商品（割引後：按分）
+  lineSubtotalAfterDiscount: number;
+
+  // この商品に乗った割引額（按分）
+  lineDiscountShare: number;
+
+  // 注文全体
+  orderSubtotal: number;
+  orderTotal: number;
+  orderDiscountTotal: number;
+
+  // 表示用（任意）
+  couponCode: string;
+  pointsUsed: number;
 };
 
 type LocationState = {
@@ -41,7 +65,63 @@ type LocationState = {
   endIso?: string;
 };
 
-function AdminSalesProductDetail() {
+const toNumber = (v: any) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatPrice = (v: any) => (Number(v) || 0).toLocaleString("ja-JP");
+
+const formatDateJST = (iso: string) =>
+  new Date(iso).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const formatRangeEndJST = (iso: string) => {
+  const d = new Date(iso);
+  d.setMilliseconds(d.getMilliseconds() - 1);
+  return d.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+// ✅ 按分（割合配分）して「この商品割引後小計」を作る
+const calcDiscountedLineSubtotal = (args: {
+  lineSubtotalRaw: number;
+  orderSubtotal: number;
+  orderTotal: number;
+}) => {
+  const { lineSubtotalRaw, orderSubtotal, orderTotal } = args;
+
+  const sub = Math.max(0, Math.round(orderSubtotal));
+  const tot = Math.max(0, Math.round(orderTotal));
+  const raw = Math.max(0, Math.round(lineSubtotalRaw));
+
+  if (sub <= 0) {
+    return { after: raw, share: 0, orderDiscountTotal: Math.max(0, sub - tot) };
+  }
+
+  // 注文全体の総割引（クーポン/ポイント/その他込み）
+  const orderDiscountTotal = Math.max(0, sub - tot);
+
+  const ratio = Math.min(1, Math.max(0, raw / sub));
+  const share = Math.min(raw, Math.round(orderDiscountTotal * ratio));
+  const after = Math.max(0, raw - share);
+
+  return { after, share, orderDiscountTotal };
+};
+
+export default function AdminSalesProductDetail() {
   const navigate = useNavigate();
   const { name } = useParams<{ name: string }>();
   const location = useLocation();
@@ -56,35 +136,6 @@ function AdminSalesProductDetail() {
   // ✅ 検索（注文ID / user_id / 名前 / メール）
   const [query, setQuery] = useState("");
 
-  const formatDateJST = (iso: string) =>
-    new Date(iso).toLocaleString("ja-JP", {
-      timeZone: "Asia/Tokyo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-  const formatRangeEndJST = (iso: string) => {
-    const d = new Date(iso);
-    d.setMilliseconds(d.getMilliseconds() - 1);
-    return d.toLocaleString("ja-JP", {
-      timeZone: "Asia/Tokyo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatPrice = (v: any) => (Number(v) || 0).toLocaleString("ja-JP");
-  const toNumber = (v: any) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  };
-
   useEffect(() => {
     const load = async () => {
       if (!productName) {
@@ -98,11 +149,13 @@ function AdminSalesProductDetail() {
       setRows([]);
 
       try {
-        // 1) 対象期間の orders を取得（売上画面から来る想定なので paid のみ）
+        // 1) 対象期間の orders を取得（売上＝支払い完了のみ）
         let q = supabase
           .from("orders")
-          .select("id, user_id, created_at, total, status")
-          .eq("status", "paid"); // ✅ 売上＝支払い完了のみ（外したいならこの1行消す）
+          .select(
+            "id,user_id,created_at,total,status,subtotal,discount_amount,coupon_code,points_used,points_applied"
+          )
+          .eq("status", "paid");
 
         if (state.startIso && state.endIso) {
           q = q.gte("created_at", state.startIso).lt("created_at", state.endIso);
@@ -118,7 +171,6 @@ function AdminSalesProductDetail() {
           setLoading(false);
           return;
         }
-
         if (!orders || orders.length === 0) {
           setRows([]);
           setLoading(false);
@@ -143,14 +195,13 @@ function AdminSalesProductDetail() {
           setLoading(false);
           return;
         }
-
         if (!items || items.length === 0) {
           setRows([]);
           setLoading(false);
           return;
         }
 
-        // 3) プロフィール（名前/メール）を取る
+        // 3) プロフィール（名前/メール）
         const userIds = Array.from(
           new Set((orders as OrderBaseRow[]).map((o) => o.user_id).filter(Boolean))
         ) as string[];
@@ -171,11 +222,12 @@ function AdminSalesProductDetail() {
           profileMap = new Map((profiles || []).map((p: any) => [p.id, p] as const));
         }
 
-        // 4) ✅ 注文IDごとに集計（同一注文に同商品行が複数ある可能性も吸収）
+        // 4) 注文IDごとに集計（同一注文に同商品が複数行あっても合算）
         const byOrder = new Map<string, { qty: number; sub: number }>();
         for (const it of items as ItemRow[]) {
           const oid = it.order_id;
           if (!oid) continue;
+
           const qty = toNumber(it.quantity);
           const price = toNumber(it.price);
           const sub = qty * price;
@@ -186,7 +238,7 @@ function AdminSalesProductDetail() {
           cur.sub += sub;
         }
 
-        // 5) 画面用の配列へ
+        // 5) 画面用配列
         const list: OrderViewRow[] = [];
 
         for (const [orderId, agg] of byOrder.entries()) {
@@ -196,21 +248,39 @@ function AdminSalesProductDetail() {
           const userId = String(o.user_id || "");
           const prof = profileMap.get(userId);
 
+          const orderSubtotal = toNumber((o as any).subtotal);
+          const orderTotal = toNumber((o as any).total);
+
+          const { after, share, orderDiscountTotal } = calcDiscountedLineSubtotal({
+            lineSubtotalRaw: agg.sub,
+            orderSubtotal,
+            orderTotal,
+          });
+
           list.push({
             orderId,
             createdAt: String(o.created_at || ""),
+
             userId,
             userName: prof?.name || "(名前未設定)",
             userEmail: prof?.email || "",
+
             qty: agg.qty,
-            lineSubtotal: agg.sub,
-            orderTotal: toNumber(o.total),
+
+            lineSubtotalRaw: Math.round(agg.sub),
+            lineSubtotalAfterDiscount: after,
+            lineDiscountShare: share,
+
+            orderSubtotal: Math.round(orderSubtotal),
+            orderTotal: Math.round(orderTotal),
+            orderDiscountTotal,
+
+            couponCode: String((o as any).coupon_code || "").trim(),
+            pointsUsed: Math.floor(toNumber((o as any).points_used)),
           });
         }
 
-        // 日時の新しい順
         list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
         setRows(list);
       } catch (e) {
         console.error(e);
@@ -321,30 +391,50 @@ function AdminSalesProductDetail() {
                     }
                   }}
                 >
-                  <p>
-                    <strong>注文ID：</strong> <span>{r.orderId}</span>
-                  </p>
-                  <p>
-                    <strong>日時：</strong> <span>{r.createdAt ? formatDateJST(r.createdAt) : "-"}</span>
-                  </p>
-                  <p>
-                    <strong>購入者：</strong>{" "}
-                    <span>
-                      {r.userName}（{r.userId || "-"}）
-                    </span>
-                  </p>
-                  <p>
-                    <strong>メール：</strong> <span>{r.userEmail || "(未設定)"}</span>
-                  </p>
-                  <p>
-                    <strong>数量：</strong> <span>{r.qty.toLocaleString()} 個</span>
-                  </p>
-                  <p>
-                    <strong>この商品小計：</strong> <span>{formatPrice(r.lineSubtotal)} 円</span>
-                  </p>
-                  <p>
-                    <strong>注文合計：</strong> <span>{formatPrice(r.orderTotal)} 円</span>
-                  </p>
+                  {/* ✅ ヘッダー：注文ID / 日時 */}
+                  <div className="aspi-head">
+                    <div className="aspi-oid">
+                      <span className="aspi-label">注文ID</span>
+                      <span className="aspi-oid-value">{r.orderId}</span>
+                    </div>
+                    <div className="aspi-date">{r.createdAt ? formatDateJST(r.createdAt) : "-"}</div>
+                  </div>
+
+                  {/* ✅ バッジ：クーポン / ポイント / 割引あり */}
+                  <div className="aspi-badges">
+                    {r.couponCode && <span className="aspi-badge">クーポン</span>}
+                    {r.pointsUsed > 0 && <span className="aspi-badge">ポイント</span>}
+                    {r.orderDiscountTotal > 0 && <span className="aspi-badge aspi-badge-strong">割引あり</span>}
+                  </div>
+
+                  {/* ✅ 購入者 */}
+                  <div className="aspi-user">
+                    <div className="aspi-user-name">{r.userName}</div>
+                    <div className="aspi-user-sub">
+                      <span className="aspi-user-id">user_id: {r.userId || "-"}</span>
+                    </div>
+                    <div className="aspi-user-email">{r.userEmail || "(未設定)"}</div>
+                  </div>
+
+                  {/* ✅ 金額：見たい所だけ太く */}
+                  <div className="aspi-metrics">
+                    <div className="aspi-metric">
+                      <div className="aspi-metric-label">数量</div>
+                      <div className="aspi-metric-value">{r.qty.toLocaleString()} 個</div>
+                    </div>
+
+                    <div className="aspi-metric aspi-metric-main">
+  <div className="aspi-metric-label">この商品小計</div>
+  <div className="aspi-metric-value">
+    {formatPrice(r.lineSubtotalRaw)} 円
+  </div>
+</div>
+
+                    <div className="aspi-metric">
+                      <div className="aspi-metric-label">注文合計</div>
+                      <div className="aspi-metric-value">{formatPrice(r.orderTotal)} 円</div>
+                    </div>
+                  </div>
 
                   <div className="admin-sales-product-open">注文詳細を見る ＞</div>
                 </div>
@@ -356,5 +446,3 @@ function AdminSalesProductDetail() {
     </>
   );
 }
-
-export default AdminSalesProductDetail;

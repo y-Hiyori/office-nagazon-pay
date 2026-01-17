@@ -29,6 +29,10 @@ function Checkout() {
   // ✅ 在庫再確認中フラグ
   const [isCheckingStock, setIsCheckingStock] = useState(false);
 
+  // ✅ NAGAZON PAY ID（Supabase設定でON/OFF）
+  const [storeAuthRequired, setStoreAuthRequired] = useState<boolean>(true);
+  const [storeAuthLoading, setStoreAuthLoading] = useState<boolean>(true);
+
   const [showStoreAuth, setShowStoreAuth] = useState(false);
   const [storeCode, setStoreCode] = useState("");
 
@@ -73,6 +77,30 @@ function Checkout() {
     () => Math.max(subtotal - discountYen - pointsDiscountYen, 0),
     [subtotal, discountYen, pointsDiscountYen]
   );
+
+  // ✅ 設定取得（NAGAZON PAY IDのON/OFF）
+  // 推奨RPC:
+  //   public.store_auth_is_required() returns boolean
+  //   public.store_auth_verify(p_code text) returns boolean
+  useEffect(() => {
+    (async () => {
+      setStoreAuthLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("store_auth_is_required");
+        if (error) {
+          console.error("store_auth_is_required error:", error);
+          setStoreAuthRequired(true); // 取れない時は安全側(ON)に倒す
+        } else {
+          setStoreAuthRequired(Boolean(data));
+        }
+      } catch (e) {
+        console.error(e);
+        setStoreAuthRequired(true);
+      } finally {
+        setStoreAuthLoading(false);
+      }
+    })();
+  }, []);
 
   // ✅ ログインチェック + ポイント取得（予約なしRPC）
   useEffect(() => {
@@ -204,7 +232,11 @@ function Checkout() {
 
     if (ids.length === 0) return { ok: false as const, ngNames: ["（商品不明）"] };
 
-    const { data, error } = await supabase.from("products").select("id,name,stock,is_visible").in("id", ids);
+    const { data, error } = await supabase
+      .from("products")
+      .select("id,name,stock,is_visible")
+      .in("id", ids);
+
     if (error) {
       console.error("stock recheck error:", error);
       throw error;
@@ -232,53 +264,8 @@ function Checkout() {
     return { ok: ngNames.length === 0, ngNames };
   };
 
-  const handleClickConfirmButton = async () => {
-    if (isProcessing || isCheckingStock) return;
-
-    if (!buyNow && cart.cart.length === 0) {
-      alert("カートが空です");
-      return;
-    }
-    if (!method) {
-      alert("支払い方法を選択してください");
-      return;
-    }
-
-    setIsCheckingStock(true);
-    try {
-      const result = await recheckStockBeforeConfirm();
-      if (!result.ok) {
-        alert(
-          `商品の確保ができません。\n在庫不足または非表示：\n・${result.ngNames.join("\n・")}\n\nカートをリセットしてホームに戻ります。`
-        );
-        if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
-        navigate("/", { replace: true });
-        return;
-      }
-      setShowStoreAuth(true);
-    } catch (e) {
-      console.error(e);
-      alert("在庫確認に失敗しました。時間をおいてお試しください。");
-    } finally {
-      setIsCheckingStock(false);
-    }
-  };
-
-  const handleStoreAuthCancel = () => {
-    setShowStoreAuth(false);
-    setStoreCode("");
-  };
-
-  const handleStoreAuthConfirm = async () => {
-    const correctCode = "20220114";
-    if (storeCode !== correctCode) {
-      alert("NAGAZON PAY ID が正しくありません。");
-      return;
-    }
-
-    setShowStoreAuth(false);
-    setStoreCode("");
-
+  // ✅ 決済処理本体（ID入力がOFFのときもここへ）
+  const startPaymentFlow = async () => {
     let redirecting = false;
 
     try {
@@ -297,7 +284,11 @@ function Checkout() {
       // 購入者名
       let buyerName = "(名前未設定)";
       try {
-        const { data: profile } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle();
         if (profile?.name) buyerName = profile.name;
       } catch {}
 
@@ -385,7 +376,10 @@ function Checkout() {
           }
         }
 
-        await supabase.from("orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", orderRow.id);
+        await supabase
+          .from("orders")
+          .update({ status: "paid", paid_at: new Date().toISOString() })
+          .eq("id", orderRow.id);
 
         if (buyerEmail) {
           await fetch("/api/send-buyer-order-email", {
@@ -455,6 +449,85 @@ function Checkout() {
       alert("決済の開始に失敗しました。時間をおいてお試しください。");
     } finally {
       if (!redirecting) setIsProcessing(false);
+    }
+  };
+
+  const handleClickConfirmButton = async () => {
+    if (isProcessing || isCheckingStock) return;
+
+    if (!buyNow && cart.cart.length === 0) {
+      alert("カートが空です");
+      return;
+    }
+    if (!method) {
+      alert("支払い方法を選択してください");
+      return;
+    }
+
+    setIsCheckingStock(true);
+    try {
+      const result = await recheckStockBeforeConfirm();
+      if (!result.ok) {
+        alert(
+          `商品の確保ができません。\n在庫不足または非表示：\n・${result.ngNames.join("\n・")}\n\nカートをリセットしてホームに戻ります。`
+        );
+        if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
+        navigate("/", { replace: true });
+        return;
+      }
+
+      // ✅ 設定ロード中は安全側で止める
+      if (storeAuthLoading) {
+        alert("設定を読み込み中です。少し待ってからもう一度お試しください。");
+        return;
+      }
+
+      // ✅ ONならモーダル、OFFならそのまま決済へ
+      if (storeAuthRequired) setShowStoreAuth(true);
+      else await startPaymentFlow();
+    } catch (e) {
+      console.error(e);
+      alert("在庫確認に失敗しました。時間をおいてお試しください。");
+    } finally {
+      setIsCheckingStock(false);
+    }
+  };
+
+  const handleStoreAuthCancel = () => {
+    setShowStoreAuth(false);
+    setStoreCode("");
+  };
+
+  const handleStoreAuthConfirm = async () => {
+    try {
+      const code = storeCode;
+
+      if (!code.trim()) {
+        alert("NAGAZON PAY ID を入力してください。");
+        return;
+      }
+
+      // ✅ Supabase RPCで検証（ハッシュはフロントに出さない）
+      const { data: ok, error } = await supabase.rpc("store_auth_verify", { p_code: code });
+
+      if (error) {
+        console.error("store_auth_verify error:", error);
+        alert("認証に失敗しました。時間をおいてお試しください。");
+        return;
+      }
+
+      if (!ok) {
+        alert("NAGAZON PAY ID が正しくありません。");
+        return;
+      }
+
+      // ✅ 認証OK → モーダル閉じて決済へ
+      setShowStoreAuth(false);
+      setStoreCode("");
+      await startPaymentFlow();
+    } catch (e) {
+      console.error(e);
+      alert("認証に失敗しました。時間をおいてお試しください。");
     }
   };
 
