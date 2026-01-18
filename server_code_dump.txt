@@ -1,0 +1,748 @@
+===== server.cjs (RUNNING) =====
+/**
+ * OCI API server (CommonJS)
+ * - PayPay決済：COMPLETEDになった瞬間に確定処理（ポイント/在庫/paid反映/メール）
+ * - /api/order-status：未ログインでも orderId+token で確認可能
+ */
+const express = require("express");
+const PAYPAY = require("@paypayopa/paypayopa-sdk-node");
+const { createClient } = require("@supabase/supabase-js");
+
+// Node18+ならfetchある。ない場合だけnode-fetchを動的import
+let _fetch = globalThis.fetch;
+if (!_fetch) {
+  _fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
+}
+
+const app = express();
+
+// ★追加：アクセスログ
+app.use((req, res, next) => {
+  console.log("[REQ]", new Date().toISOString(), req.method, req.url);
+  next();
+});
+
+app.use(express.json({ limit: "2mb" }));
+
+function jsonCors(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+function envMissing() {
+  const missing = [];
+  if (!process.env.SUPABASE_URL) missing.push("SUPABASE_URL");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!process.env.PAYPAY_API_KEY) missing.push("PAYPAY_API_KEY");
+  if (!process.env.PAYPAY_API_SECRET) missing.push("PAYPAY_API_SECRET");
+  if (!process.env.PAYPAY_MERCHANT_ID) missing.push("PAYPAY_MERCHANT_ID");
+  if (!process.env.FRONTEND_ORIGIN) missing.push("FRONTEND_ORIGIN"); // 例 https://xxxxx.vercel.app
+  return missing;
+}
+
+function configurePayPay() {
+  PAYPAY.Configure({
+    clientId: process.env.PAYPAY_API_KEY,
+    clientSecret: process.env.PAYPAY_API_SECRET,
+    merchantId: process.env.PAYPAY_MERCHANT_ID,
+    productionMode: false, // sandbox
+  });
+}
+
+function adminDb() {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+}
+
+function uuid() {
+  return (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+}
+
+// PayPay SDKの呼び方が揺れるので両対応
+async function getPayPayDetails(merchantPaymentId) {
+  const tryCb = (arg) =>
+    new Promise((resolve, reject) => {
+      PAYPAY.GetCodePaymentDetails(arg, (response) => {
+        if (!response || !response.BODY) return reject(new Error("NO_BODY"));
+        resolve(response.BODY);
+      });
+    });
+
+  try {
+    return await tryCb([merchantPaymentId]);
+  } catch {
+    return await tryCb(merchantPaymentId);
+  }
+}
+
+// ===== health =====
+app.get("/api/health", (req, res) => {
+  jsonCors(res);
+  return res.status(200).json({ ok: true, time: new Date().toISOString() });
+});
+
+// ===== order-status（未ログインでも確認できる：orderId+token必須） =====
+app.get("/api/order-status", async (req, res) => {
+  jsonCors(res);
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  try {
+    const missing = envMissing();
+    if (missing.length) return res.status(500).json({ ok: false, status: "ENV_MISSING", missing });
+
+    const orderId = String(req.query.orderId || "");
+    const token = String(req.query.token || "");
+
+    if (!orderId || !token) {
+      return res.status(400).json({ ok: false, status: "MISSING", need: ["orderId", "token"] });
+    }
+
+    const supabaseAdmin = adminDb();
+    const { data: order, error } = await supabaseAdmin
+      .from("orders")
+      .select("id,status,paid_at,total,subtotal,discount_amount,coupon_code,points_used,created_at")
+      .eq("id", orderId)
+      .single();
+
+    if (error || !order) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
+
+    const { data: tokenRow } = await supabaseAdmin
+      .from("orders")
+      .select("paypay_return_token")
+      .eq("id", orderId)
+      .single();
+
+    if (!tokenRow || String(tokenRow.paypay_return_token || "") !== token) {
+      return res.status(403).json({ ok: false, status: "BAD_TOKEN" });
+    }
+
+    const st = String(order.status || "").toLowerCase();
+    return res.status(200).json({
+      ok: true,
+      orderId: order.id,
+      status: st,
+      paid: st === "paid",
+      paid_at: order.paid_at || null,
+      total: order.total,
+      subtotal: order.subtotal,
+      discount_amount: order.discount_amount,
+      coupon_code: order.coupon_code,
+      points_used: order.points_used,
+      created_at: order.created_at,
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
+  }
+});
+
+// ===== create-paypay-order（ポイント/クーポン情報もordersに保存） =====
+app.post("/api/create-paypay-order", async (req, res) => {
+  jsonCors(res);
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  try {
+    const missing = envMissing();
+    if (missing.length) return res.status(500).json({ ok: false, status: "ENV_MISSING", missing });
+
+    configurePayPay();
+    const supabaseAdmin = adminDb();
+
+    const {
+      orderId,
+      total,
+      userId,
+      subtotal,
+      discountYen,
+      coupon,
+      pointsUsed,
+      buyerEmail,
+      buyerName,
+      items,
+    } = req.body || {};
+
+    if (!orderId || !userId || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ ok: false, status: "MISSING", need: ["orderId", "userId", "items[]"] });
+    }
+
+    const payableTotal = Math.max(Number(total || 0), 0);
+    if (payableTotal <= 0) {
+      return res.status(400).json({ ok: false, status: "TOTAL_INVALID", message: "total must be > 0" });
+    }
+
+    const token = uuid();
+
+    // orders作成
+    const { data: orderRow, error: oErr } = await supabaseAdmin
+      .from("orders")
+      .insert({
+        id: orderId,
+        user_id: userId,
+        total: payableTotal,
+        payment_method: "paypay",
+        subtotal: Number(subtotal || 0),
+        discount_amount: Number(discountYen || 0),
+        coupon_code: coupon || null,
+        points_used: Number(pointsUsed || 0),
+        status: "created",
+        paypay_return_token: token,
+        email: buyerEmail || null,
+        name: buyerName || null,
+      })
+      .select("id")
+      .single();
+
+    if (oErr || !orderRow) {
+      console.error(oErr);
+      return res.status(500).json({ ok: false, status: "ORDER_CREATE_FAILED", message: oErr?.message });
+    }
+
+    // order_items
+    const orderItemsPayload = items.map((it) => ({
+      order_id: orderId,
+      product_id: Number(it.productId),
+      product_name: String(it.name || ""),
+      price: Number(it.price || 0),
+      quantity: Number(it.quantity || 0),
+    }));
+
+    const { error: iErr } = await supabaseAdmin.from("order_items").insert(orderItemsPayload);
+    if (iErr) {
+      console.error(iErr);
+      await supabaseAdmin.from("orders").delete().eq("id", orderId);
+      return res.status(500).json({ ok: false, status: "ORDER_ITEMS_FAILED", message: iErr.message });
+    }
+
+    // PayPay QR作成（戻りURLに token を入れる）
+    const returnUrl =
+      `${process.env.FRONTEND_ORIGIN}/paypay-return?orderId=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`;
+
+    const requestBody = {
+      merchantPaymentId: orderId,
+      amount: { amount: payableTotal, currency: "JPY" },
+      orderDescription: "NAGAZON PAY",
+      codeType: "ORDER_QR",
+      redirectUrl: returnUrl,
+      redirectType: "WEB_LINK",
+    };
+
+    const paypayBody = await new Promise((resolve, reject) => {
+      PAYPAY.QRCodeCreate(requestBody, (response) => {
+        if (!response || !response.BODY) return reject(new Error("NO_BODY"));
+        resolve(response.BODY);
+      });
+    });
+
+    const resultInfo = paypayBody?.resultInfo;
+    if (!resultInfo || resultInfo.code !== "SUCCESS") {
+      console.error("PAYPAY CreateQRCode failed:", paypayBody);
+      await supabaseAdmin.from("orders").delete().eq("id", orderId);
+      await supabaseAdmin.from("order_items").delete().eq("order_id", orderId);
+      return res.status(400).json({ ok: false, status: "PAYPAY_ERROR", resultInfo });
+    }
+
+    const paypayUrl = paypayBody?.data?.url || null;
+    const mpid = paypayBody?.data?.merchantPaymentId || orderId;
+
+    await supabaseAdmin
+      .from("orders")
+      .update({ paypay_merchant_payment_id: String(mpid), status: "pending" })
+      .eq("id", orderId);
+
+    return res.status(200).json({
+      ok: true,
+      orderId,
+      token,
+      paypay: { url: paypayUrl, merchantPaymentId: String(mpid) },
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
+  }
+});
+
+// ===== confirm-paypay-payment（COMPLETEDになった瞬間に確定処理） =====
+app.post("/api/confirm-paypay-payment", async (req, res) => {
+  jsonCors(res);
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  try {
+    const missing = envMissing();
+    if (missing.length) return res.status(500).json({ ok: false, status: "ENV_MISSING", missing });
+
+    configurePayPay();
+    const supabaseAdmin = adminDb();
+
+    const { orderId, token, merchantPaymentId } = req.body || {};
+    if (!orderId || !token) {
+      return res.status(400).json({ ok: false, status: "MISSING", need: ["orderId", "token"] });
+    }
+
+    const { data: order, error: oErr } = await supabaseAdmin
+      .from("orders")
+      .select("id,status,points_used,paypay_merchant_payment_id,paypay_return_token")
+      .eq("id", orderId)
+      .single();
+
+    if (oErr || !order) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
+    if (String(order.paypay_return_token || "") !== String(token)) {
+      return res.status(403).json({ ok: false, status: "BAD_TOKEN" });
+    }
+
+    const mpid = String(merchantPaymentId || order.paypay_merchant_payment_id || "");
+    if (!mpid) return res.status(400).json({ ok: false, status: "NO_MERCHANT_PAYMENT_ID" });
+
+    if (merchantPaymentId && String(order.paypay_merchant_payment_id || "") !== String(merchantPaymentId)) {
+      return res.status(403).json({ ok: false, status: "BAD_MERCHANT_PAYMENT_ID" });
+    }
+
+    const stNow = String(order.status || "").toLowerCase();
+    if (stNow === "paid") {
+      return res.status(200).json({ ok: true, paid: true, finalized: true, status: "paid", paypayStatus: "COMPLETED" });
+    }
+
+    // PayPay照会
+    const body = await getPayPayDetails(mpid);
+    const paypayStatus =
+      body?.data?.status ??
+      (Array.isArray(body?.data) ? body?.data?.[0]?.status : undefined) ??
+      "UNKNOWN";
+
+    if (String(paypayStatus).toUpperCase() !== "COMPLETED") {
+      return res.status(200).json({ ok: true, paid: false, finalized: false, status: "PENDING", paypayStatus });
+    }
+
+    // 二重実行ガード：pending/created -> finalizing
+    if (stNow !== "finalizing") {
+      const { error: lockErr } = await supabaseAdmin
+        .from("orders")
+        .update({ status: "finalizing" })
+        .eq("id", orderId)
+        .in("status", ["pending", "created"]);
+      if (lockErr) return res.status(500).json({ ok: false, status: "LOCK_FAILED", message: lockErr.message });
+    }
+
+    // order_items
+    const { data: items, error: iErr } = await supabaseAdmin
+      .from("order_items")
+      .select("product_id,quantity")
+      .eq("order_id", orderId);
+
+    if (iErr || !items || items.length === 0) {
+      await supabaseAdmin.from("orders").update({ status: "pending" }).eq("id", orderId);
+      return res.status(400).json({ ok: false, status: "ORDER_ITEMS_NOT_FOUND" });
+    }
+
+    // 合計
+    const qtyMap = new Map();
+    for (const it of items) {
+      const pid = Number(it.product_id);
+      const q = Number(it.quantity || 0);
+      if (!Number.isFinite(pid) || q <= 0) continue;
+      qtyMap.set(pid, (qtyMap.get(pid) || 0) + q);
+    }
+
+    // ポイント確定
+    const pointsUsed = Number(order.points_used || 0);
+    if (pointsUsed > 0) {
+      const { error: pErr } = await supabaseAdmin.rpc("points_use_for_order", {
+        p_order_id: orderId,
+        p_points: pointsUsed,
+      });
+      if (pErr) {
+        await supabaseAdmin.from("orders").update({ status: "pending" }).eq("id", orderId);
+        return res.status(400).json({ ok: false, status: "POINTS_USE_FAILED", message: pErr.message });
+      }
+    }
+
+    // 在庫減算
+    for (const [pid, qty] of qtyMap.entries()) {
+const { error: sErr } = await supabaseAdmin.rpc("decrement_stock", {
+  p_product_id: parseInt(String(pid), 10),
+  p_qty: parseInt(String(qty), 10),
+});
+      if (sErr) {
+        await supabaseAdmin.from("orders").update({ status: "pending" }).eq("id", orderId);
+          console.error("[STOCK_DECREMENT_FAILED]", {
+            orderId,
+            mpid,
+            pid,
+            qty,
+            code: sErr.code,
+            message: sErr.message,
+            details: sErr.details,
+            hint: sErr.hint,
+          });
+        return res.status(400).json({ ok: false, status: "STOCK_DECREMENT_FAILED", message: sErr.message });
+      }
+    }
+
+    // paid反映
+    const paidAt = new Date().toISOString();
+    const { error: paidErr } = await supabaseAdmin
+      .from("orders")
+      .update({ status: "paid", paid_at: paidAt })
+      .eq("id", orderId);
+
+    if (paidErr) {
+      await supabaseAdmin.from("orders").update({ status: "pending" }).eq("id", orderId);
+      return res.status(500).json({ ok: false, status: "PAID_UPDATE_FAILED", message: paidErr.message });
+    }
+
+    // メール送信（ここはあなたの既存実装に差し替え推奨）
+    try {
+      const origin = `http://127.0.0.1:${process.env.PORT || 3000}`;
+      await _fetch(`${origin}/api/send-buyer-order-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, token }),
+      }).catch(() => {});
+} catch {}
+
+    return res.status(200).json({ ok: true, paid: true, finalized: true, status: "paid", paypayStatus, orderId });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
+  }
+});
+
+// ===== 互換：finalize-order（フロントが残ってても壊れないように） =====
+app.post("/api/finalize-order", async (req, res) => {
+  jsonCors(res);
+  if (req.method === "OPTIONS") return res.status(200).end();
+  try {
+    const missing = envMissing();
+    if (missing.length) return res.status(500).json({ ok: false, status: "ENV_MISSING", missing });
+
+    const { orderId } = req.body || {};
+    if (!orderId) return res.status(400).json({ ok: false, status: "MISSING", need: ["orderId"] });
+
+    const supabaseAdmin = adminDb();
+    const { data, error } = await supabaseAdmin.from("orders").select("id,status,paid_at").eq("id", orderId).single();
+    if (error || !data) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
+
+    const st = String(data.status || "").toLowerCase();
+    return res.status(200).json({ ok: true, status: st, paid: st === "paid", paid_at: data.paid_at || null });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
+  }
+});
+
+// ===== ここはあなたの既存メール送信ロジックに置き換えてOK =====
+  // ===== 購入者メール送信（EmailJS）=====
+  app.post("/api/send-buyer-order-email", async (req, res) => {
+    jsonCors(res);
+    if (req.method === "OPTIONS") return res.status(200).end();
+
+    try {
+      const supabaseAdmin = adminDb();
+
+      const { orderId, token } = req.body || {};
+      if (!orderId || !token) {
+        return res.status(400).json({ ok: false, status: "MISSING", need: ["orderId", "token"] });
+      }
+
+      // 注文取得（token確認もする）
+      const { data: order, error: oErr } = await supabaseAdmin
+        .from("orders")
+        .select("id,email,name,total,paypay_return_token")
+        .eq("id", orderId)
+        .single();
+
+      if (oErr || !order) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
+      if (String(order.paypay_return_token || "") !== String(token)) {
+        return res.status(403).json({ ok: false, status: "BAD_TOKEN" });
+      }
+      if (!order.email) {
+        return res.status(400).json({ ok: false, status: "NO_EMAIL_ON_ORDER" });
+      }
+
+      // 注文明細（order_items -> products）
+      const { data: items, error: iErr } = await supabaseAdmin
+        .from("order_items")
+        .select("product_id,quantity")
+        .eq("order_id", orderId);
+
+      
+      if (iErr || !items) {
+        return res.status(400).json({ ok: false, status: "ORDER_ITEMS_NOT_FOUND" });
+      }
+
+      const ids = [...new Set(items.map((x) => x.product_id))].filter((x) => x !== null && x !== undefined);
+      let prodMap = new Map();
+      if (ids.length) {
+        const { data: prods, error: pErr } = await supabaseAdmin
+          .from("products")
+          .select("id,name,price")
+          .in("id", ids);
+
+        if (!pErr && prods) {
+          for (const pr of prods) prodMap.set(Number(pr.id), pr);
+        }
+      }
+
+      const lines = [];
+      for (const it of items) {
+        const pr = prodMap.get(Number(it.product_id));
+        const name = pr?.name ?? `product:${it.product_id}`;
+        const qty = Number(it.quantity || 0);
+        const price = pr?.price ?? "";
+        lines.push(`${name} ×${qty}${price !== "" ? `（${Number(price).toLocaleString("ja-JP")}円）` : ""}`);
+      }
+
+      const items_text = lines.join("\n");
+      const total_text = `${Number(order.total || 0).toLocaleString("ja-JP")}円`;
+
+      // EmailJS 送信
+      const serviceId = process.env.EMAILJS_SERVICE_ID;
+      const templateId = process.env.EMAILJS_BUYER_TEMPLATE_ID;
+      const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+      const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+
+      if (!serviceId || !templateId || !publicKey || !privateKey) {
+        return res.status(500).json({
+          ok: false,
+          status: "EMAIL_ENV_MISSING",
+          missing: ["EMAILJS_SERVICE_ID", "EMAILJS_BUYER_TEMPLATE_ID", "EMAILJS_PUBLIC_KEY", "EMAILJS_PRIVATE_KEY"].filter((k) => !process.env[k]),
+        });
+      }
+
+      const payload = {
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: publicKey,
+          accessToken: privateKey,
+        template_params: {
+          to_email: String(order.email),
+          buyer_name: String(order.name || ""),
+          order_id: String(orderId),
+          items_text,
+          total_text,
+        },
+      };
+
+      const r = await _fetch("https://api.emailjs.com/api/v1.0/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!r.ok) {
+        const body = await r.text().catch(() => "");
+        console.error("[EMAILJS_FAILED]", r.status, body);
+        return res.status(502).json({ ok: false, status: "EMAILJS_FAILED", http: r.status, body });
+      }
+
+      return res.status(200).json({ ok: true, sent: true, to: order.email });
+
+    } catch (e) {
+      console.error("[BUYER_EMAIL_ERROR]", e);
+      return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
+    }
+  });
+
+  app.post("/api/send-admin-order-email", async (req, res) => {
+  jsonCors(res);
+  if (req.method === "OPTIONS") return res.status(200).end();
+  return res.status(200).json({ ok: true, note: "TODO: replace with your email logic" });
+});
+
+const PORT = Number(process.env.PORT || 3000);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`[API] listening on :${PORT}`);
+});
+
+===== package.json =====
+{
+  "name": "paypay-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@paypayopa/paypayopa-sdk-node": "^2.1.0",
+    "@supabase/supabase-js": "^2.89.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1"
+  },
+  "type": "module",
+  "description": ""
+}
+
+===== patch_confirm.sh =====
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /home/opc/paypay-api
+
+# 退避
+cp -a server.cjs "server.cjs.bak_confirm_patch_$(date +%F_%H%M%S)"
+
+python3 - <<'PY'
+import re
+
+path = "server.cjs"
+s = open(path, "r", encoding="utf-8", errors="ignore").read()
+
+# confirm ルート開始
+m = re.search(r'app\.post\(\s*["\']\/api\/confirm-paypay-payment["\']\s*,\s*async\s*\(req,\s*res\)\s*=>\s*\{', s)
+if not m:
+    raise SystemExit("START_NOT_FOUND")
+
+start = m.start()
+
+# confirmの後ろは app.listen まで（今の構造前提）
+m2 = re.search(r'\n\s*app\.listen\(', s[start:])
+if not m2:
+    raise SystemExit("END_NOT_FOUND(app.listen)")
+end = start + m2.start()
+
+new_block = r'''app.post("/api/confirm-paypay-payment", async (req, res) => {
+  try {
+    const { orderId, token } = req.body || {};
+    if (!orderId) return res.status(400).json({ ok: false, error: "MISSING_ORDER_ID" });
+    if (!token) return res.status(400).json({ ok: false, error: "MISSING_TOKEN" });
+
+    const { data: order, error: getErr } = await supabaseAdmin
+      .from("orders")
+      .select("id, status, paid_at, merchant_payment_id, paypay_merchant_payment_id, paypay_return_token")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (getErr || !order) {
+      console.error("ORDER_GET_FAILED:", getErr);
+      return res.status(404).json({ ok: false, error: "ORDER_NOT_FOUND" });
+    }
+
+    if (order.paypay_return_token !== token) {
+      return res.status(403).json({ ok: false, error: "TOKEN_MISMATCH" });
+    }
+
+    const orderDbId = order.id;
+
+    // ✅ すでに paid
+    if (order.status === "paid" || order.status === "PAID" || order.paid_at) {
+      return res.json({ ok: true, paid: true, status: "paid", paypayStatus: "COMPLETED", orderDbId });
+    }
+
+    // ✅ まず codeId(=paypay_merchant_payment_id) → ダメなら merchantPaymentId(=merchant_payment_id)
+    const codeId = order.paypay_merchant_payment_id || null;
+    const merchantPaymentId = order.merchant_payment_id || null;
+
+    const callGetCodeDetails = (id) =>
+      new Promise((resolve, reject) => {
+        PAYPAY.GetCodePaymentDetails([id], (r) => {
+          if (!r || !r.BODY) return reject(new Error("NO_BODY"));
+          resolve(r);
+        });
+      });
+
+    const callGetPaymentDetails = (id) =>
+      new Promise((resolve, reject) => {
+        // GetPaymentDetails がSDKにある前提（一般的にあります）
+        PAYPAY.GetPaymentDetails([id], (r) => {
+          if (!r || !r.BODY) return reject(new Error("NO_BODY"));
+          resolve(r);
+        });
+      });
+
+    let body = null;
+
+    // 1st: codeId
+    if (codeId) {
+      try {
+        const r1 = await callGetCodeDetails(codeId);
+        body = normalizeBody(r1);
+      } catch (e) {
+        console.error("GetCodePaymentDetails failed:", e);
+      }
+    }
+
+    // codeIdが NOT_FOUND 系なら merchantPaymentId で再照会
+    const code = body?.resultInfo?.code;
+    if (!body || (code && code !== "SUCCESS" && (code === "DYNAMIC_QR_PAYMENT_NOT_FOUND" || code === "RESOURCE_NOT_FOUND"))) {
+      if (merchantPaymentId) {
+        try {
+          const r2 = await callGetPaymentDetails(merchantPaymentId);
+          body = normalizeBody(r2);
+        } catch (e) {
+          console.error("GetPaymentDetails failed:", e);
+        }
+      }
+    }
+
+    if (!body) {
+      return res.json({ ok: true, status: "PENDING", paid: false, paypayStatus: "NO_BODY", orderDbId });
+    }
+
+    const code2 = body?.resultInfo?.code;
+
+    // SUCCESS以外は一旦pending扱い（NOT_FOUNDも含めてフロント待機できる）
+    if (code2 && code2 !== "SUCCESS") {
+      return res.json({
+        ok: true,
+        status: "PENDING",
+        paid: false,
+        paypayStatus: code2,
+        orderDbId,
+        message: body?.resultInfo?.message,
+      });
+    }
+
+    const paypayStatus = body?.data?.status || body?.data?.transactionStatus || "UNKNOWN";
+
+    if (paypayStatus !== "COMPLETED") {
+      return res.json({ ok: true, status: "PENDING", paid: false, paypayStatus, orderDbId });
+    }
+
+    // ✅ COMPLETED → DB確定
+    const { error: updErr } = await supabaseAdmin
+      .from("orders")
+      .update({ status: "paid", paid_at: new Date().toISOString() })
+      .eq("id", orderId);
+
+    if (updErr) {
+      console.error("ORDER_UPDATE_FAILED:", updErr);
+      return res.status(500).json({ ok: false, error: "ORDER_UPDATE_FAILED", orderDbId });
+    }
+
+    return res.json({ ok: true, paid: true, status: "paid", paypayStatus: "COMPLETED", orderDbId });
+  } catch (e) {
+    console.error("CONFIRM_PAYPAY_ERROR:", e);
+    return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
+  }
+});
+'''
+
+out = s[:start] + new_block + s[end:]
+open(path, "w", encoding="utf-8").write(out)
+print("PATCH_OK")
+PY
+
+# 構文チェック
+/usr/local/bin/node --check server.cjs
+
+# いま動いてるPIDからENV引き継ぎして再起動（壊れにくい）
+PID=$(pgrep -f "/home/opc/paypay-api/server.cjs" | head -n 1 || true)
+if [ -n "${PID:-}" ]; then
+  tr '\0' '\n' < /proc/$PID/environ | egrep '^(SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY|PAYPAY_API_KEY|PAYPAY_API_SECRET|PAYPAY_MERCHANT_ID)=' > .env.runtime || true
+  chmod 600 .env.runtime || true
+  kill "$PID" || true
+fi
+
+set -a
+[ -f ./.env.runtime ] && . ./.env.runtime
+set +a
+
+nohup /usr/local/bin/node /home/opc/paypay-api/server.cjs > /home/opc/paypay-api/server.log 2>&1 &
+sleep 1
+pgrep -af "/home/opc/paypay-api/server.cjs" || true
+tail -n 30 /home/opc/paypay-api/server.log
