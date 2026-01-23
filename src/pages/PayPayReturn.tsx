@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import "./PayPayReturn.css";
 
 export default function PayPayReturn() {
   const navigate = useNavigate();
@@ -8,12 +9,11 @@ export default function PayPayReturn() {
   const q = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const orderId = q.get("orderId") || "";
   const token = q.get("token") || "";
-  const merchantPaymentId = q.get("merchantPaymentId") || ""; // PayPayが付けてくることがある（無くてもOK）
+  const merchantPaymentId = q.get("merchantPaymentId") || "";
 
   const [msg, setMsg] = useState("PayPay決済を確認しています…");
 
   useEffect(() => {
-    // orderId & token が無いと、第三者が orderId だけで確定させる攻撃ができるので必須
     if (!orderId || !token) {
       navigate(
         `/paypay-failed?orderId=${encodeURIComponent(orderId || "")}&reason=BAD_REQUEST`,
@@ -29,12 +29,10 @@ export default function PayPayReturn() {
     const tick = async () => {
       if (stopped) return;
 
-      // 60秒で諦め（好みで調整OK）
       if (Date.now() - start > 60 * 1000) {
-        navigate(
-          `/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=TIMEOUT_60S`,
-          { replace: true }
-        );
+        navigate(`/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=TIMEOUT_60S`, {
+          replace: true,
+        });
         return;
       }
 
@@ -52,16 +50,21 @@ export default function PayPayReturn() {
         const j = await r.json().catch(() => null);
         if (stopped) return;
 
-        // ✅ 完了（このAPIが “反映＋メール” までやる）
-        if (r.ok && (j?.finalized === true || j?.paid === true || String(j?.status).toLowerCase() === "paid")) {
+        if (
+          r.ok &&
+          (j?.finalized === true ||
+            j?.paid === true ||
+            String(j?.status).toLowerCase() === "paid")
+        ) {
           navigate(
-            `/purchase-complete/${encodeURIComponent(orderId)}?orderId=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`,
+            `/purchase-complete/${encodeURIComponent(orderId)}?orderId=${encodeURIComponent(
+              orderId
+            )}&token=${encodeURIComponent(token)}`,
             { replace: true }
           );
           return;
         }
 
-        // ✅ まだ未完了
         const st = String(j?.status || "").toUpperCase();
         if (r.ok && (st === "PENDING" || st === "CREATED" || st === "FINALIZING")) {
           setMsg(st === "FINALIZING" ? "注文を確定しています…" : "PayPayの支払い完了を待っています…");
@@ -69,7 +72,6 @@ export default function PayPayReturn() {
           return;
         }
 
-        // それ以外は失敗扱い
         const reason = String(j?.status || j?.error || r.status || "ERROR");
         navigate(
           `/paypay-failed?orderId=${encodeURIComponent(orderId)}&reason=${encodeURIComponent(reason)}`,
@@ -89,16 +91,11 @@ export default function PayPayReturn() {
   }, [orderId, token, merchantPaymentId, navigate]);
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
-        <div style={{ fontSize: 16, marginBottom: 10 }}>{msg}</div>
-        <div style={{ opacity: 0.7, fontSize: 13, wordBreak: "break-all" }}>
-          orderId: {orderId}
-          <br />
-          token: {token ? "OK" : "MISSING"}
-          <br />
-          merchantPaymentId: {merchantPaymentId || "(none)"}
-        </div>
+    <main className="pp-return">
+      <div className="pp-card">
+        <div className="pp-spinner" aria-label="loading" />
+        <div className="pp-msg">{msg}</div>
+        <div className="pp-sub">画面は閉じずにお待ちください</div>
       </div>
     </main>
   );

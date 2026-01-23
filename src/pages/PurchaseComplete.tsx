@@ -1,5 +1,4 @@
-// src/pages/PurchaseComplete.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./PurchaseComplete.css";
@@ -17,6 +16,13 @@ export default function PurchaseComplete() {
 
   const [view, setView] = useState<ViewState>("pending");
   const [isConfirming, setIsConfirming] = useState(false);
+
+  // ✅ 初回チェックが終わるまで「確認中画面」に固定する
+  const [booting, setBooting] = useState(true);
+
+  // ✅ “一瞬だけボタン出る”対策：一定時間たってもpendingなら出す
+  const [showManual, setShowManual] = useState(false);
+  const startRef = useRef<number>(Date.now());
 
   const refreshByApi = async () => {
     const r = await fetch(
@@ -65,17 +71,9 @@ export default function PurchaseComplete() {
     }
 
     const st = String(data.status || "").toLowerCase();
-
-    if (st === "paid") {
-      setView("paid");
-      return;
-    }
-    if (st === "canceled" || st === "failed") {
-      setView("failed");
-      return;
-    }
-
-    setView("pending");
+    if (st === "paid") setView("paid");
+    else if (st === "canceled" || st === "failed") setView("failed");
+    else setView("pending");
   };
 
   const confirmNow = async () => {
@@ -87,16 +85,7 @@ export default function PurchaseComplete() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId, token }),
       });
-      const j = await r.json().catch(() => null);
-
-      if (
-        r.ok &&
-        (j?.finalized || j?.paid || String(j?.status || "").toLowerCase() === "paid")
-      ) {
-        await refreshByApi();
-        return;
-      }
-
+      await r.json().catch(() => null);
       await refreshByApi();
     } finally {
       setIsConfirming(false);
@@ -106,25 +95,46 @@ export default function PurchaseComplete() {
   useEffect(() => {
     if (!orderId) {
       setView("failed");
+      setBooting(false);
       return;
     }
 
     let stopped = false;
     let timer: number | null = null;
-    const start = Date.now();
+    startRef.current = Date.now();
+
+    // ✅ 5秒以上 pending なら「再確認」ボタン出す（チラ見え防止）
+    const manualTimer = window.setTimeout(() => {
+      if (!stopped) setShowManual(true);
+    }, 5000);
 
     const tick = async () => {
       if (stopped) return;
 
-      if (token) {
-        const r = await refreshByApi();
-        if (!stopped && r.ok && r.status === "pending" && Date.now() - start < 30 * 1000) {
-          timer = window.setTimeout(tick, 2500);
-        }
-        return;
-      }
+      try {
+        if (token) {
+          const r = await refreshByApi();
+          if (!stopped) setBooting(false);
 
-      await refreshBySupabase();
+          // paid/failedになったらボタン不要
+          if (!stopped && r.ok && (r.status === "paid" || r.status === "failed")) {
+            setShowManual(false);
+            return;
+          }
+
+          // pendingなら最大30秒だけ自動で追う
+          if (!stopped && r.ok && r.status === "pending" && Date.now() - startRef.current < 30 * 1000) {
+            timer = window.setTimeout(tick, 2500);
+          }
+          return;
+        }
+
+        await refreshBySupabase();
+        if (!stopped) setBooting(false);
+      } catch {
+        if (!stopped) setBooting(false);
+        timer = window.setTimeout(tick, 2500);
+      }
     };
 
     tick();
@@ -132,8 +142,20 @@ export default function PurchaseComplete() {
     return () => {
       stopped = true;
       if (timer) window.clearTimeout(timer);
+      window.clearTimeout(manualTimer);
     };
   }, [orderId, token]);
+
+  // ✅ 初回チェック終わるまで「確認中」だけ
+  if (booting) {
+    return (
+      <div className="complete-page">
+        <h2>決済状況を確認しています…</h2>
+        <div className="pc-spinner" aria-label="loading" />
+        <p>画面は閉じずにお待ちください。</p>
+      </div>
+    );
+  }
 
   return (
     <div className="complete-page">
@@ -149,6 +171,7 @@ export default function PurchaseComplete() {
 
       {view === "pending" && (
         <div className="complete-box">
+          <div className="pc-spinner small" aria-label="loading" />
           <p>決済状況を確認中です。</p>
           <p>しばらくすると反映されます。</p>
         </div>
@@ -161,7 +184,7 @@ export default function PurchaseComplete() {
         </div>
       )}
 
-      {view === "pending" && token && (
+      {view === "pending" && token && showManual && (
         <button className="home-btn" onClick={confirmNow} disabled={isConfirming} type="button">
           {isConfirming ? "確認中…" : "支払いを再確認"}
         </button>

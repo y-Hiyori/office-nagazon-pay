@@ -64,3 +64,24 @@
 .home-btn:hover {
   opacity: 0.85;
 }
+
+.pc-spinner {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  margin: 12px auto;
+  border: 4px solid rgba(0,0,0,0.12);
+  border-top-color: rgba(0,0,0,0.55);
+  animation: pcSpin 0.9s linear infinite;
+}
+
+.pc-spinner.small {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+  margin: 6px auto 10px;
+}
+
+@keyframes pcSpin {
+  to { transform: rotate(360deg); }
+}
