@@ -1,0 +1,106 @@
+/* src/components/AppDialogHost.css */
+.appdlg-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+
+  /* ✅ 背景 */
+  background: rgba(15, 23, 42, 0.35);
+
+  /* ✅ どの端末でも中央に + 画面外にならない */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* ✅ safe-area 対応（ノッチ/ホームバー） */
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+
+  /* ✅ 低い画面/キーボード時に逃げれる */
+  min-height: 100dvh;
+  overflow: auto;
+
+  /* ✅ iOSスクロール気持ちよく */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.appdlg-shell{
+  width: min(420px, 92vw);
+
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(12px);
+  padding: 18px 16px 14px;
+
+  /* ✅ 高さがキツい時でもボタンが見える */
+  max-height: min(78dvh, 560px);
+  display: flex;
+  flex-direction: column;
+
+  /* 任意：ちょいアニメ */
+  transform: translateY(0);
+}
+
+.appdlg-title{
+  font-size: 16px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+/* ✅ メッセージだけスクロールさせる */
+.appdlg-msg{
+  font-size: 13px;
+  color: rgba(30,41,59,0.92);
+  line-height: 1.65;
+  white-space: pre-wrap;
+
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+
+.appdlg-actions{
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 14px;
+
+  /* ✅ 下に固定される（長文でもボタン見える） */
+  flex-shrink: 0;
+}
+
+.appdlg-btn{
+  border: none;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.appdlg-primary{
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #fff;
+  box-shadow: 0 14px 26px rgba(79,70,229,0.28);
+}
+
+.appdlg-sub{
+  background: rgba(243,244,246,0.9);
+  color: #0f172a;
+  border: 1px solid rgba(15,23,42,0.10);
+}
+
+/* ✅ 超小型端末での余白最適化 */
+@media (max-width: 380px){
+  .appdlg-shell{
+    width: min(360px, 94vw);
+    border-radius: 18px;
+  }
+}

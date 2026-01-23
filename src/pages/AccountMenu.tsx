@@ -6,6 +6,9 @@ import "./AccountMenu.css";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 
+// ✅ 追加：アプリ内ダイアログ
+import { appDialog } from "../lib/appDialog";
+
 type SiteProfile = {
   id: string;
   name: string | null;
@@ -99,21 +102,38 @@ function AccountMenu() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    alert("ログアウトしました");
+    // ✅ alert → アプリ内
+    await appDialog.alert({
+      title: "ログアウト",
+      message: "ログアウトしました",
+    });
     navigate("/");
   };
 
   const handleDeleteAccount = async () => {
-    const check = confirm("本当にアカウントを削除しますか？");
+    // ✅ confirm → アプリ内（cancelなら何もしない）
+    const check = await appDialog.confirm({
+      title: "アカウント削除",
+      message: "本当にアカウントを削除しますか？",
+      okText: "削除する",
+      cancelText: "戻る",
+      
+    });
     if (!check) return;
 
     const { error } = await supabase.rpc("delete_user");
     if (error) {
-      alert("削除に失敗しました: " + error.message);
+      await appDialog.alert({
+        title: "削除に失敗しました",
+        message: "削除に失敗しました: " + error.message,
+      });
       return;
     }
 
-    alert("アカウントを削除しました");
+    await appDialog.alert({
+      title: "削除完了",
+      message: "アカウントを削除しました",
+    });
     navigate("/");
   };
 
@@ -175,9 +195,7 @@ function AccountMenu() {
 
             <div className="account-points-row">
               <div className="account-points-label">保有ポイント</div>
-              <div className="account-points-value">
-                {walletLoading ? "…" : fmt(wallet?.balance ?? 0)} pt
-              </div>
+              <div className="account-points-value">{walletLoading ? "…" : fmt(wallet?.balance ?? 0)} pt</div>
             </div>
 
             <div className="account-points-note">決済時にポイントを使用できます（1pt = 1円）。</div>

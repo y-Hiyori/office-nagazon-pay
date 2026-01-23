@@ -4,6 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import "./Signup.css";
 
+// ✅ 追加：アプリ内ダイアログ
+import { appDialog } from "../lib/appDialog";
+
 function Signup() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -82,7 +85,12 @@ function Signup() {
     }
 
     // ★ ここでは profiles をいじらない（メール認証後の画面でやる）
-    alert("確認メールを送信しました！メールのリンクから認証を完了してください。");
+    // ✅ alert → アプリ内ダイアログ（挙動は同じ：表示してから遷移）
+    await appDialog.alert({
+      title: "確認メールを送信しました",
+      message: "メールのリンクから認証を完了してください。",
+    });
+
     setSubmitting(false);
     navigate("/login");
   };
@@ -129,11 +137,7 @@ function Signup() {
 
       {error && <p className="signup-error">{error}</p>}
 
-      <button
-        className="signup-button"
-        onClick={handleSignup}
-        disabled={submitting} // ★ 処理中は押せない
-      >
+      <button className="signup-button" onClick={handleSignup} disabled={submitting}>
         {submitting ? "登録中..." : "登録する"}
       </button>
 

@@ -12,6 +12,9 @@ import { findProductDetailImage } from "../data/productDetailImages";
 import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
 
+// ✅ 追加：アプリ内ダイアログ
+import { appDialog } from "../lib/appDialog";
+
 const formatYen = (value: number) => (Number(value) || 0).toLocaleString("ja-JP");
 const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
 
@@ -89,23 +92,18 @@ function ProductDetail() {
     return Date.now() - createdAtMs <= NEW_PERIOD_MS;
   }, [createdAtMs]);
 
-  // 在庫ロジック（表示はしない）
   const stockNum = Number(product?.stock ?? 0) || 0;
   const isSoldOut = stockNum <= 0;
 
-  // ✅ 非表示なら「購入できない」
-  const isHidden = (product?.is_visible === false);
+  const isHidden = product?.is_visible === false;
 
-  // ✅ 購入可能判定
   const canPurchase = !isHidden && !isSoldOut;
 
-  // ✅ NEWは購入できる時だけ表示
   const isNew = isNewRaw && canPurchase;
 
   const priceNum = Number(product?.price ?? 0) || 0;
   const subtotal = priceNum * quantity;
 
-  // ✅ 商品名横に出すラベル（優先度：購入できない > 売り切れ > NEW）
   const titleBadge = useMemo(() => {
     if (!product) return null;
     if (isHidden) return { text: "現在購入できません", kind: "blocked" as const };
@@ -124,27 +122,42 @@ function ProductDetail() {
     });
   };
 
-  const handleAddToCart = () => {
+  // ✅ alert() → アプリ内ダイアログ
+  const showCannotPurchase = async () => {
+    await appDialog.alert({
+      title: "購入できません",
+      message: "現在この商品は購入できません。",
+    });
+  };
+
+  const showAddedToCart = async (name: string, qty: number) => {
+    await appDialog.alert({
+      title: "カートに追加しました",
+      message: `「${name}」を${qty}個カートに追加しました`,
+    });
+  };
+
+  const handleAddToCart = async () => {
     if (!product) return;
 
-    if (isHidden) return alert("この商品は現在購入できません。");
-    if (isSoldOut) return alert("現在購入できません。");
+    if (isHidden) return showCannotPurchase();
+    if (isSoldOut) return showCannotPurchase();
 
     const existing = cart.cart.find((item) => item.id === product.id);
     const currentQty = existing ? existing.quantity : 0;
     const totalQty = currentQty + quantity;
 
-    if (totalQty > stockNum) return alert("現在購入できません。");
+    if (totalQty > stockNum) return showCannotPurchase();
 
     cart.addToCart(product, quantity);
-    alert(`「${product.name}」を${quantity}個カートに追加しました`);
+    await showAddedToCart(product.name, quantity);
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!product) return;
 
-    if (isHidden) return alert("この商品は現在購入できません。");
-    if (isSoldOut) return alert("現在購入できません。");
+    if (isHidden) return showCannotPurchase();
+    if (isSoldOut) return showCannotPurchase();
 
     navigate("/checkout", {
       state: { buyNow: { product, quantity } },
@@ -186,7 +199,6 @@ function ProductDetail() {
 
       <main className="pdetail-main">
         <div className="pdetail-layoutTop">
-          {/* 左 */}
           <section className="pdetail-left">
             <div className="pdetail-mediaCard">
               {product.imageData ? (
@@ -196,9 +208,7 @@ function ProductDetail() {
               )}
             </div>
 
-            {/* スマホ：情報だけ（ボタンは下固定へ） */}
             <div className="pdetail-summaryCard only-mobile">
-              {/* ✅ 商品名横に ラベル（NEW/売り切れ/購入できない） */}
               <div className="pdetail-titleRow">
                 <h1 className="pdetail-name">
                   {product.name}
@@ -239,18 +249,12 @@ function ProductDetail() {
                 </div>
               </div>
 
-              {!canPurchase && (
-                <div className="pdetail-note">
-                  ※ 現在この商品は購入できません。
-                </div>
-              )}
+              {!canPurchase && <div className="pdetail-note">※ 現在この商品は購入できません。</div>}
             </div>
           </section>
 
-          {/* 右（PC用） */}
           <aside className="pdetail-right">
             <div className="pdetail-summaryCard only-desktop">
-              {/* ✅ PCも商品名横に ラベル */}
               <div className="pdetail-titleRow">
                 <h1 className="pdetail-name">
                   {product.name}
@@ -292,52 +296,32 @@ function ProductDetail() {
               </div>
 
               <div className="pdetail-actions">
-                <button
-                  className="pdetail-btn primary"
-                  onClick={handleBuyNow}
-                  disabled={!canPurchase}
-                  type="button"
-                >
+                <button className="pdetail-btn primary" onClick={handleBuyNow} disabled={!canPurchase} type="button">
                   すぐに購入
                 </button>
-                <button
-                  className="pdetail-btn secondary"
-                  onClick={handleAddToCart}
-                  disabled={!canPurchase}
-                  type="button"
-                >
+                <button className="pdetail-btn secondary" onClick={handleAddToCart} disabled={!canPurchase} type="button">
                   カートに入れる
                 </button>
               </div>
 
-              {!canPurchase && (
-                <div className="pdetail-note">
-                  ※ 現在この商品は購入できません。
-                </div>
-              )}
+              {!canPurchase && <div className="pdetail-note">※ 現在この商品は購入できません。</div>}
             </div>
           </aside>
         </div>
 
-        {/* 下段：商品説明 */}
         <section className="pdetail-descCard">
           <div className="pdetail-descHead">
             <h3 className="pdetail-descTitle">商品説明</h3>
           </div>
 
           {detailImage ? (
-            <img
-              src={detailImage}
-              alt={`${product.name} の説明画像`}
-              className="pdetail-descImage"
-            />
+            <img src={detailImage} alt={`${product.name} の説明画像`} className="pdetail-descImage" />
           ) : (
             <div className="pdetail-descNone">この商品の説明はありません。</div>
           )}
         </section>
       </main>
 
-      {/* スマホだけ：下固定バー */}
       <div className="pdetail-bottomFixed only-mobile">
         <div className="pdetail-bottomInner">
           <div className="pdetail-bottomTotalRow">
@@ -346,20 +330,10 @@ function ProductDetail() {
           </div>
 
           <div className="pdetail-bottomBtns">
-            <button
-              className="pdetail-bottomBtn primary"
-              onClick={handleBuyNow}
-              disabled={!canPurchase}
-              type="button"
-            >
+            <button className="pdetail-bottomBtn primary" onClick={handleBuyNow} disabled={!canPurchase} type="button">
               購入
             </button>
-            <button
-              className="pdetail-bottomBtn secondary"
-              onClick={handleAddToCart}
-              disabled={!canPurchase}
-              type="button"
-            >
+            <button className="pdetail-bottomBtn secondary" onClick={handleAddToCart} disabled={!canPurchase} type="button">
               カート
             </button>
           </div>

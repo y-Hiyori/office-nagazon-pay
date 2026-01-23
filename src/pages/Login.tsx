@@ -4,6 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import "./Login.css";
 
+// ✅ 追加：アプリ内ダイアログ
+import { appDialog } from "../lib/appDialog";
+
 function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -33,7 +36,12 @@ function Login() {
       return;
     }
 
-    alert("ログイン成功！");
+    // ✅ alert → アプリ内
+    await appDialog.alert({
+      title: "ログイン",
+      message: "ログイン成功！",
+    });
+
     setLoggingIn(false);
     navigate("/account");
   };

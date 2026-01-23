@@ -4,6 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import "./Login.css"; // ログイン画面と同じデザインを流用
 
+// ✅ 追加：アプリ内ダイアログ
+import { appDialog } from "../lib/appDialog";
+
 function ForgotPassword() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -25,12 +28,18 @@ function ForgotPassword() {
 
     if (error) {
       setError("パスワード再設定メールの送信に失敗しました: " + error.message);
-    } else {
-      alert("パスワード再設定用のメールを送信しました。メールボックスを確認してください。");
-      // 送信後はログイン画面に戻す
-      navigate("/login");
+      setIsSending(false);
+      return;
     }
 
+    // ✅ alert → アプリ内
+    await appDialog.alert({
+      title: "送信しました",
+      message: "パスワード再設定用のメールを送信しました。メールボックスを確認してください。",
+    });
+
+    // 送信後はログイン画面に戻す（挙動は同じ）
+    navigate("/login");
     setIsSending(false);
   };
 
@@ -58,11 +67,7 @@ function ForgotPassword() {
 
       {error && <p className="login-error">{error}</p>}
 
-      <button
-        className="login-button"
-        onClick={handleSendResetMail}
-        disabled={isSending}
-      >
+      <button className="login-button" onClick={handleSendResetMail} disabled={isSending}>
         {isSending ? "送信中..." : "再設定メールを送信する"}
       </button>
     </div>

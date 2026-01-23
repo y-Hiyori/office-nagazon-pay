@@ -9,17 +9,18 @@ export default function AdminHeader() {
   const [open, setOpen] = useState(false);
 
   const menuItems: MenuItem[] = useMemo(
-    () => [
-      { label: "管理メニュー", to: "/admin-menu" },
-      { label: "商品管理", to: "/admin-page" },
-      { label: "お知らせ管理", to: "/admin-notices" }, // ✅ 追加
-      { label: "売上", to: "/admin-sales" },
-      { label: "ユーザー管理", to: "/admin-users" },
-      { label: "クーポン", to: "/admin-coupons" },
-      { label: "ホーム画面へ戻る", to: "/" },
-    ],
-    []
-  );
+  () => [
+    { label: "管理者メニュー", to: "/admin-menu" },
+    { label: "商品管理", to: "/admin-page" },
+    { label: "お知らせ管理", to: "/admin-notices" },
+    { label: "クーポン管理", to: "/admin-coupons" },
+    { label: "ポイント管理", to: "/admin-points" },
+    { label: "アカウント管理", to: "/admin-users" },
+    { label: "売上状況確認", to: "/admin-sales" },
+    { label: "ホーム画面へ戻る", to: "/" },
+  ],
+  []
+);
 
   const go = (to: string) => {
     setOpen(false);

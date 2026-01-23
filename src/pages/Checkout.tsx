@@ -7,6 +7,9 @@ import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
 import "./Checkout.css";
 
+// ✅ 追加：アプリ内ダイアログ
+import { appDialog } from "../lib/appDialog";
+
 type StoredItem = {
   productId: string | number;
   name: string;
@@ -110,7 +113,10 @@ function Checkout() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        alert("ログインしてください");
+        await appDialog.alert({
+          title: "ログインが必要です",
+          message: "ログインしてください",
+        });
         navigate("/login");
         return;
       }
@@ -276,7 +282,10 @@ function Checkout() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        alert("ログインしてください");
+        await appDialog.alert({
+          title: "ログインが必要です",
+          message: "ログインしてください",
+        });
         navigate("/login");
         return;
       }
@@ -331,7 +340,10 @@ function Checkout() {
 
         if (orderErr || !orderRow) {
           console.error(orderErr);
-          alert("注文の作成に失敗しました");
+          await appDialog.alert({
+            title: "エラー",
+            message: "注文の作成に失敗しました",
+          });
           return;
         }
 
@@ -346,7 +358,10 @@ function Checkout() {
         const { error: itemsErr } = await supabase.from("order_items").insert(orderItemsPayload);
         if (itemsErr) {
           console.error(itemsErr);
-          alert("注文商品の保存に失敗しました");
+          await appDialog.alert({
+            title: "エラー",
+            message: "注文商品の保存に失敗しました",
+          });
           return;
         }
 
@@ -358,7 +373,10 @@ function Checkout() {
           });
           if (useErr) {
             console.error("points_use_for_order error:", useErr);
-            alert("ポイント使用に失敗しました（残高不足など）");
+            await appDialog.alert({
+              title: "ポイント使用に失敗しました",
+              message: "ポイント使用に失敗しました（残高不足など）",
+            });
             return;
           }
         }
@@ -371,7 +389,12 @@ function Checkout() {
           });
           if (error) {
             console.error("decrement_stock error:", error);
-            alert((error.message ?? "").includes("在庫不足") ? `在庫が足りません：${it.name}` : "在庫更新に失敗しました");
+            await appDialog.alert({
+              title: "在庫更新エラー",
+              message: (error.message ?? "").includes("在庫不足")
+                ? `在庫が足りません：${it.name}`
+                : "在庫更新に失敗しました",
+            });
             return;
           }
         }
@@ -396,7 +419,10 @@ function Checkout() {
 
       // ========= PayPay購入 =========
       if (method !== "paypay") {
-        alert("支払い方法を選択してください");
+        await appDialog.alert({
+          title: "支払い方法",
+          message: "支払い方法を選択してください",
+        });
         return;
       }
 
@@ -446,7 +472,10 @@ function Checkout() {
       window.location.href = paypayUrl;
     } catch (e) {
       console.error(e);
-      alert("決済の開始に失敗しました。時間をおいてお試しください。");
+      await appDialog.alert({
+        title: "決済エラー",
+        message: "決済の開始に失敗しました。時間をおいてお試しください。",
+      });
     } finally {
       if (!redirecting) setIsProcessing(false);
     }
@@ -456,11 +485,17 @@ function Checkout() {
     if (isProcessing || isCheckingStock) return;
 
     if (!buyNow && cart.cart.length === 0) {
-      alert("カートが空です");
+      await appDialog.alert({
+        title: "カート",
+        message: "カートが空です",
+      });
       return;
     }
     if (!method) {
-      alert("支払い方法を選択してください");
+      await appDialog.alert({
+        title: "支払い方法",
+        message: "支払い方法を選択してください",
+      });
       return;
     }
 
@@ -468,9 +503,14 @@ function Checkout() {
     try {
       const result = await recheckStockBeforeConfirm();
       if (!result.ok) {
-        alert(
-          `商品の確保ができません。\n在庫不足または非表示：\n・${result.ngNames.join("\n・")}\n\nカートをリセットしてホームに戻ります。`
-        );
+        await appDialog.alert({
+          title: "在庫が確保できません",
+          message:
+            `商品の確保ができません。\n在庫不足または非表示：\n` +
+            `・${result.ngNames.join("\n・")}\n\n` +
+            `カートをリセットしてホームに戻ります。`,
+        });
+
         if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
         navigate("/", { replace: true });
         return;
@@ -478,7 +518,10 @@ function Checkout() {
 
       // ✅ 設定ロード中は安全側で止める
       if (storeAuthLoading) {
-        alert("設定を読み込み中です。少し待ってからもう一度お試しください。");
+        await appDialog.alert({
+          title: "読み込み中",
+          message: "設定を読み込み中です。少し待ってからもう一度お試しください。",
+        });
         return;
       }
 
@@ -487,7 +530,10 @@ function Checkout() {
       else await startPaymentFlow();
     } catch (e) {
       console.error(e);
-      alert("在庫確認に失敗しました。時間をおいてお試しください。");
+      await appDialog.alert({
+        title: "在庫確認エラー",
+        message: "在庫確認に失敗しました。時間をおいてお試しください。",
+      });
     } finally {
       setIsCheckingStock(false);
     }
@@ -503,7 +549,10 @@ function Checkout() {
       const code = storeCode;
 
       if (!code.trim()) {
-        alert("NAGAZON PAY ID を入力してください。");
+        await appDialog.alert({
+          title: "入力してください",
+          message: "NAGAZON PAY ID を入力してください。",
+        });
         return;
       }
 
@@ -512,12 +561,18 @@ function Checkout() {
 
       if (error) {
         console.error("store_auth_verify error:", error);
-        alert("認証に失敗しました。時間をおいてお試しください。");
+        await appDialog.alert({
+          title: "認証エラー",
+          message: "認証に失敗しました。時間をおいてお試しください。",
+        });
         return;
       }
 
       if (!ok) {
-        alert("NAGAZON PAY ID が正しくありません。");
+        await appDialog.alert({
+          title: "認証失敗",
+          message: "NAGAZON PAY ID が正しくありません。",
+        });
         return;
       }
 
@@ -527,7 +582,10 @@ function Checkout() {
       await startPaymentFlow();
     } catch (e) {
       console.error(e);
-      alert("認証に失敗しました。時間をおいてお試しください。");
+      await appDialog.alert({
+        title: "認証エラー",
+        message: "認証に失敗しました。時間をおいてお試しください。",
+      });
     }
   };
 
