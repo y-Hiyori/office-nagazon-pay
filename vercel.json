@@ -1,6 +1,12 @@
 {
   "routes": [
-    { "src": "/api/(.*)", "dest": "http://161.33.19.160:3000/api/$1" },
+    { "src": "/api/send-buyer-order-email", "dest": "/api/send-buyer-order-email" },
+    { "src": "/api/send-contact-email", "dest": "/api/send-contact-email" },
+
+    { "src": "/api/create-paypay-order", "dest": "http://161.33.19.160:3000/api/create-paypay-order" },
+    { "src": "/api/order-status", "dest": "http://161.33.19.160:3000/api/order-status" },
+    { "src": "/api/confirm-paypay-payment", "dest": "http://161.33.19.160:3000/api/confirm-paypay-payment" },
+
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/" }
   ]
