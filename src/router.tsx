@@ -1,4 +1,3 @@
-// src/router.tsx
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 
@@ -16,6 +15,9 @@ import PurchaseComplete from "./pages/PurchaseComplete";
 import PayPayFailed from "./pages/PayPayFailed";
 import NoticeDetail from "./pages/NoticeDetail";
 import Terms from "./pages/Terms";
+
+// ✅ Game
+import Game from "./pages/Game";
 
 // ===== アカウント =====
 import AccountMenu from "./pages/AccountMenu";
@@ -76,10 +78,13 @@ const router = createBrowserRouter([
       { path: "privacy", element: <PrivacyPolicy /> },
       { path: "terms", element: <Terms /> },
 
-      // お知らせ詳細（Public）
+      // ✅ Game（Publicで開ける）
+      { path: "game", element: <Game /> },
+
+      // ✅ お知らせ詳細（Public）
       { path: "notice/:id", element: <NoticeDetail /> },
 
-      // PayPay戻り（Public）
+      // ✅ PayPay戻りでログイン無しでも開ける必要があるのでPublic
       { path: "purchase-complete", element: <PurchaseComplete /> },
       { path: "purchase-complete/:id", element: <PurchaseComplete /> },
       { path: "paypay-failed", element: <PayPayFailed /> },
@@ -252,7 +257,7 @@ const router = createBrowserRouter([
         ),
       },
 
-      // ホームスライド管理
+      // ✅ ホームスライド管理
       {
         path: "admin-home",
         element: (
@@ -278,7 +283,7 @@ const router = createBrowserRouter([
         ),
       },
 
-      // お知らせ管理
+      // ✅ お知らせ管理
       {
         path: "admin-notices",
         element: (
@@ -304,7 +309,7 @@ const router = createBrowserRouter([
         ),
       },
 
-      // ポイント管理
+      // ✅ ポイント管理
       {
         path: "admin-points",
         element: (

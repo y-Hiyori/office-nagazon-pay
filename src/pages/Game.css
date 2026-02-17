@@ -1,0 +1,265 @@
+/* =========================
+   Page base (Game only)
+   - Vite初期 #root padding の影響で "右がはみ出る" のを止める
+========================= */
+
+.gamePage {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+
+  /* 横はみ出し完全ブロック */
+  overflow-x: hidden;
+}
+
+.gamePage,
+.gamePage * {
+  box-sizing: border-box;
+}
+
+/* Vite初期CSSの #root padding/max-width が残ってても
+   ゲームページ内は崩れないようにする */
+.gamePage {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 画面左右に動く(矢印キー/オーバースクロール)対策 */
+html,
+body {
+  overscroll-behavior: none;
+  overflow-x: hidden;
+}
+
+/* =========================
+   Layout
+========================= */
+
+.gameMain {
+  flex: 1;
+  display: grid;
+  place-items: center;
+
+  /* スマホでギリギリにならないように */
+  padding: 10px;
+
+  /* iOSのアドレスバーで高さが変動しても破綻しにくい */
+  min-height: 0;
+}
+
+/* PCでは見た目が整う最大幅、スマホは100% */
+.gameWrap {
+  width: min(980px, 100%);
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* =========================
+   Canvas Shell
+========================= */
+
+.canvasShell {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+
+  border-radius: 18px;
+  overflow: hidden; /* overlay/ボタン含めてはみ出しを切る */
+
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0b0f19;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+/* Canvas: TS側で高さを決めるが、CSSでも保険 */
+.gameCanvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: min(72svh, 760px);
+
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* =========================
+   Overlay (center fixed)
+========================= */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+
+  /* 画面が小さい時にカードが端に当たらない */
+  padding: 14px;
+
+  background: rgba(0, 0, 0, 0.25);
+
+  /* overlayがスクロールの原因にならないように */
+  overflow: hidden;
+}
+
+.overlayCard {
+  width: min(560px, 92vw);
+  max-width: 92vw;
+
+  /* スマホで縦が足りない時はカードだけスクロール */
+  max-height: min(70svh, 560px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 16, 28, 0.96);
+  color: #fff;
+
+  padding: 16px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+.overlayTitle {
+  font-weight: 900;
+  font-size: 22px;
+  margin-bottom: 10px;
+  text-align: center;
+  letter-spacing: 0.2px;
+}
+
+.overlayText {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.55;
+  opacity: 0.95;
+  margin-bottom: 12px;
+
+  /* 長文で横はみ出ししない */
+  word-break: break-word;
+}
+
+.overlayText.center {
+  text-align: center;
+}
+
+.overlayRow {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+
+  margin-bottom: 12px;
+}
+
+.overlayHint {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.75;
+  text-align: center;
+}
+
+/* =========================
+   Buttons
+========================= */
+
+.overlayPrimary {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+
+  font-weight: 900;
+  cursor: pointer;
+
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.overlayPrimary:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
+}
+
+.overlayPrimary:active {
+  transform: translateY(0);
+}
+
+.overlayPrimary.ghost {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.diffBtn,
+.quizBtn {
+  padding: 10px 14px;
+  border-radius: 999px;
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+
+  font-weight: 900;
+  cursor: pointer;
+
+  /* 右がはみ出る対策 */
+  min-width: 92px;
+  max-width: 42vw;
+
+  text-align: center;
+  white-space: nowrap;
+}
+
+.diffBtn.on,
+.quizBtn.on {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.quizBtn {
+  min-width: 120px;
+  font-size: 18px;
+}
+
+/* =========================
+   Mobile tuning
+========================= */
+
+@media (max-width: 420px) {
+  .gameMain {
+    padding: 8px;
+  }
+
+  .overlay {
+    padding: 10px;
+  }
+
+  .overlayCard {
+    width: min(520px, 94vw);
+    max-width: 94vw;
+    padding: 14px;
+  }
+
+  .overlayTitle {
+    font-size: 20px;
+  }
+
+  .diffBtn,
+  .quizBtn {
+    min-width: 88px;
+    padding: 10px 12px;
+    max-width: 44vw;
+  }
+}
+
+/* =========================
+   Extra: safe focus outline (keyboard)
+========================= */
+
+button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 2px;
+}
