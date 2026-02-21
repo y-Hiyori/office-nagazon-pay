@@ -176,7 +176,7 @@
 
 .home-quick-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)); /* ✅ PCは横1列（4つ横並び） */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -188,7 +188,7 @@
   padding: 14px 14px;
   border-radius: 18px;
 
-  background: rgba(255, 255, 255, 0.86); /* ✅ 全部白 */
+  background: rgba(255, 255, 255, 0.86);
   border: 1px solid rgba(148, 163, 184, 0.24);
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
 
@@ -221,14 +221,12 @@
   opacity: 0.9;
 }
 
-/* ✅ タブレット以下：2列に落としてもOK（見やすさ優先） */
 @media (max-width: 900px) {
   .home-quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* ✅ スマホ：2列（2×2）固定 */
 @media (max-width: 640px) {
   .home-quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -266,7 +264,6 @@
   padding: 10px 10px;
 }
 
-/* 見出し */
 .home-social-head {
   padding: 10px 10px 6px;
   display: flex;
@@ -297,7 +294,6 @@
   padding: 10px 4px 6px;
 }
 
-/* 外側（ボタン枠） */
 .home-social-link {
   text-decoration: none;
   display: grid;
@@ -323,7 +319,6 @@
   transform: translateY(0);
 }
 
-/* ✅ 内側（二重枠の原因）を完全OFF */
 .home-social-icon {
   width: 44px;
   height: 44px;
@@ -349,7 +344,7 @@
 }
 
 /* ===========================
-   お知らせ / 商品追加情報
+   お知らせ / 商品追加情報（+ ランキングはHome.tsxで挿入）
 =========================== */
 .home-panels {
   max-width: 1200px;
@@ -469,7 +464,6 @@
   font-weight: 900;
 }
 
-/* レスポンシブ */
 @media (max-width: 820px) {
   .home-panels {
     grid-template-columns: 1fr;
@@ -494,47 +488,37 @@
   }
 }
 
-/* ===== ヒーロー（既存：スマホ/共通） ===== */
-/* ここまでは今のままでOK */
-
 /* ===========================
-   ✅ PCだけ：ヒーローを「画像左 / テキスト右」にして
-   高さを clamp で制限（デカくなりすぎ防止）
-   ※スマホは今のまま残る
+   ✅ PCだけ：ヒーローを「画像左 / テキスト右」
 =========================== */
 @media (min-width: 900px) {
-  /* ヒーロー全体の余白感（参考サイトっぽく） */
   .hero {
     margin-top: 18px;
     padding: 0 16px;
   }
 
-  /* 1枚のスライドを“横並びカード”に */
   .hero-slide {
-    aspect-ratio: auto;                 /* ✅ 16:9固定を解除 */
-    height: clamp(320px, 34vw, 460px);  /* ✅ 高さ上限を作る（大きくなりすぎない） */
+    aspect-ratio: auto;
+    height: clamp(320px, 34vw, 460px);
     display: flex;
     align-items: stretch;
     background: rgba(255, 255, 255, 0.75);
   }
 
-  /* 画像は左：大きいけどはみ出さない */
   .hero-slide img {
     width: 62%;
     height: 100%;
-    object-fit: contain;     /* 画像が切れない */
+    object-fit: contain;
     object-position: center;
     background: rgba(15, 23, 42, 0.04);
   }
 
-  /* スマホ用の暗いグラデはPCでは消す（テキストが右に来るので不要） */
   .hero-slide::after {
     display: none;
   }
 
-  /* テキストを右側のカードとして配置 */
   .hero-text {
-    position: static;        /* ✅ absolute解除 */
+    position: static;
     max-width: none;
     width: 38%;
     color: #0f172a;
@@ -544,10 +528,7 @@
     justify-content: center;
 
     padding: 22px 22px;
-  }
 
-  /* 右側カード感（GAMSUNG SOUNDの情報ブロックっぽく） */
-  .hero-text {
     background: rgba(255, 255, 255, 0.72);
     border-left: 1px solid rgba(148, 163, 184, 0.18);
     backdrop-filter: blur(10px);
@@ -573,15 +554,164 @@
     padding: 12px 18px;
   }
 
-  /* ドット位置：カード下で安定させる */
   .hero-dots {
     bottom: 12px;
   }
 }
 
-/* ✅ さらに大画面だけちょい抑える（任意） */
 @media (min-width: 1200px) {
   .hero-slide {
-    height: 440px; /* clampの上限に近いが、さらに安定させたい場合 */
+    height: 440px;
+  }
+}
+
+/* ===========================
+   ✅ Ranking（Homeに干渉しない・見た目だけ改善）
+   ★ここから下は「ランキング専用」だけ
+=========================== */
+
+.rankPanel {
+  padding: 14px;
+}
+
+.rankHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.rankTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.92);
+  letter-spacing: 0.02em;
+}
+
+.rankRefreshBtn {
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 900;
+  cursor: pointer;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.92);
+  color: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.rankRefreshBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.rankRefreshBtn:active {
+  transform: translateY(0);
+}
+
+.rankInfo {
+  padding: 12px 0 0;
+  font-weight: 800;
+  color: rgba(15, 23, 42, 0.7);
+}
+
+.rankErr {
+  padding: 12px 0 0;
+  font-weight: 900;
+  color: #b42318;
+}
+
+.rankTableWrap {
+  overflow-x: auto;
+  padding-top: 10px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ★重要：min-width禁止（常時スクロールバー原因） */
+.rankTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.rankTable thead th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.7);
+  padding: 10px 8px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.rankTable tbody td {
+  padding: 10px 8px;
+  font-size: 14px;
+  white-space: nowrap;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  color: rgba(15, 23, 42, 0.92);
+}
+
+.rankTable tbody tr:hover {
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.rankNum {
+  color: rgba(15, 23, 42, 0.55);
+  font-weight: 900;
+}
+
+.rankName {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rankScore {
+  font-weight: 950;
+}
+
+.rankDate {
+  color: rgba(15, 23, 42, 0.68);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.rankDiff {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 950;
+  font-size: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.rankDiff_easy {
+  background: rgba(46, 196, 182, 0.14);
+}
+.rankDiff_normal {
+  background: rgba(255, 183, 3, 0.16);
+}
+.rankDiff_hard {
+  background: rgba(255, 77, 109, 0.14);
+}
+
+.rankEmpty {
+  text-align: center;
+  padding: 16px 8px;
+  color: rgba(15, 23, 42, 0.6);
+  font-weight: 900;
+}
+
+/* スマホは日時を隠して詰まりを防ぐ（仕様は変えず見た目だけ） */
+@media (max-width: 560px) {
+  .rankTable th:nth-child(5),
+  .rankTable td:nth-child(5) {
+    display: none;
   }
 }

@@ -1,127 +1,113 @@
+// src/pages/AdminEdit.tsx
 import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { useNavigate } from "react-router-dom";
-import "./AccountEdit.css";
+import "./AdminEdit.css";
+import { appDialog } from "../lib/appDialog"; // ✅ 追加
 
-// ✅ 追加：アプリ内ダイアログ
-import { appDialog } from "../lib/appDialog";
-
-function AccountEdit() {
+export default function AdminEdit() {
   const navigate = useNavigate();
+  const { id: urlId } = useParams<{ id: string }>();
 
-  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [editId, setEditId] = useState("");
   const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  // パスワード編集用
-  const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
-
-  useEffect(() => {
-    const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-      setUser(user);
-
-      // プロフィール読み込み
-      const { data } = await supabase.from("profiles").select("name").eq("id", user.id).single();
-
-      setName(data?.name || "");
-    };
-
-    load();
-  }, [navigate]);
-
-  // 🔵 保存処理
-  const handleSave = async () => {
-    if (!name) {
-      await appDialog.alert({ title: "入力エラー", message: "名前を入力してください" });
+  const loadProduct = async () => {
+    if (!urlId) {
+      await appDialog.alert({ title: "エラー", message: "商品のIDが不正です" });
+      navigate("/admin-page");
       return;
     }
 
-    // === 1) 名前更新 ===
-    const { error: nameError } = await supabase.from("profiles").update({ name }).eq("id", user.id);
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, name, price, stock")
+      .eq("id", urlId)
+      .maybeSingle();
 
-    if (nameError) {
-      await appDialog.alert({
-        title: "保存に失敗しました",
-        message: "名前の保存に失敗しました: " + nameError.message,
-      });
+    if (error || !data) {
+      await appDialog.alert({ title: "エラー", message: "商品が見つかりません" });
+      navigate("/admin-page");
       return;
     }
 
-    // === 2) パスワード変更 ===
-    if (password || passwordConfirm) {
-      if (password.length < 6) {
-        await appDialog.alert({ title: "入力エラー", message: "パスワードは6文字以上必要です" });
-        return;
-      }
-      if (password !== passwordConfirm) {
-        await appDialog.alert({ title: "入力エラー", message: "パスワードが一致しません" });
-        return;
-      }
-
-      const { error: passError } = await supabase.auth.updateUser({
-        password: password,
-      });
-
-      if (passError) {
-        await appDialog.alert({
-          title: "変更に失敗しました",
-          message: "パスワード変更に失敗しました: " + passError.message,
-        });
-        return;
-      }
-    }
-
-    await appDialog.alert({ title: "完了", message: "保存しました！" });
-    navigate("/account");
+    setEditId(String(data.id));
+    setName(data.name);
+    setPrice(String(data.price));
+    setStock(String(data.stock));
+    setLoading(false);
   };
 
+  useEffect(() => {
+    loadProduct();
+  }, [urlId]);
+
+  const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    if (!editId || !name || !price || !stock) {
+      await appDialog.alert({
+        title: "入力エラー",
+        message: "すべての項目を入力してください",
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("products")
+      .update({
+        id: Number(editId),
+        name: name.trim(),
+        price: Number(price),
+        stock: Number(stock),
+      })
+      .eq("id", urlId);
+
+    if (error) {
+      await appDialog.alert({
+        title: "更新失敗",
+        message: error.message,
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    await appDialog.alert({
+      title: "更新完了",
+      message: "商品を更新しました",
+    });
+
+    navigate("/admin-page");
+  };
+
+  if (loading) return <p style={{ padding: 20 }}>読み込み中...</p>;
+
   return (
-    <div className="acc-edit">
-      {/* ← 戻るボタン */}
-      <button className="acc-edit-back" onClick={() => navigate("/account")}>
-        ← アカウント情報へ戻る
-      </button>
+    <div className="ae-page">
+      <header className="ae-header">
+        <button className="ae-back" onClick={() => navigate("/admin-page")}>
+          ←
+        </button>
+        <h2>商品編集</h2>
+      </header>
 
-      <h2 className="acc-edit-title">アカウント編集</h2>
+      <div className="ae-card">
+        <input value={name} onChange={(e) => setName(e.target.value)} />
+        <input value={price} onChange={(e) => setPrice(e.target.value)} />
+        <input value={stock} onChange={(e) => setStock(e.target.value)} />
+      </div>
 
-      {/* 名前 */}
-      <label className="acc-label">名前</label>
-      <input value={name} onChange={(e) => setName(e.target.value)} className="acc-input" placeholder="名前を入力" />
-
-      {/* パスワード */}
-      <label className="acc-label" style={{ marginTop: "20px" }}>
-        新しいパスワード
-      </label>
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="acc-input"
-        placeholder="新しいパスワード"
-      />
-
-      <label className="acc-label">パスワード（確認用）</label>
-      <input
-        type="password"
-        value={passwordConfirm}
-        onChange={(e) => setPasswordConfirm(e.target.value)}
-        className="acc-input"
-        placeholder="もう一度入力"
-      />
-
-      {/* 保存ボタン */}
-      <button className="acc-edit-save" onClick={handleSave}>
-        保存する
-      </button>
+      <footer className="ae-footer">
+        <button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? "保存中..." : "保存する"}
+        </button>
+      </footer>
     </div>
   );
 }
-
-export default AccountEdit;

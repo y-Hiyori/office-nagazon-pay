@@ -8,6 +8,9 @@ import "./Home.css";
 import { HOME_SLIDES } from "../data/homeSlides";
 import { supabase } from "../lib/supabase";
 
+// ✅ 追加：ランキング（仕様は変えない）
+import RankingPanel from "./RankingPanel";
+
 type NoticeRow = {
   id: string;
   title: string;
@@ -208,7 +211,11 @@ export default function Home() {
 
         {/* ✅ ① ヒーロー直下：クイック4ボタン（PC=横1列 / スマホ=2列） */}
         <section className="home-quick">
-          <div className="home-quick-grid" role="navigation" aria-label="クイックメニュー">
+          <div
+            className="home-quick-grid"
+            role="navigation"
+            aria-label="クイックメニュー"
+          >
             <button
               type="button"
               className="home-quick-btn"
@@ -271,7 +278,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ✅ ③ お知らせ / 商品追加情報 */}
+        {/* ✅ ③ お知らせ / ランキング / 商品追加情報（ランキングはお知らせの次） */}
         <section className="home-panels">
           {/* お知らせ */}
           <div className="home-panel">
@@ -306,6 +313,11 @@ export default function Home() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ✅ ランキング（お知らせの次） */}
+          <div className="home-panel">
+            <RankingPanel />
           </div>
 
           {/* 商品追加情報 */}

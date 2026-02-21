@@ -17,7 +17,7 @@ import NoticeDetail from "./pages/NoticeDetail";
 import Terms from "./pages/Terms";
 
 // ✅ Game
-import Game from "./pages/Game";
+import Game from "./pages/game/Game";
 
 // ===== アカウント =====
 import AccountMenu from "./pages/AccountMenu";
@@ -52,6 +52,9 @@ import AdminHomeSlideEdit from "./pages/AdminHomeSlideEdit";
 import AdminNotices from "./pages/AdminNotices";
 import AdminNoticeEdit from "./pages/AdminNoticeEdit";
 import AdminPoints from "./pages/AdminPoints";
+
+// ✅ 追加：ゲームスコア管理
+import AdminGameScores from "./pages/AdminGameScores";
 
 // ===== ルートガード =====
 import AdminRoute from "./components/AdminRoute";
@@ -315,6 +318,16 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminPoints />
+          </AdminRoute>
+        ),
+      },
+
+      // ✅ ゲームスコア管理（確認 / 個別削除 / 期間削除）
+      {
+        path: "admin-game-scores",
+        element: (
+          <AdminRoute>
+            <AdminGameScores />
           </AdminRoute>
         ),
       },

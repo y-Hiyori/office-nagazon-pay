@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./AdminDetail.css";
 import { findProductImage } from "../data/products";
+import { appDialog } from "../lib/appDialog"; // ✅ 追加
 
 type AdminProduct = {
   id: number;
@@ -45,8 +46,37 @@ function AdminDetail() {
     return num.toLocaleString("ja-JP");
   };
 
-  if (loading) return <p style={{ padding: 20 }}>読み込み中...</p>;
+  const handleDelete = async () => {
+    const ok = await appDialog.confirm({
+      title: "削除確認",
+      message: "本当に削除しますか？（元に戻せません）",
+      okText: "削除する",
+      cancelText: "キャンセル",
+    });
+    if (!ok) return;
 
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", product?.id);
+
+    if (error) {
+      await appDialog.alert({
+        title: "削除に失敗しました",
+        message: error.message,
+      });
+      return;
+    }
+
+    await appDialog.alert({
+      title: "削除完了",
+      message: "商品を削除しました",
+    });
+
+    navigate("/admin-page");
+  };
+
+  if (loading) return <p style={{ padding: 20 }}>読み込み中...</p>;
   if (!product)
     return (
       <div style={{ padding: 20 }}>
@@ -56,24 +86,6 @@ function AdminDetail() {
     );
 
   const imgSrc = findProductImage(product.id) ?? "";
-
-  const handleDelete = async () => {
-    const ok = confirm("本当に削除しますか？");
-    if (!ok) return;
-
-    const { error } = await supabase
-      .from("products")
-      .delete()
-      .eq("id", product.id);
-
-    if (error) {
-      alert("削除に失敗しました: " + error.message);
-      return;
-    }
-
-    alert("商品を削除しました！");
-    navigate("/admin-page");
-  };
 
   return (
     <div className="detail-container">

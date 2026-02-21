@@ -1,8 +1,10 @@
+// src/pages/AdminCoupons.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminCoupons.css";
+import { appDialog } from "../lib/appDialog"; // ✅ 追加
 
 type CouponRow = {
   code: string;
@@ -36,7 +38,7 @@ export default function AdminCoupons() {
 
     if (error) {
       console.error(error);
-      alert("読み込みに失敗しました");
+      await appDialog.alert({ title: "読み込みに失敗しました", message: "読み込みに失敗しました" });
       setLoading(false);
       return;
     }
@@ -45,7 +47,7 @@ export default function AdminCoupons() {
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const filtered = useMemo(() => {
@@ -68,21 +70,29 @@ export default function AdminCoupons() {
     const { error } = await supabase.from("coupons").update({ is_active: next }).eq("code", code);
     if (error) {
       console.error(error);
-      alert("更新に失敗しました");
+      await appDialog.alert({ title: "更新に失敗しました", message: "更新に失敗しました" });
       return;
     }
     setRows((prev) => prev.map((r) => (r.code === code ? { ...r, is_active: next } : r)));
   };
 
   const remove = async (code: string) => {
-    if (!confirm(`${code} を削除しますか？`)) return;
+    const ok = await appDialog.confirm({
+      title: "削除確認",
+      message: `${code} を削除しますか？（元に戻せません）`,
+      okText: "削除する",
+      cancelText: "キャンセル",
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("coupons").delete().eq("code", code);
     if (error) {
       console.error(error);
-      alert("削除に失敗しました");
+      await appDialog.alert({ title: "削除に失敗しました", message: "削除に失敗しました: " + error.message });
       return;
     }
     setRows((prev) => prev.filter((r) => r.code !== code));
+    await appDialog.alert({ title: "削除完了", message: "削除しました" });
   };
 
   return (

@@ -3,13 +3,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import "./AdminAdd.css";
+import { appDialog } from "../lib/appDialog"; // ✅ 追加
 
 function AdminAdd() {
   const navigate = useNavigate();
 
-  // ★ 追加：商品IDを自分で入力する
   const [productId, setProductId] = useState("");
-
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
@@ -19,9 +18,11 @@ function AdminAdd() {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    // ★ IDも含めて全部チェック
     if (!productId || !name || !price || !stock) {
-      alert("商品ID・商品名・価格・在庫をすべて入力してください");
+      await appDialog.alert({
+        title: "入力エラー",
+        message: "商品ID・商品名・価格・在庫をすべて入力してください",
+      });
       setIsSubmitting(false);
       return;
     }
@@ -30,20 +31,24 @@ function AdminAdd() {
     const priceNum = Number(price);
     const stockNum = Number(stock);
 
-    // ID は整数・1以上の数にする
     if (!Number.isInteger(idNum) || idNum <= 0) {
-      alert("商品IDは1以上の整数で入力してください");
+      await appDialog.alert({
+        title: "入力エラー",
+        message: "商品IDは1以上の整数で入力してください",
+      });
       setIsSubmitting(false);
       return;
     }
 
     if (Number.isNaN(priceNum) || Number.isNaN(stockNum)) {
-      alert("価格と在庫は数値で入力してください");
+      await appDialog.alert({
+        title: "入力エラー",
+        message: "価格と在庫は数値で入力してください",
+      });
       setIsSubmitting(false);
       return;
     }
 
-    // 👇 ここで id も一緒に渡す
     const { error } = await supabase.from("products").insert({
       id: idNum,
       name,
@@ -52,13 +57,16 @@ function AdminAdd() {
     });
 
     if (error) {
-      alert("商品追加に失敗: " + error.message);
       console.error(error);
+      await appDialog.alert({
+        title: "追加に失敗しました",
+        message: "商品追加に失敗: " + error.message,
+      });
       setIsSubmitting(false);
       return;
     }
 
-    alert("商品を追加しました！");
+    await appDialog.alert({ title: "完了", message: "商品を追加しました！" });
     navigate("/admin-page");
   };
 
@@ -80,7 +88,6 @@ function AdminAdd() {
         </button>
       </header>
 
-      {/* ★ 商品ID入力欄を追加 */}
       <input
         type="number"
         placeholder="商品ID（例：101）"

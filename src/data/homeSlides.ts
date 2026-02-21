@@ -4,6 +4,7 @@
 import appHero from "./商品ヒーロー/hero_app.png";
 import herbHero from "./商品ヒーロー/hero_herb.png";
 import onigiriHero from "./商品ヒーロー/hero_onigiri.png";
+import Herogame from "./商品ヒーロー/hero_game.png";
 
 export type HomeSlide = {
   id: string;
@@ -25,7 +26,7 @@ export const HOME_SLIDES: HomeSlide[] = [
     link: "/how-to",
     buttonText: "使い方を見る",
     isVisible: true,
-    sortOrder: 1,
+    sortOrder: 2,
   },
   {
     id: "herb",
@@ -35,7 +36,7 @@ export const HOME_SLIDES: HomeSlide[] = [
     link: "/products/2",
     buttonText: "商品を見る",
     isVisible: true,
-    sortOrder: 2,
+    sortOrder: 3,
   },
   {
     id: "onigiri",
@@ -45,6 +46,17 @@ export const HOME_SLIDES: HomeSlide[] = [
     link: "/products/1",
     buttonText: "商品を見る",
     isVisible: true,
-    sortOrder: 3,
+    sortOrder: 4,
+  },
+
+   {
+    id: "game",
+    title: "がん細胞キラー",
+    desc: "がん細胞をやっつけよう！！",
+    image: Herogame,
+    link: "/game",
+    buttonText: "プレイ",
+    isVisible: true,
+    sortOrder: 1,
   },
 ];

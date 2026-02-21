@@ -1,4 +1,3 @@
-// src/pages/AdminMenu.tsx
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import AdminHeader from "../components/AdminHeader";
@@ -35,6 +34,11 @@ function AdminMenu() {
 
             <button className="admin-menu-btn" onClick={() => navigate("/admin-points")}>
               ポイント管理
+            </button>
+
+            {/* ✅ 追加：ゲームスコア管理 */}
+            <button className="admin-menu-btn" onClick={() => navigate("/admin-game-scores")}>
+              ゲームスコア管理
             </button>
 
             <button className="admin-menu-btn" onClick={() => navigate("/admin-users")}>
