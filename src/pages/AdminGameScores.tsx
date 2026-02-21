@@ -248,34 +248,34 @@ export default function AdminGameScores() {
                       <th></th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.id}>
-                        <td className="tdDate">{toJaDateTime(r.created_at)}</td>
-                        <td className="tdName">{r.display_name || "ゲスト"}</td>
-                        <td className="tdScore">{r.score}</td>
-                        <td className="tdDiff">{String(r.difficulty).toUpperCase()}</td>
-                        <td className="tdType">{r.is_guest ? "GUEST" : "USER"}</td>
-                        <td className="tdActions">
-                          <button
-                            type="button"
-                            className="btnSmallDanger"
-                            onClick={() => onDeleteOne(r.id)}
-                          >
-                            削除
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                 <tbody>
+  {rows.map((r) => (
+    <tr key={r.id}>
+      <td className="tdDate" data-label="日時">{toJaDateTime(r.created_at)}</td>
+      <td className="tdName" data-label="名前">{r.display_name || "ゲスト"}</td>
+      <td className="tdScore" data-label="スコア">{r.score}</td>
+      <td className="tdDiff" data-label="難易度">{String(r.difficulty).toUpperCase()}</td>
+      <td className="tdType" data-label="種別">{r.is_guest ? "GUEST" : "USER"}</td>
+      <td className="tdActions" data-label="操作">
+        <button
+          type="button"
+          className="btnSmallDanger"
+          onClick={() => onDeleteOne(r.id)}
+        >
+          削除
+        </button>
+      </td>
+    </tr>
+  ))}
 
-                    {rows.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="tdEmpty">
-                          該当データがありません
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
+  {rows.length === 0 && (
+    <tr>
+      <td colSpan={6} className="tdEmpty">
+        該当データがありません
+      </td>
+    </tr>
+  )}
+</tbody>
                 </table>
               </div>
             )}

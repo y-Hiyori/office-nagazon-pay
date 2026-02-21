@@ -16,17 +16,11 @@ export async function adminFetchScores(args: {
   q?: string; // 名前検索（部分一致）
   difficulty?: "all" | Difficulty;
   from?: string; // "YYYY-MM-DD"
-  to?: string;   // "YYYY-MM-DD"
+  to?: string; // "YYYY-MM-DD"
   limit?: number;
 }): Promise<{ ok: true; rows: AdminScoreRow[] } | { ok: false; error: string }> {
   try {
-    const {
-      q = "",
-      difficulty = "all",
-      from = "",
-      to = "",
-      limit = 200,
-    } = args;
+    const { q = "", difficulty = "all", from = "", to = "", limit = 200 } = args;
 
     let query = supabase
       .from("game_scores")
@@ -36,6 +30,7 @@ export async function adminFetchScores(args: {
 
     if (difficulty !== "all") query = query.eq("difficulty", difficulty);
 
+    // ✅ 検索はdisplay_nameに対して（DB側で絞る）
     if (q.trim()) query = query.ilike("display_name", `%${q.trim()}%`);
 
     // 期間（created_at は timestamptz想定）
@@ -44,7 +39,23 @@ export async function adminFetchScores(args: {
 
     const { data, error } = await query;
     if (error) return { ok: false, error: error.message };
-    return { ok: true, rows: (data ?? []) as AdminScoreRow[] };
+
+    const rows: AdminScoreRow[] = (data ?? []).map((r: any) => {
+      const saved = String(r.display_name ?? "").trim();
+      const isGuest = !!r.is_guest;
+
+      return {
+        id: String(r.id),
+        created_at: String(r.created_at),
+        user_id: (r.user_id as string | null) ?? null,
+        score: Number(r.score ?? 0),
+        difficulty: r.difficulty as Difficulty,
+        is_guest: isGuest,
+        display_name: isGuest ? "ゲスト" : saved || "ユーザー",
+      };
+    });
+
+    return { ok: true, rows };
   } catch (e: unknown) {
     return { ok: false, error: e instanceof Error ? e.message : "unknown" };
   }
@@ -62,7 +73,7 @@ export async function adminDeleteScoreById(id: string) {
 
 export async function adminDeleteScoresByRange(args: {
   from: string; // "YYYY-MM-DD"
-  to: string;   // "YYYY-MM-DD"
+  to: string; // "YYYY-MM-DD"
   difficulty?: "all" | Difficulty;
 }) {
   try {

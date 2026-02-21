@@ -1,3 +1,4 @@
+// src/pages/game/Game.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
@@ -12,7 +13,7 @@ import MultiplierText from "./ui/MultiplierText";
 import GameRankingMini from "./ui/GameRankingMini";
 
 import { QUIZZES, ensureQuizSuffix, getQuizById } from "./quiz/quizzes";
-import { submitGameScore } from "./lib/scoreApi";
+import { getMyDisplayName, submitGameScore } from "./lib/scoreApi";
 
 import type {
   Difficulty,
@@ -231,6 +232,19 @@ export default function Game() {
   // ✅ スコア送信「1回だけ」ガード
   const scoreSentRef = useRef(false);
 
+  // ✅ 名前を事前に確保して保持（重要）
+  const displayNameRef = useRef("ゲスト");
+  const userIdRef = useRef<string | null>(null);
+  const isGuestRef = useRef(true);
+
+  useEffect(() => {
+    getMyDisplayName().then((v) => {
+      displayNameRef.current = v.displayName;
+      userIdRef.current = v.userId;
+      isGuestRef.current = v.isGuest;
+    });
+  }, []);
+
   // countdown duplication safe
   const countdownTokenRef = useRef(0);
   const countdownIntervalRef = useRef<number | null>(null);
@@ -295,8 +309,8 @@ export default function Game() {
       if (e.key === "ArrowRight") keysRef.current.right = true;
 
       if (phaseRef.current === "quiz_prompt") {
-  if (e.key === " ") onQuizConfirm();
-}
+        if (e.key === " ") onQuizConfirm();
+      }
     };
 
     const onUp = (e: KeyboardEvent) => {
@@ -351,11 +365,11 @@ export default function Game() {
 
   /* =========================
      Targets / Obstacles
-========================= */
+  ========================= */
   const makeTargets = (w: number, h: number) => {
     const marginX = clamp(w * 0.05, 16, 34);
     const marginTop = clamp(h * 0.12, 86, 170);
-    const areaBottom = Math.floor(h * 0.48); // ✅ 真ん中より下に出さない
+    const areaBottom = Math.floor(h * 0.48);
 
     const baseR = clamp(
       Math.min(w, h) * 0.060,
@@ -518,7 +532,6 @@ export default function Game() {
 
     stopCountdown();
 
-    // ✅ 送信ガードもリセット
     scoreSentRef.current = false;
 
     scoreRef.current = 0;
@@ -596,7 +609,6 @@ export default function Game() {
     }, 5000);
   };
 
-  // ✅ ここが重要：自動発射を「必ず真上」に固定
   const doAutoServe = (next: Phase) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -616,7 +628,7 @@ export default function Game() {
     b.y = p.y - p.h / 2 - b.r - 8;
 
     const base = 460;
-    b.vx = 0; // ✅ 斜め防止
+    b.vx = 0;
     b.vy = -base;
     b.released = true;
 
@@ -691,7 +703,14 @@ export default function Game() {
 
     scoreSentRef.current = true;
 
-    submitGameScore({ score: scoreRef.current, difficulty }).then((res) => {
+    // ✅ 事前に確保した名前を必ず送る
+    submitGameScore({
+      score: scoreRef.current,
+      difficulty,
+      displayNameOverride: displayNameRef.current,
+      userIdOverride: userIdRef.current,
+      isGuestOverride: isGuestRef.current,
+    }).then((res) => {
       if (!res.ok) console.warn("score submit failed:", res.error);
     });
   }, [phase, difficulty]);
@@ -954,7 +973,7 @@ export default function Game() {
 
           // ✅ quiz "逆T" bumper（横を長く）
           if (pNow === "quiz_play") {
-            const barW = clamp(Math.min(w, h) * 0.72, 260, 520); // ✅ 長く
+            const barW = clamp(Math.min(w, h) * 0.72, 260, 520);
             const barH = 16;
             const barX = w / 2;
             const barY = h * 0.52;
@@ -968,8 +987,8 @@ export default function Game() {
             const vx1 = barX - vW / 2;
             const vx2 = barX + vW / 2;
 
-            const vy2 = hy1; // 横バー上面に接続
-            const vy1 = 14; // 上壁まで
+            const vy2 = hy1;
+            const vy1 = 14;
 
             let hit = false;
 
@@ -1032,8 +1051,8 @@ export default function Game() {
             const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
             const yBig = h * 0.3;
 
-            const left = { x: w * 0.32, y: yBig, r: rBig }; // ×（青）
-            const right = { x: w * 0.68, y: yBig, r: rBig }; // ○（赤）
+            const left = { x: w * 0.32, y: yBig, r: rBig };
+            const right = { x: w * 0.68, y: yBig, r: rBig };
 
             if (dist2(b.x, b.y, left.x, left.y) <= (b.r + left.r) ** 2) {
               b.released = false;
@@ -1292,7 +1311,6 @@ export default function Game() {
                     </div>
 
                     <div className="gStartRight">
-                      {/* ✅ 全体ランキング表示（difficultyを連動したいなら difficulty={difficulty} に変える） */}
                       <GameRankingMini limit={8} difficulty="all" />
                     </div>
                   </div>
@@ -1301,24 +1319,20 @@ export default function Game() {
             )}
 
             {phase === "quiz_prompt" && activeQuiz && (
-  <div className="overlay">
-    <div className="overlayCard">
-      <div className="overlayTitle">○×クイズ</div>
-
-      {/* ✅ 問題文は残してデカく */}
-      <div className="overlayText quizQuestion">{quizText}</div>
-
-      <button
-        type="button"
-        className="overlayPrimary"
-        onClick={onQuizConfirm}
-      >
-        クイズ開始
-      </button>
-
-    </div>
-  </div>
-)}
+              <div className="overlay">
+                <div className="overlayCard">
+                  <div className="overlayTitle">○×クイズ</div>
+                  <div className="overlayText quizQuestion">{quizText}</div>
+                  <button
+                    type="button"
+                    className="overlayPrimary"
+                    onClick={onQuizConfirm}
+                  >
+                    クイズ開始
+                  </button>
+                </div>
+              </div>
+            )}
 
             {(phase === "gameover" || phase === "timeup") && (
               <div className="overlay">

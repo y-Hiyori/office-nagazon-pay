@@ -11,7 +11,8 @@ export default function RankingPanel() {
     setLoading(true);
     setErr(null);
 
-    const res = await fetchTopScores({ difficulty: "all", limit: 20 });
+    // ✅ 上位10位だけ
+    const res = await fetchTopScores({ difficulty: "all", limit: 10 });
 
     if (!res.ok) setErr(res.error);
     else setRows(res.rows);
@@ -46,9 +47,7 @@ export default function RankingPanel() {
               {rows.map((r, i) => (
                 <tr key={r.id}>
                   <td className="rankNum">{i + 1}</td>
-                  <td className="rankName">
-                    {r.display_name || "ゲスト"}
-                  </td>
+                  <td className="rankName">{r.display_name || "ゲスト"}</td>
                   <td className="rankScore">{r.score}</td>
                 </tr>
               ))}
