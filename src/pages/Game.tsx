@@ -11,7 +11,7 @@ type Difficulty = "easy" | "normal" | "hard";
 
 type Phase =
   | "idle"
-  | "countdown" // start 3,2,1
+  | "countdown" // start 3,2,1 (unused in this build but kept)
   | "serve_auto" // auto serve 3,2,1
   | "playing"
   | "quiz_prompt" // question + buttons
@@ -108,7 +108,7 @@ function drawCell(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
   ctx.fill();
 
   ctx.beginPath();
-  ctx.arc(r * 0.18, r * 0.10, r * 0.45, 0, Math.PI * 2);
+  ctx.arc(r * 0.18, r * 0.1, r * 0.45, 0, Math.PI * 2);
   ctx.fillStyle = "rgba(0,0,0,0.20)";
   ctx.fill();
 
@@ -159,7 +159,7 @@ function drawBigO(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
   ctx.strokeStyle = "rgba(255,255,255,0.80)";
   ctx.lineWidth = Math.max(9, r * 0.14);
   ctx.beginPath();
-  ctx.arc(x, y, r * 0.70, 0, Math.PI * 2);
+  ctx.arc(x, y, r * 0.7, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.fillStyle = "rgba(255,255,255,0.85)";
@@ -193,6 +193,7 @@ export default function Game() {
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+
   const [phase, setPhase] = useState<Phase>("idle");
   const phaseRef = useRef<Phase>("idle");
   useEffect(() => {
@@ -204,7 +205,7 @@ export default function Game() {
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
 
-  const [multiplier, setMultiplier] = useState(1);
+  // ✅ multiplier は state じゃなく ref だけで管理（警告ゼロ）
   const multiplierRef = useRef(1);
 
   const [timeLeft, setTimeLeft] = useState(60);
@@ -230,7 +231,9 @@ export default function Game() {
 
   const lastTsRef = useRef(0);
 
-  // countdown duplication fix (COMPLETE)
+  // =========================
+  // Countdown manager (duplication safe)
+  // =========================
   const countdownTokenRef = useRef(0);
   const countdownRunningRef = useRef(false);
   const countdownIntervalRef = useRef<number | null>(null);
@@ -250,7 +253,12 @@ export default function Game() {
     }
   };
 
-  // lock control before shot
+  // ✅ 解除忘れ防止：unmount でも countdown を止める
+  useEffect(() => {
+    return () => stopCountdown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const isControlLocked = (p: Phase) => p === "countdown" || p === "serve_auto" || p === "quiz_countdown";
 
   /* =========================
@@ -283,7 +291,7 @@ export default function Game() {
         moveSet: ["static", "sway", "zigzag", "drift"] as Motion[],
         motionAmpMul: 0.85,
         motionSpd: [0.55, 0.95],
-        topRate: 0.20,
+        topRate: 0.2,
         rowGapMul: 1.95,
         time: 60,
       };
@@ -291,7 +299,7 @@ export default function Game() {
     return {
       rows: 4,
       cols: 6,
-      // HARDだけ少し小さく
+      // HARDだけ少し小さく（あなたの希望）
       baseR: { min: 18, max: 32 },
       quizCount: 3,
       obstacleCount: 2,
@@ -363,6 +371,7 @@ export default function Game() {
       window.removeEventListener("keydown", onDown as any);
       window.removeEventListener("keyup", onUp as any);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* =========================
@@ -379,18 +388,10 @@ export default function Game() {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    // 操作ロック中は入力無効
     const pNow = phaseRef.current;
-    if (
-      isControlLocked(pNow) ||
-      pNow === "quiz_prompt" ||
-      pNow === "quiz_result" ||
-      pNow === "gameover" ||
-      pNow === "timeup"
-    ) {
+    if (isControlLocked(pNow) || pNow === "quiz_prompt" || pNow === "quiz_result" || pNow === "gameover" || pNow === "timeup") {
       return;
     }
-
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     pointerRef.current.active = true;
     pointerRef.current.x = toCanvasX(e.clientX);
@@ -411,7 +412,7 @@ export default function Game() {
     const marginX = clamp(w * 0.07, 22, 46);
     const topY = clamp(h * params.topRate, 120, 230);
 
-    const baseR = clamp(Math.min(w, h) * 0.060, params.baseR.min, params.baseR.max);
+    const baseR = clamp(Math.min(w, h) * 0.06, params.baseR.min, params.baseR.max);
     const gapX = (w - marginX * 2) / params.cols;
 
     const normalColors = ["#ff4d6d", "#ffb703", "#3a86ff", "#2ec4b6"];
@@ -494,7 +495,6 @@ export default function Game() {
     const w = canvas.width;
     const h = canvas.height;
 
-    // countdown完全停止
     stopCountdown();
 
     scoreRef.current = 0;
@@ -503,7 +503,6 @@ export default function Game() {
     timeRef.current = params.time;
 
     setScore(0);
-    setMultiplier(1);
     setTimeLeft(params.time);
 
     setActiveQuiz(null);
@@ -543,14 +542,15 @@ export default function Game() {
   ========================= */
 
   const runCountdown = (nextPhase: Phase, serveAfter: boolean) => {
-    // 多重起動ゼロ：毎回必ず止めてから開始
     stopCountdown();
 
     const token = ++countdownTokenRef.current;
     countdownRunningRef.current = true;
 
     setCountdown(3);
-    setPhase(serveAfter ? "serve_auto" : "countdown");
+    // ✅ quiz だけ専用フェーズにする
+    if (serveAfter && nextPhase === "quiz_play") setPhase("quiz_countdown");
+    else setPhase(serveAfter ? "serve_auto" : "countdown");
 
     countdownIntervalRef.current = window.setInterval(() => {
       if (token !== countdownTokenRef.current) {
@@ -582,7 +582,7 @@ export default function Game() {
 
     const w = canvas.width;
 
-    // ロック：必ず真ん中
+    // ✅ 発射直前：必ず中央固定 + 入力完全OFF
     paddleRef.current.x = w / 2;
     pointerRef.current.active = false;
     keysRef.current.left = false;
@@ -616,8 +616,6 @@ export default function Game() {
 
   const onQuizConfirm = () => {
     if (phaseRef.current !== "quiz_prompt") return;
-
-    // ここで直接quiz_countdownにしない（runCountdown側がphaseを正しくセットする）
     runCountdown("quiz_play", true);
   };
 
@@ -639,7 +637,6 @@ export default function Game() {
     }
 
     setScore(scoreRef.current);
-    setMultiplier(multiplierRef.current);
 
     setQuizResult({ correct, delta });
     setPhase("quiz_result");
@@ -657,6 +654,103 @@ export default function Game() {
 
   useEffect(() => {
     let raf = 0;
+
+    const drawHUD = (ctx: CanvasRenderingContext2D, w: number) => {
+      ctx.save();
+      ctx.globalAlpha = 0.14;
+      ctx.fillStyle = "#ffffff";
+      roundRect(ctx, 18, 18, w - 36, 44, 14);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = "#ffffff";
+      ctx.textBaseline = "middle";
+      ctx.font = "800 18px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+
+      ctx.textAlign = "left";
+      ctx.fillText(`TIME: ${Math.ceil(timeRef.current)}s`, 34, 40);
+
+      ctx.textAlign = "center";
+      ctx.fillText(`SCORE: ${scoreRef.current}`, w / 2, 40);
+
+      ctx.textAlign = "right";
+      ctx.fillText(`x${multiplierRef.current.toFixed(1)}`, w - 34, 40);
+
+      ctx.restore();
+    };
+
+    const drawWorld = (ctx: CanvasRenderingContext2D, w: number, h: number, pNow: Phase) => {
+      // obstacles only in playing
+      if (pNow === "playing") {
+        for (const o of obstaclesRef.current) {
+          ctx.save();
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle = "rgba(255,255,255,0.20)";
+          roundRect(ctx, o.x - o.w / 2, o.y - o.h / 2, o.w, o.h, 10);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // targets hidden during quiz_play
+      if (pNow === "playing" || pNow === "idle" || pNow === "countdown" || pNow === "serve_auto") {
+        for (const t of targetsRef.current) {
+          if (t.hp <= 0) continue;
+          drawCell(ctx, t.x, t.y, t.r, t.color);
+
+          if (t.isQuiz) {
+            ctx.save();
+            ctx.fillStyle = "rgba(255,255,255,0.9)";
+            ctx.font = `900 ${Math.max(12, t.r)}px system-ui`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("?", t.x, t.y + 1);
+            ctx.restore();
+          }
+        }
+      }
+
+      // quiz big targets + center bumper
+      if (pNow === "quiz_play") {
+        const rBig = clamp(Math.min(w, h) * 0.1, 46, 90);
+        const yBig = h * 0.3;
+        drawBigX(ctx, w * 0.32, yBig, rBig);
+        drawBigO(ctx, w * 0.68, yBig, rBig);
+
+        const barW = clamp(Math.min(w, h) * 0.55, 200, 420);
+        const barH = 16;
+        const barX = w / 2;
+        const barY = h * 0.52;
+
+        ctx.save();
+        ctx.globalAlpha = 0.82;
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        roundRect(ctx, barX - barW / 2, barY - barH / 2, barW, barH, 10);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // paddle
+      const p = paddleRef.current;
+      ctx.save();
+      ctx.globalAlpha = 0.88;
+      ctx.fillStyle = "#e6e6e6";
+      roundRect(ctx, p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 12);
+      ctx.fill();
+      ctx.restore();
+
+      // ball
+      const b = ballRef.current;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(b.x - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.12)";
+      ctx.fill();
+    };
 
     const loop = (ts: number) => {
       raf = requestAnimationFrame(loop);
@@ -680,7 +774,7 @@ export default function Game() {
       ctx.fillRect(0, 0, w, h);
 
       // frame
-      ctx.globalAlpha = 0.10;
+      ctx.globalAlpha = 0.1;
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2;
       ctx.strokeRect(10, 10, w - 20, h - 20);
@@ -720,10 +814,10 @@ export default function Game() {
             t.y = t.baseY + Math.sin(t.t) * (t.amp * 0.42);
           } else if (t.motion === "zigzag") {
             t.x = t.baseX + Math.sin(t.t * 1.5) * t.amp;
-            t.y = t.baseY + Math.sin(t.t * 0.9) * (t.amp * 0.20);
+            t.y = t.baseY + Math.sin(t.t * 0.9) * (t.amp * 0.2);
           } else {
             const drift = Math.sin(t.t * t.driftSpd) + Math.cos(t.t * t.driftSpd * 0.8);
-            t.x = t.baseX + Math.sin(t.t) * (t.amp * 0.7) + drift * t.amp * 0.20 * t.dx;
+            t.x = t.baseX + Math.sin(t.t) * (t.amp * 0.7) + drift * t.amp * 0.2 * t.dx;
             t.y = t.baseY + Math.sin(t.t * 0.6) * (t.amp * 0.18) + drift * t.amp * 0.12 * t.dy;
           }
         }
@@ -747,14 +841,7 @@ export default function Game() {
       // paddle control
       const p = paddleRef.current;
 
-      if (
-        isControlLocked(pNow) ||
-        pNow === "quiz_prompt" ||
-        pNow === "quiz_result" ||
-        pNow === "gameover" ||
-        pNow === "timeup"
-      ) {
-        // 固定中は入力も完全無効 + 絶対中央
+      if (isControlLocked(pNow) || pNow === "quiz_prompt" || pNow === "quiz_result" || pNow === "gameover" || pNow === "timeup") {
         pointerRef.current.active = false;
         keysRef.current.left = false;
         keysRef.current.right = false;
@@ -857,7 +944,6 @@ export default function Game() {
 
         // QUIZ middle bumper
         if (pNow === "quiz_play") {
-          // 自然サイズ（スマホでもデカすぎない）
           const barW = clamp(Math.min(w, h) * 0.55, 200, 420);
           const barH = 16;
           const barX = w / 2;
@@ -924,17 +1010,17 @@ export default function Game() {
 
         // quiz big targets collision
         if (pNow === "quiz_play") {
-          const rBig = clamp(Math.min(w, h) * 0.10, 46, 90);
-          const yBig = h * 0.30;
+          const rBig = clamp(Math.min(w, h) * 0.1, 46, 90);
+          const yBig = h * 0.3;
 
           const left = { x: w * 0.32, y: yBig, r: rBig };
           const right = { x: w * 0.68, y: yBig, r: rBig };
 
-          if (dist2(b.x, b.y, left.x, left.y) <= (b.r + left.r) * (b.r + left.r)) {
+          if (dist2(b.x, b.y, left.x, left.y) <= (b.r + left.r) ** 2) {
             b.released = false;
             resolveQuiz("X");
           }
-          if (dist2(b.x, b.y, right.x, right.y) <= (b.r + right.r) * (b.r + right.r)) {
+          if (dist2(b.x, b.y, right.x, right.y) <= (b.r + right.r) ** 2) {
             b.released = false;
             resolveQuiz("O");
           }
@@ -991,111 +1077,14 @@ export default function Game() {
 
         ctx.font = "800 16px system-ui";
         const s = quizResult.delta >= 0 ? `+${quizResult.delta}` : `${quizResult.delta}`;
-        ctx.fillText(`${s} / x${multiplierRef.current.toFixed(1)}`, w / 2, h * 0.50);
+        ctx.fillText(`${s} / x${multiplierRef.current.toFixed(1)}`, w / 2, h * 0.5);
         ctx.restore();
       }
-    };
-
-    const drawHUD = (ctx: CanvasRenderingContext2D, w: number) => {
-      ctx.save();
-      ctx.globalAlpha = 0.14;
-      ctx.fillStyle = "#ffffff";
-      roundRect(ctx, 18, 18, w - 36, 44, 14);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      ctx.fillStyle = "#ffffff";
-      ctx.textBaseline = "middle";
-      ctx.font = "800 18px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-
-      ctx.textAlign = "left";
-      ctx.fillText(`TIME: ${Math.ceil(timeRef.current)}s`, 34, 40);
-
-      ctx.textAlign = "center";
-      ctx.fillText(`SCORE: ${scoreRef.current}`, w / 2, 40);
-
-      ctx.textAlign = "right";
-      ctx.fillText(`x${multiplierRef.current.toFixed(1)}`, w - 34, 40);
-
-      ctx.restore();
-    };
-
-    const drawWorld = (ctx: CanvasRenderingContext2D, w: number, h: number, pNow: Phase) => {
-      // obstacles only in playing
-      if (pNow === "playing") {
-        for (const o of obstaclesRef.current) {
-          ctx.save();
-          ctx.globalAlpha = 0.70;
-          ctx.fillStyle = "rgba(255,255,255,0.20)";
-          roundRect(ctx, o.x - o.w / 2, o.y - o.h / 2, o.w, o.h, 10);
-          ctx.fill();
-          ctx.restore();
-        }
-      }
-
-      // targets hidden during quiz_play
-      if (pNow === "playing" || pNow === "idle" || pNow === "countdown" || pNow === "serve_auto") {
-        for (const t of targetsRef.current) {
-          if (t.hp <= 0) continue;
-          drawCell(ctx, t.x, t.y, t.r, t.color);
-
-          if (t.isQuiz) {
-            ctx.save();
-            ctx.fillStyle = "rgba(255,255,255,0.9)";
-            ctx.font = `900 ${Math.max(12, t.r)}px system-ui`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText("?", t.x, t.y + 1);
-            ctx.restore();
-          }
-        }
-      }
-
-      // quiz big targets + center bumper
-      if (pNow === "quiz_play") {
-        const rBig = clamp(Math.min(w, h) * 0.10, 46, 90);
-        const yBig = h * 0.30;
-        drawBigX(ctx, w * 0.32, yBig, rBig);
-        drawBigO(ctx, w * 0.68, yBig, rBig);
-
-        const barW = clamp(Math.min(w, h) * 0.55, 200, 420);
-        const barH = 16;
-        const barX = w / 2;
-        const barY = h * 0.52;
-
-        ctx.save();
-        ctx.globalAlpha = 0.82;
-        ctx.fillStyle = "rgba(255,255,255,0.18)";
-        roundRect(ctx, barX - barW / 2, barY - barH / 2, barW, barH, 10);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // paddle
-      const p = paddleRef.current;
-      ctx.save();
-      ctx.globalAlpha = 0.88;
-      ctx.fillStyle = "#e6e6e6";
-      roundRect(ctx, p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 12);
-      ctx.fill();
-      ctx.restore();
-
-      // ball
-      const b = ballRef.current;
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(b.x - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.35, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0,0,0,0.12)";
-      ctx.fill();
     };
 
     requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [difficulty, timeLeft, countdown, quizResult]);
+  }, [difficulty, timeLeft, countdown, quizResult, quizzes, params]); // ✅ 依存関係も破綻しない形に寄せる
 
   /* =========================
      Initial
@@ -1143,25 +1132,13 @@ export default function Game() {
                   <div className="overlayText center">難易度を選んで START</div>
 
                   <div className="overlayRow">
-                    <button
-                      type="button"
-                      className={difficulty === "easy" ? "diffBtn on" : "diffBtn"}
-                      onClick={() => setDifficulty("easy")}
-                    >
+                    <button type="button" className={difficulty === "easy" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("easy")}>
                       EASY
                     </button>
-                    <button
-                      type="button"
-                      className={difficulty === "normal" ? "diffBtn on" : "diffBtn"}
-                      onClick={() => setDifficulty("normal")}
-                    >
+                    <button type="button" className={difficulty === "normal" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("normal")}>
                       NORMAL
                     </button>
-                    <button
-                      type="button"
-                      className={difficulty === "hard" ? "diffBtn on" : "diffBtn"}
-                      onClick={() => setDifficulty("hard")}
-                    >
+                    <button type="button" className={difficulty === "hard" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("hard")}>
                       HARD
                     </button>
                   </div>
@@ -1183,18 +1160,10 @@ export default function Game() {
                   <div className="overlayText">{activeQuiz.statement}</div>
 
                   <div className="overlayRow">
-                    <button
-                      type="button"
-                      className={quizSelected === "X" ? "quizBtn on" : "quizBtn"}
-                      onClick={() => setQuizSelected("X")}
-                    >
+                    <button type="button" className={quizSelected === "X" ? "quizBtn on" : "quizBtn"} onClick={() => setQuizSelected("X")}>
                       ×
                     </button>
-                    <button
-                      type="button"
-                      className={quizSelected === "O" ? "quizBtn on" : "quizBtn"}
-                      onClick={() => setQuizSelected("O")}
-                    >
+                    <button type="button" className={quizSelected === "O" ? "quizBtn on" : "quizBtn"} onClick={() => setQuizSelected("O")}>
                       ○
                     </button>
                   </div>
