@@ -2,10 +2,38 @@
 import { supabase } from "../../../lib/supabase";
 import type { Difficulty } from "../types";
 
-type SubmitArgs = {
+export type MyDisplayNameResult = {
+  displayName: string;
+  userId: string | null;
+  isGuest: boolean;
+};
+
+export async function getMyDisplayName(): Promise<MyDisplayNameResult> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) return { displayName: "ゲスト", userId: null, isGuest: true };
+
+  const session = data.session ?? null;
+  const user = session?.user ?? null;
+  const userId = user?.id ?? null;
+
+  if (!userId || !user) return { displayName: "ゲスト", userId: null, isGuest: true };
+
+  const md = user.user_metadata as Record<string, unknown> | undefined;
+  const d1 = typeof md?.display_name === "string" ? md.display_name : "";
+  const d2 = typeof md?.name === "string" ? md.name : "";
+  const displayName = (d1 || d2 || "User").trim().slice(0, 20);
+
+  return { displayName, userId, isGuest: false };
+}
+
+export type SubmitArgs = {
   score: number;
   difficulty: Difficulty;
   displayNameOverride?: string | null;
+
+  // Game.tsx 互換用（偽装には使わない）
+  userIdOverride?: string | null;
+  isGuestOverride?: boolean;
 };
 
 type SubmitOk = {
@@ -47,7 +75,7 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     // ==========================
     // ✅ ゲスト：毎回insert
     // ==========================
-    if (!userId) {
+    if (!userId || !user) {
       const displayName = safeName(args.displayNameOverride ?? "Guest");
 
       const { error } = await supabase.from("game_scores").insert({
@@ -62,16 +90,18 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
       return { ok: true, mode: "guest_insert" };
     }
 
-    // ここに来た時点で user は必ず存在する
+    // ここに来た時点で user は non-null
+    const md = user.user_metadata as Record<string, unknown> | undefined;
+
     const displayName = safeName(
       args.displayNameOverride ??
-        (typeof user?.user_metadata?.display_name === "string" ? user.user_metadata.display_name : undefined) ??
-        (typeof user?.user_metadata?.name === "string" ? user.user_metadata.name : undefined) ??
+        (typeof md?.display_name === "string" ? md.display_name : undefined) ??
+        (typeof md?.name === "string" ? md.name : undefined) ??
         "User"
     );
 
     // ==========================
-    // ✅ ログイン：自己ベスト管理（user_id + difficulty を1行に）
+    // ✅ ログイン：自己ベスト管理
     // ==========================
     const { data: existing, error: selErr } = await supabase
       .from("game_scores")
@@ -97,9 +127,7 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     }
 
     const best = clampScore(existing.score);
-    if (score <= best) {
-      return { ok: true, mode: "user_skip" };
-    }
+    if (score <= best) return { ok: true, mode: "user_skip" };
 
     const { error: updErr } = await supabase
       .from("game_scores")
