@@ -2,11 +2,98 @@
 import { supabase } from "../../../lib/supabase";
 import type { Difficulty } from "../types";
 
+/* =========================
+   Types
+========================= */
+
+export type ScoreRow = {
+  id: string;
+  score: number;
+  difficulty: Difficulty | string;
+  display_name: string | null;
+  user_id: string | null;
+  is_guest: boolean | null;
+  created_at?: string | null;
+};
+
+export type FetchTopScoresArgs = {
+  limit?: number;
+  difficulty?: "all" | Difficulty;
+};
+
+export type FetchTopScoresResult =
+  | { ok: true; rows: ScoreRow[] }
+  | { ok: false; error: string };
+
 export type MyDisplayNameResult = {
   displayName: string;
   userId: string | null;
   isGuest: boolean;
 };
+
+export type SubmitArgs = {
+  score: number;
+  difficulty: Difficulty;
+  displayNameOverride?: string | null;
+
+  // Game.tsx 互換用（偽装には使わない）
+  userIdOverride?: string | null;
+  isGuestOverride?: boolean;
+};
+
+export type SubmitResult =
+  | { ok: true; mode: "guest_insert" | "user_best_update" | "user_skip" }
+  | { ok: false; error: string };
+
+/* =========================
+   Utils
+========================= */
+
+function clampScore(n: unknown): number {
+  const v = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.floor(v));
+}
+
+function safeName(v: unknown): string {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (!s) return "Guest";
+  return s.slice(0, 20);
+}
+
+/* =========================
+   Public: fetchTopScores
+========================= */
+
+export async function fetchTopScores(args: FetchTopScoresArgs): Promise<FetchTopScoresResult> {
+  try {
+    const limit = Math.min(50, Math.max(1, Math.floor(args.limit ?? 10)));
+    const difficulty = args.difficulty ?? "all";
+
+    let q = supabase
+      .from("game_scores")
+      .select("id, score, difficulty, display_name, user_id, is_guest, created_at")
+      .order("score", { ascending: false })
+      .limit(limit);
+
+    if (difficulty !== "all") {
+      q = q.eq("difficulty", difficulty);
+    }
+
+    const { data, error } = await q;
+
+    if (error) return { ok: false, error: error.message };
+
+    const rows = (data ?? []) as ScoreRow[];
+    return { ok: true, rows };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/* =========================
+   Public: getMyDisplayName
+========================= */
 
 export async function getMyDisplayName(): Promise<MyDisplayNameResult> {
   const { data, error } = await supabase.auth.getSession();
@@ -26,39 +113,9 @@ export async function getMyDisplayName(): Promise<MyDisplayNameResult> {
   return { displayName, userId, isGuest: false };
 }
 
-export type SubmitArgs = {
-  score: number;
-  difficulty: Difficulty;
-  displayNameOverride?: string | null;
-
-  // Game.tsx 互換用（偽装には使わない）
-  userIdOverride?: string | null;
-  isGuestOverride?: boolean;
-};
-
-type SubmitOk = {
-  ok: true;
-  mode: "guest_insert" | "user_best_update" | "user_skip";
-};
-
-type SubmitNg = {
-  ok: false;
-  error: string;
-};
-
-export type SubmitResult = SubmitOk | SubmitNg;
-
-function clampScore(n: unknown): number {
-  const v = typeof n === "number" ? n : Number(n);
-  if (!Number.isFinite(v)) return 0;
-  return Math.max(0, Math.floor(v));
-}
-
-function safeName(v: unknown): string {
-  const s = typeof v === "string" ? v.trim() : "";
-  if (!s) return "Guest";
-  return s.slice(0, 20);
-}
+/* =========================
+   Public: submitGameScore
+========================= */
 
 export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
   try {
@@ -90,7 +147,6 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
       return { ok: true, mode: "guest_insert" };
     }
 
-    // ここに来た時点で user は non-null
     const md = user.user_metadata as Record<string, unknown> | undefined;
 
     const displayName = safeName(
@@ -101,7 +157,7 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     );
 
     // ==========================
-    // ✅ ログイン：自己ベスト管理
+    // ✅ ログイン：自己ベスト管理（user_id + difficulty を1行に）
     // ==========================
     const { data: existing, error: selErr } = await supabase
       .from("game_scores")
