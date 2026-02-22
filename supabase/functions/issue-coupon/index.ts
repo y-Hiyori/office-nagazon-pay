@@ -1,12 +1,7 @@
-// supabase/functions/issue-coupon/index.ts
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
-import QRCode from "qrcode";
 
-type Body = {
-  score?: unknown;
-  difficulty?: unknown; // 将来用
-};
+type Body = { score?: unknown; difficulty?: unknown };
 
 type RewardRow = {
   id: string;
@@ -37,8 +32,6 @@ type IssueOkIssued = {
   reward: RewardRow;
   redeem_url: string;
   expires_at: string | null;
-  qr_png_base64: string;
-  qr_svg: string;
   reused?: boolean;
 };
 
@@ -46,16 +39,13 @@ type IssueOkNotIssued = {
   ok: true;
   issued: false;
   reason: "no_reward" | "already_issued";
-  existing_token?: string;
-  reward_id?: string;
 };
 
 type IssueNg = { ok: false; error: string };
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -67,14 +57,13 @@ function json(data: unknown, status = 200) {
 }
 
 function getClient() {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  // ✅ SUPABASE_URL がCLI都合で保存できないので PROJECT_URL を使う
+  const supabaseUrl = Deno.env.get("PROJECT_URL") || Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("SUPABASE_URL / SERVICE_ROLE_KEY is missing");
+    throw new Error("PROJECT_URL / SERVICE_ROLE_KEY is missing");
   }
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false },
-  });
+  return createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 }
 
 function errToString(e: unknown) {
@@ -98,12 +87,10 @@ function getIp(req: Request): string {
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function randToken(len = 40) {
+function randToken(len = 44) {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   const bytes = crypto.getRandomValues(new Uint8Array(len));
   let out = "";
@@ -120,7 +107,7 @@ function pickOrigin(req: Request) {
     try {
       return new URL(referer).origin;
     } catch {
-      // ignore
+      // ignore invalid referer
     }
   }
 
@@ -136,13 +123,8 @@ function isIsoDate(s: string | null | undefined) {
   return !Number.isNaN(d.getTime());
 }
 
-function nowIso() {
-  return new Date().toISOString();
-}
-
 function isActiveAndInRange(r: RewardRow, now = new Date()) {
   if (r.is_active === false) return false;
-
   if (r.valid_from && isIsoDate(r.valid_from)) {
     const vf = new Date(r.valid_from);
     if (now < vf) return false;
@@ -159,21 +141,15 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function isRewardRow(v: unknown): v is RewardRow {
-  if (!isRecord(v)) return false;
-  return typeof v.id === "string";
+  return isRecord(v) && typeof v.id === "string";
 }
 
 function isExistingRow(v: unknown): v is IssuanceExistingRow {
   if (!isRecord(v)) return false;
-
   const token = v.token;
-  const couponRewards = (v as Record<string, unknown>)["coupon_rewards"];
-
+  const cr = (v as Record<string, unknown>)["coupon_rewards"];
   if (!(typeof token === "string" || token === null || token === undefined)) return false;
-
-  if (couponRewards !== null && couponRewards !== undefined && !isRewardRow(couponRewards)) {
-    return false;
-  }
+  if (cr !== null && cr !== undefined && !isRewardRow(cr)) return false;
   return true;
 }
 
@@ -194,7 +170,6 @@ serve(async (req: Request) => {
 
     const supabase = getClient();
 
-    // threshold <= score の中で一番高い報酬（ただし日付＆is_active条件を最終判定）
     const { data: rewards, error: rewErr } = await supabase
       .from("coupon_rewards")
       .select(
@@ -214,7 +189,6 @@ serve(async (req: Request) => {
       return json(res);
     }
 
-    // IP 1回制限（既存があれば tokenを使い回してQR再生成）
     const ip = getIp(req);
     const salt = Deno.env.get("IP_HASH_SALT") ?? "change-me";
     const issuedIpHash = await sha256Hex(`${ip}|${salt}`);
@@ -243,19 +217,6 @@ serve(async (req: Request) => {
         ? `${origin}/game/coupon-redeem?token=${encodeURIComponent(token)}`
         : `/game/coupon-redeem?token=${encodeURIComponent(token)}`;
 
-      const pngDataUrl = await QRCode.toDataURL(redeemUrl, {
-        errorCorrectionLevel: "M",
-        margin: 1,
-        scale: 8,
-      });
-      const qr_png_base64 = pngDataUrl.replace(/^data:image\/png;base64,/, "");
-
-      const qr_svg = await QRCode.toString(redeemUrl, {
-        type: "svg",
-        errorCorrectionLevel: "M",
-        margin: 1,
-      });
-
       const res: IssueOkIssued = {
         ok: true,
         issued: true,
@@ -263,16 +224,13 @@ serve(async (req: Request) => {
         reward: rewardForView,
         redeem_url: redeemUrl,
         expires_at: rewardForView?.valid_to ?? null,
-        qr_png_base64,
-        qr_svg,
         reused: true,
       };
       return json(res);
     }
 
-    // 新規発行
     const token = randToken(44);
-    const issuedAt = nowIso();
+    const issuedAt = new Date().toISOString();
 
     const { error: insErr } = await supabase.from("coupon_issuances").insert({
       token,
@@ -291,19 +249,6 @@ serve(async (req: Request) => {
       ? `${origin}/game/coupon-redeem?token=${encodeURIComponent(token)}`
       : `/game/coupon-redeem?token=${encodeURIComponent(token)}`;
 
-    const pngDataUrl = await QRCode.toDataURL(redeemUrl, {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      scale: 8,
-    });
-    const qr_png_base64 = pngDataUrl.replace(/^data:image\/png;base64,/, "");
-
-    const qr_svg = await QRCode.toString(redeemUrl, {
-      type: "svg",
-      errorCorrectionLevel: "M",
-      margin: 1,
-    });
-
     const res: IssueOkIssued = {
       ok: true,
       issued: true,
@@ -311,10 +256,7 @@ serve(async (req: Request) => {
       reward,
       redeem_url: redeemUrl,
       expires_at: reward.valid_to ?? null,
-      qr_png_base64,
-      qr_svg,
     };
-
     return json(res);
   } catch (e) {
     const res: IssueNg = { ok: false, error: errToString(e) };
