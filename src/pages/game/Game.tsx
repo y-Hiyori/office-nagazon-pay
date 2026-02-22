@@ -5,6 +5,8 @@ import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 import "./Game.css";
 
+import { supabase } from "../../lib/supabase";
+
 import { getConfig } from "./configs";
 import { drawCell } from "./draw/drawCell";
 import ScoreText from "./ui/ScoreText";
@@ -12,24 +14,14 @@ import MultiplierText from "./ui/MultiplierText";
 import GameRankingMini from "./ui/GameRankingMini";
 
 import { QUIZZES, ensureQuizSuffix, getQuizById } from "./quiz/quizzes";
-import { getMyDisplayName, submitGameScore } from "./lib/scoreApi";
-import { issueCouponAfterGame, type IssuedCoupon } from "./lib/couponApi";
+import { getMyDisplayName, submitGameScore, fetchTopScores, type ScoreRow } from "./lib/scoreApi";
 
-import type {
-  Difficulty,
-  Phase,
-  Target,
-  Obstacle,
-  Motion,
-  QuizChoice,
-  TFQuiz,
-} from "./types";
+import type { Difficulty, Phase, Target, Obstacle, Motion, QuizChoice, TFQuiz } from "./types";
 
 /* =========================
    Utils
 ========================= */
-const clamp = (v: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, v));
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
 function roundRect(
@@ -56,15 +48,7 @@ function dist2(ax: number, ay: number, bx: number, by: number) {
   return dx * dx + dy * dy;
 }
 
-function circleRectHit(
-  cx: number,
-  cy: number,
-  cr: number,
-  rx1: number,
-  ry1: number,
-  rx2: number,
-  ry2: number
-) {
+function circleRectHit(cx: number, cy: number, cr: number, rx1: number, ry1: number, rx2: number, ry2: number) {
   const x = clamp(cx, rx1, rx2);
   const y = clamp(cy, ry1, ry2);
   const dx = cx - x;
@@ -84,12 +68,7 @@ function resolveCircleRectBounce(
   const overlapTop = Math.abs(b.y - ry1);
   const overlapBottom = Math.abs(b.y - ry2);
 
-  const minOverlap = Math.min(
-    overlapLeft,
-    overlapRight,
-    overlapTop,
-    overlapBottom
-  );
+  const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
 
   if (minOverlap === overlapLeft) {
     b.x = rx1 - b.r - 0.6;
@@ -107,12 +86,7 @@ function resolveCircleRectBounce(
 }
 
 /** ✅ クイズ：×（青） */
-function drawBigXTarget(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  r: number
-) {
+function drawBigXTarget(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
   ctx.save();
   ctx.globalAlpha = 0.98;
 
@@ -146,12 +120,7 @@ function drawBigXTarget(
 }
 
 /** ✅ クイズ：○（赤） */
-function drawBigOTarget(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  r: number
-) {
+function drawBigOTarget(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
   ctx.save();
   ctx.globalAlpha = 0.98;
 
@@ -173,27 +142,220 @@ function drawBigOTarget(
   ctx.restore();
 }
 
-/**
- * ✅ IssuedCoupon（lib/couponApi.ts）側の型が薄い/別名の可能性があるので、
- * Game.tsx では「表示用に安全な拡張型」を使う（TS警告ゼロ保証）
- */
-type IssuedCouponView = IssuedCoupon & {
-  title?: string | null;
-  code?: string | null; // ※運用上は表示しない
-  qr_png_base64?: string | null;
-  qr_svg?: string | null;
-  redeem_url?: string | null;
-  expires_at?: string | null;
+/* =========================
+   Rewards / Coupon (device once)
+========================= */
+
+type CouponRewardRow = {
+  id: string;
+  is_active: boolean;
+  store_name: string;
+  store_info: string | null;
+  product_name: string;
+  score_threshold: number;
+  coupon_title: string;
+  description: string | null;
+  valid_from?: string | null;
+  valid_to?: string | null;
+};
+
+type IssuedCouponView = {
+  token: string;
+  redeem_url: string;
+  qr_png_base64: string | null;
+  qr_svg: string | null;
+  expires_at: string | null;
+
+  coupon_title: string | null;
+  store_name: string | null;
+  product_name: string | null;
+  description: string | null;
+  score_threshold: number | null;
 };
 
 type CouponUiState =
   | { status: "idle" }
-  | { status: "loading" }
-  | { status: "none" }
-  | { status: "issued"; coupon: IssuedCouponView }
-  | { status: "error"; message: string };
+  | { status: "issuing" }
+  | { status: "issued"; coupon: IssuedCouponView };
 
 const COUPON_STORAGE_KEY = "game_last_coupon_v1";
+const COUPON_DEVICE_DONE_KEY = "nagazon_coupon_issued_device_v1";
+
+function isDeviceCouponDone(): boolean {
+  try {
+    return localStorage.getItem(COUPON_DEVICE_DONE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function setDeviceCouponDone(): void {
+  try {
+    localStorage.setItem(COUPON_DEVICE_DONE_KEY, "1");
+  } catch {
+    // noop
+  }
+}
+
+function isInValidWindow(r: CouponRewardRow, now = new Date()): boolean {
+  const fromOk = !r.valid_from || now >= new Date(r.valid_from);
+  const toOk = !r.valid_to || now <= new Date(r.valid_to);
+  return fromOk && toOk;
+}
+
+async function fetchActiveRewards(): Promise<{ ok: true; rows: CouponRewardRow[] } | { ok: false; error: string }> {
+  const { data, error } = await supabase
+    .from("coupon_rewards")
+    .select("id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to")
+    .eq("is_active", true)
+    .order("score_threshold", { ascending: true });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, rows: (data ?? []) as CouponRewardRow[] };
+}
+
+function pickEligibleReward(rewards: CouponRewardRow[], score: number): CouponRewardRow | null {
+  const now = new Date();
+  const eligible = rewards
+    .filter((r) => r.is_active)
+    .filter((r) => Number(r.score_threshold) <= score)
+    .filter((r) => isInValidWindow(r, now));
+
+  if (eligible.length === 0) return null;
+  return eligible[eligible.length - 1] ?? null;
+}
+
+/**
+ * ✅ あなたの issue-coupon Edge Function の返却に合わせる
+ * return:
+ * {
+ *   ok:true,
+ *   issued:boolean,
+ *   token?:string,
+ *   redeem_url?:string,
+ *   qr_png_base64?:string,
+ *   qr_svg?:string,
+ *   expires_at?:string,
+ *   reward?:{ coupon_title, store_name, product_name, description, score_threshold, ... }
+ * }
+ */
+async function issueCouponByEdge(args: { score: number; difficulty: Difficulty }): Promise<
+  | { ok: true; issued: boolean; coupon?: IssuedCouponView }
+  | { ok: false; error: string }
+> {
+  try {
+    const { data, error } = await supabase.functions.invoke("issue-coupon", {
+      body: { score: args.score, difficulty: args.difficulty },
+    });
+
+    if (error) return { ok: false, error: error.message };
+
+    const obj = data as Record<string, unknown> | null;
+    const issued = obj?.issued === true;
+
+    if (!issued) return { ok: true, issued: false };
+
+    const token = typeof obj?.token === "string" ? obj.token : "";
+    const redeem_url = typeof obj?.redeem_url === "string" ? obj.redeem_url : "";
+
+    const qr_png_base64 = typeof obj?.qr_png_base64 === "string" ? obj.qr_png_base64 : null;
+    const qr_svg = typeof obj?.qr_svg === "string" ? obj.qr_svg : null;
+    const expires_at = typeof obj?.expires_at === "string" ? obj.expires_at : null;
+
+    const reward = (obj?.reward ?? null) as Record<string, unknown> | null;
+
+    const coupon: IssuedCouponView = {
+      token,
+      redeem_url,
+      qr_png_base64,
+      qr_svg,
+      expires_at,
+
+      coupon_title: typeof reward?.coupon_title === "string" ? (reward.coupon_title as string) : null,
+      store_name: typeof reward?.store_name === "string" ? (reward.store_name as string) : null,
+      product_name: typeof reward?.product_name === "string" ? (reward.product_name as string) : null,
+      description: typeof reward?.description === "string" ? (reward.description as string) : null,
+      score_threshold: typeof reward?.score_threshold === "number" ? (reward.score_threshold as number) : null,
+    };
+
+    return { ok: true, issued: true, coupon };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/* =========================
+   Top50 Ranking (inline)
+========================= */
+function RankTop50({ difficulty }: { difficulty: "all" | Difficulty }) {
+  const [rows, setRows] = useState<ScoreRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      setLoading(true);
+      setErr(null);
+      const res = await fetchTopScores({ difficulty, limit: 50 });
+      if (!mounted) return;
+
+      if (!res.ok) {
+        setErr(res.error);
+        setRows([]);
+      } else {
+        setRows(res.rows.slice(0, 50));
+      }
+      setLoading(false);
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, [difficulty]);
+
+  return (
+    <div className="gSectionCard">
+      <div className="gSectionHead">
+        <div className="gSectionTitle">ランキング（TOP50）</div>
+        <div className="gSectionSub">{difficulty === "all" ? "全体" : difficulty.toUpperCase()}</div>
+      </div>
+
+      {loading && <div className="gSectionInfo">読み込み中…</div>}
+      {err && <div className="gSectionErr">取得失敗：{err}</div>}
+
+      {!loading && !err && (
+        <>
+          {rows.length === 0 ? (
+            <div className="gSectionInfo">まだ記録がありません</div>
+          ) : (
+            <div className="gRank50Wrap">
+              <table className="gRank50Table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>名前</th>
+                    <th>スコア</th>
+                    <th>難易度</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.id}>
+                      <td className="num">{i + 1}</td>
+                      <td className="name">{(r.display_name ?? "").trim() || "Guest"}</td>
+                      <td className="score">{r.score}</td>
+                      <td className="diff">{String(r.difficulty).toUpperCase()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function Game() {
   const nav = useNavigate();
@@ -227,40 +389,51 @@ export default function Game() {
     activeQuizRef.current = activeQuiz;
   }, [activeQuiz]);
 
-  const [quizResult, setQuizResult] = useState<null | {
-    correct: boolean;
-    delta: number;
-  }>(null);
+  const [quizResult, setQuizResult] = useState<null | { correct: boolean; delta: number }>(null);
 
   const paddleRef = useRef({ x: 0, y: 0, w: 150, h: 16 });
-  const ballRef = useRef({
-    x: 0,
-    y: 0,
-    r: 12,
-    vx: 0,
-    vy: 0,
-    released: false,
-  });
+  const ballRef = useRef({ x: 0, y: 0, r: 12, vx: 0, vy: 0, released: false });
 
   const targetsRef = useRef<Target[]>([]);
   const obstaclesRef = useRef<Obstacle[]>([]);
 
   const keysRef = useRef({ left: false, right: false });
-  const pointerRef = useRef<{ active: boolean; x: number }>({
-    active: false,
-    x: 0,
-  });
+  const pointerRef = useRef<{ active: boolean; x: number }>({ active: false, x: 0 });
 
   const lastTsRef = useRef(0);
 
-  // ✅ スコア送信「1回だけ」ガード
   const scoreSentRef = useRef(false);
-
-  // ✅ クーポン発行「1回だけ」ガード
   const couponTriedRef = useRef(false);
   const [couponUi, setCouponUi] = useState<CouponUiState>({ status: "idle" });
 
-  // ✅ 名前を事前に確保して保持（重要）
+  const [rewardRows, setRewardRows] = useState<CouponRewardRow[]>([]);
+  const [rewardLoading, setRewardLoading] = useState(true);
+  const [rewardErr, setRewardErr] = useState<string | null>(null);
+
+  // ✅ rewards 読み込み（ok分岐で rows を触る）
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      setRewardLoading(true);
+      setRewardErr(null);
+      const res = await fetchActiveRewards();
+      if (!mounted) return;
+
+      if (!res.ok) {
+        setRewardRows([]);
+        setRewardErr(res.error);
+      } else {
+        setRewardRows(res.rows);
+      }
+      setRewardLoading(false);
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // ✅ ログイン名保持（ゲストでもOK）
   const displayNameRef = useRef("ゲスト");
   const userIdRef = useRef<string | null>(null);
   const isGuestRef = useRef(true);
@@ -292,11 +465,9 @@ export default function Game() {
 
   useEffect(() => {
     return () => stopCountdown();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isControlLocked = (p: Phase) =>
-    p === "countdown" || p === "serve_auto" || p === "quiz_countdown";
+  const isControlLocked = (p: Phase) => p === "countdown" || p === "serve_auto" || p === "quiz_countdown";
 
   /* =========================
      Resize / DPR
@@ -349,8 +520,8 @@ export default function Game() {
     window.addEventListener("keydown", onDown, { passive: false });
     window.addEventListener("keyup", onUp);
     return () => {
-      window.removeEventListener("keydown", onDown as any);
-      window.removeEventListener("keyup", onUp as any);
+      window.removeEventListener("keydown", onDown as unknown as EventListener);
+      window.removeEventListener("keyup", onUp as unknown as EventListener);
     };
   }, []);
 
@@ -368,14 +539,7 @@ export default function Game() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     const pNow = phaseRef.current;
-    if (
-      isControlLocked(pNow) ||
-      pNow === "quiz_prompt" ||
-      pNow === "quiz_result" ||
-      pNow === "gameover" ||
-      pNow === "timeup"
-    )
-      return;
+    if (isControlLocked(pNow) || pNow === "quiz_prompt" || pNow === "quiz_result" || pNow === "gameover" || pNow === "timeup") return;
 
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     pointerRef.current.active = true;
@@ -399,11 +563,7 @@ export default function Game() {
     const marginTop = clamp(h * 0.12, 86, 170);
     const areaBottom = Math.floor(h * 0.48);
 
-    const baseR = clamp(
-      Math.min(w, h) * 0.06,
-      params.baseR.min,
-      params.baseR.max
-    );
+    const baseR = clamp(Math.min(w, h) * 0.06, params.baseR.min, params.baseR.max);
 
     const areaLeft = marginX;
     const areaRight = w - marginX;
@@ -444,12 +604,7 @@ export default function Game() {
 
         const spBase = rand(params.motionSpd[0], params.motionSpd[1]);
         const pxPerSec =
-          clamp(spBase * 220, 120, 340) *
-          (difficulty === "hard"
-            ? 1.15
-            : difficulty === "normal"
-            ? 1.05
-            : 0.95);
+          clamp(spBase * 220, 120, 340) * (difficulty === "hard" ? 1.15 : difficulty === "normal" ? 1.05 : 0.95);
 
         const ang = rand(0, Math.PI * 2);
         const vx = Math.cos(ang) * pxPerSec;
@@ -564,10 +719,11 @@ export default function Game() {
     couponTriedRef.current = false;
     setCouponUi({ status: "idle" });
 
-    // ✅ 直前クーポンの残骸は消しておく（任意）
     try {
       sessionStorage.removeItem(COUPON_STORAGE_KEY);
-    } catch {}
+    } catch {
+      // noop
+    }
 
     scoreRef.current = 0;
     setScore(0);
@@ -585,12 +741,7 @@ export default function Game() {
     keysRef.current.left = false;
     keysRef.current.right = false;
 
-    paddleRef.current = {
-      x: w / 2,
-      y: h - 64,
-      w: clamp(w * 0.24, 110, 190),
-      h: 16,
-    };
+    paddleRef.current = { x: w / 2, y: h - 64, w: clamp(w * 0.24, 110, 190), h: 16 };
 
     ballRef.current = {
       x: w / 2,
@@ -689,26 +840,17 @@ export default function Game() {
     const q = activeQuizRef.current;
     if (!q) return;
 
-    const correct =
-      (ans === "O" && q.correct === "O") || (ans === "X" && q.correct === "X");
+    const correct = (ans === "O" && q.correct === "O") || (ans === "X" && q.correct === "X");
 
     let delta = 0;
     if (correct) {
       delta = Math.round(160 * multiplierRef.current);
       scoreRef.current += delta;
-      multiplierRef.current = clamp(
-        Number((multiplierRef.current + 0.5).toFixed(1)),
-        1,
-        5
-      );
+      multiplierRef.current = clamp(Number((multiplierRef.current + 0.5).toFixed(1)), 1, 5);
     } else {
       delta = -90;
       scoreRef.current += delta;
-      multiplierRef.current = clamp(
-        Number((multiplierRef.current - 0.5).toFixed(1)),
-        1,
-        5
-      );
+      multiplierRef.current = clamp(Number((multiplierRef.current - 0.5).toFixed(1)), 1, 5);
     }
 
     setScore(scoreRef.current);
@@ -730,9 +872,7 @@ export default function Game() {
   }, [activeQuiz]);
 
   /* =========================
-     ✅ GAME OVER / TIME UP：
-     1) スコア送信（1回）
-     2) クーポン発行（1回）
+     ✅ GAME OVER / TIME UP
   ========================= */
   useEffect(() => {
     if (phase !== "gameover" && phase !== "timeup") return;
@@ -752,35 +892,54 @@ export default function Game() {
       });
     }
 
-    // ②クーポン発行（1回だけ）
+    // ②クーポン（1回だけ）
     if (couponTriedRef.current) return;
     couponTriedRef.current = true;
 
-    setCouponUi({ status: "loading" });
+    // 端末1回制御
+    if (isDeviceCouponDone()) return;
 
-    issueCouponAfterGame({
-      score: scoreRef.current,
-      difficulty,
-    }).then((res) => {
+    (async () => {
+      // “条件達成時だけ issuing 表示”したいので、
+      // rewards が取れてる時は先に eligibility 判定する
+      let canShowIssuing = false;
+
+      if (rewardRows.length > 0) {
+        const eligible = pickEligibleReward(rewardRows, scoreRef.current);
+        if (!eligible) return;
+        canShowIssuing = true;
+      } else if (!rewardLoading && rewardErr) {
+        // rewards が読めない（RLS等） → issuing は出さずに edge に任せる
+        canShowIssuing = false;
+      } else if (!rewardLoading && rewardRows.length === 0) {
+        // 0件なら条件達成もないのでreturn
+        return;
+      }
+
+      if (canShowIssuing) setCouponUi({ status: "issuing" });
+
+      const res = await issueCouponByEdge({ score: scoreRef.current, difficulty });
+
       if (!res.ok) {
-        setCouponUi({ status: "error", message: res.error });
+        console.warn("coupon issue failed:", res.error);
+        setCouponUi({ status: "idle" });
         return;
       }
-      if (!res.issued) {
-        // ✅ 条件未達は「何も表示しない」運用なので state だけ none にする
-        setCouponUi({ status: "none" });
+      if (!res.issued || !res.coupon) {
+        setCouponUi({ status: "idle" });
         return;
       }
 
-      const c = res.coupon as IssuedCouponView;
-
-      // ✅ 詳細画面用に保存（QRや詳細を次画面で表示）
       try {
-        sessionStorage.setItem(COUPON_STORAGE_KEY, JSON.stringify(c));
-      } catch {}
+        sessionStorage.setItem(COUPON_STORAGE_KEY, JSON.stringify(res.coupon));
+      } catch {
+        // noop
+      }
+      setDeviceCouponDone();
 
-      setCouponUi({ status: "issued", coupon: c });
-    });
+      setCouponUi({ status: "issued", coupon: res.coupon });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, difficulty]);
 
   /* =========================
@@ -806,19 +965,16 @@ export default function Game() {
 
       const pNow = phaseRef.current;
 
-      // BG
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = "#0b0f19";
       ctx.fillRect(0, 0, w, h);
 
-      // frame
       ctx.globalAlpha = 0.1;
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2;
       ctx.strokeRect(10, 10, w - 20, h - 20);
       ctx.globalAlpha = 1;
 
-      // time only in playing
       if (pNow === "playing") {
         timeRef.current -= dt;
         if (timeRef.current <= 0) {
@@ -831,7 +987,6 @@ export default function Game() {
         }
       }
 
-      // targets movement
       if (pNow === "playing") {
         const top = clamp(h * 0.12, 86, 170);
         const bottom = Math.floor(h * 0.48);
@@ -848,21 +1003,11 @@ export default function Game() {
             const spBase = rand(params.motionSpd[0], params.motionSpd[1]);
             const pxPerSec =
               clamp(spBase * 240, 140, 380) *
-              (difficulty === "hard"
-                ? 1.25
-                : difficulty === "normal"
-                ? 1.12
-                : 1.0);
+              (difficulty === "hard" ? 1.25 : difficulty === "normal" ? 1.12 : 1.0);
 
             const a = rand(0, Math.PI * 2);
             const bias =
-              t.motion === "circle"
-                ? 1.05
-                : t.motion === "zigzag"
-                ? 1.12
-                : t.motion === "drift"
-                ? 1.18
-                : 1.0;
+              t.motion === "circle" ? 1.05 : t.motion === "zigzag" ? 1.12 : t.motion === "drift" ? 1.18 : 1.0;
 
             const nx = Math.cos(a) * pxPerSec * bias;
             const ny = Math.sin(a) * pxPerSec * 0.75 * bias;
@@ -892,7 +1037,6 @@ export default function Game() {
           }
         }
 
-        // push apart
         const list = targetsRef.current;
         for (let i = 0; i < list.length; i++) {
           const a = list[i];
@@ -926,7 +1070,6 @@ export default function Game() {
         }
       }
 
-      // obstacles update
       if (pNow === "playing") {
         for (const o of obstaclesRef.current) {
           o.x += o.vx * dt;
@@ -941,15 +1084,8 @@ export default function Game() {
         }
       }
 
-      // paddle
       const p = paddleRef.current;
-      if (
-        isControlLocked(pNow) ||
-        pNow === "quiz_prompt" ||
-        pNow === "quiz_result" ||
-        pNow === "gameover" ||
-        pNow === "timeup"
-      ) {
+      if (isControlLocked(pNow) || pNow === "quiz_prompt" || pNow === "quiz_result" || pNow === "gameover" || pNow === "timeup") {
         pointerRef.current.active = false;
         keysRef.current.left = false;
         keysRef.current.right = false;
@@ -967,7 +1103,6 @@ export default function Game() {
         p.x = clamp(p.x, p.w / 2 + 14, w - p.w / 2 - 14);
       }
 
-      // ball follow
       const b = ballRef.current;
       if (!b.released) {
         b.x = p.x;
@@ -976,13 +1111,11 @@ export default function Game() {
         b.vy = 0;
       }
 
-      // ===== physics (substeps：貫通対策) =====
       if ((pNow === "playing" || pNow === "quiz_play") && b.released) {
         const minSp = 380;
         const maxSp = 700;
 
         const speed = Math.hypot(b.vx, b.vy);
-
         const stepDist = clamp(b.r * 0.45, 3, 9);
         const steps = clamp(Math.ceil((speed * dt) / stepDist), 1, 10);
         const stepDt = dt / steps;
@@ -991,7 +1124,6 @@ export default function Game() {
           b.x += b.vx * stepDt;
           b.y += b.vy * stepDt;
 
-          // walls
           if (b.x - b.r < 14) {
             b.x = 14 + b.r;
             b.vx = Math.abs(b.vx);
@@ -1005,7 +1137,6 @@ export default function Game() {
             b.vy = Math.abs(b.vy);
           }
 
-          // paddle
           const px1 = p.x - p.w / 2;
           const px2 = p.x + p.w / 2;
           const py1 = p.y - p.h / 2;
@@ -1025,7 +1156,6 @@ export default function Game() {
             b.vy *= k;
           }
 
-          // obstacles (playing)
           if (pNow === "playing") {
             for (const o of obstaclesRef.current) {
               const ox1 = o.x - o.w / 2;
@@ -1039,7 +1169,6 @@ export default function Game() {
             }
           }
 
-          // ✅ quiz "逆T" bumper（横を長く）
           if (pNow === "quiz_play") {
             const barW = clamp(Math.min(w, h) * 0.72, 260, 520);
             const barH = 16;
@@ -1078,7 +1207,6 @@ export default function Game() {
             }
           }
 
-          // target collision (playing)
           if (pNow === "playing") {
             for (const t of targetsRef.current) {
               if (t.hp <= 0) continue;
@@ -1114,7 +1242,6 @@ export default function Game() {
             }
           }
 
-          // quiz big targets（もっと大きく）
           if (pNow === "quiz_play") {
             const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
             const yBig = h * 0.3;
@@ -1134,7 +1261,6 @@ export default function Game() {
             }
           }
 
-          // fell
           if (b.y - b.r > h + 28) {
             if (pNow === "playing") setPhase("gameover");
             else if (pNow === "quiz_play") {
@@ -1146,7 +1272,6 @@ export default function Game() {
         }
       }
 
-      // ===== DRAW =====
       if (pNow === "playing") {
         for (const o of obstaclesRef.current) {
           ctx.save();
@@ -1158,12 +1283,7 @@ export default function Game() {
         }
       }
 
-      if (
-        pNow === "playing" ||
-        pNow === "idle" ||
-        pNow === "countdown" ||
-        pNow === "serve_auto"
-      ) {
+      if (pNow === "playing" || pNow === "idle" || pNow === "countdown" || pNow === "serve_auto") {
         for (const t of targetsRef.current) {
           if (t.hp <= 0) continue;
           drawCell(ctx, t.x, t.y, t.r, t.color);
@@ -1224,21 +1344,11 @@ export default function Game() {
       ctx.fill();
 
       ctx.beginPath();
-      ctx.arc(
-        b.x - b.r * 0.25,
-        b.y - b.r * 0.25,
-        b.r * 0.35,
-        0,
-        Math.PI * 2
-      );
+      ctx.arc(b.x - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.35, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(0,0,0,0.12)";
       ctx.fill();
 
-      if (
-        pNow === "countdown" ||
-        pNow === "serve_auto" ||
-        pNow === "quiz_countdown"
-      ) {
+      if (pNow === "countdown" || pNow === "serve_auto" || pNow === "quiz_countdown") {
         ctx.save();
         ctx.fillStyle = "rgba(0,0,0,0.35)";
         ctx.fillRect(0, 0, w, h);
@@ -1272,13 +1382,8 @@ export default function Game() {
         ctx.fillText(quizResult.correct ? "正解！" : "不正解…", w / 2, h * 0.44);
 
         ctx.font = "800 16px system-ui";
-        const s =
-          quizResult.delta >= 0 ? `+${quizResult.delta}` : `${quizResult.delta}`;
-        ctx.fillText(
-          `${s} / x${multiplierRef.current.toFixed(1)}`,
-          w / 2,
-          h * 0.5
-        );
+        const s = quizResult.delta >= 0 ? `+${quizResult.delta}` : `${quizResult.delta}`;
+        ctx.fillText(`${s} / x${multiplierRef.current.toFixed(1)}`, w / 2, h * 0.5);
         ctx.restore();
       }
     };
@@ -1295,6 +1400,8 @@ export default function Game() {
 
   const gameTitle = "がん細胞をたおして、乳がんについて学ぼう！";
 
+  const lockEndButtons = couponUi.status === "issuing" || couponUi.status === "issued";
+
   return (
     <div className="gamePage">
       <SiteHeader />
@@ -1304,12 +1411,8 @@ export default function Game() {
           <div className="canvasShell">
             <div className="hudBar">
               <div className="hudItem">TIME: {timeLeft}s</div>
-              <div className="hudItem">
-                <ScoreText score={score} />
-              </div>
-              <div className="hudItem">
-                <MultiplierText multiplier={multiplierUi} />
-              </div>
+              <div className="hudItem"><ScoreText score={score} /></div>
+              <div className="hudItem"><MultiplierText multiplier={multiplierUi} /></div>
             </div>
 
             <canvas
@@ -1321,52 +1424,27 @@ export default function Game() {
               onPointerCancel={onPointerUp}
             />
 
-            {/* ✅ 最初の画面 */}
             {phase === "idle" && (
               <div className="overlay">
                 <div className="overlayCard">
                   <div className="gStartGrid">
                     <div className="gStartLeft">
                       <div className="overlayTitle">{gameTitle}</div>
-                      <div className="overlayText center">
-                        難易度を選んで START
-                      </div>
+                      <div className="overlayText center">難易度を選んで START</div>
 
                       <div className="overlayRow">
-                        <button
-                          type="button"
-                          className={
-                            difficulty === "easy" ? "diffBtn on" : "diffBtn"
-                          }
-                          onClick={() => setDifficulty("easy")}
-                        >
+                        <button type="button" className={difficulty === "easy" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("easy")}>
                           EASY
                         </button>
-                        <button
-                          type="button"
-                          className={
-                            difficulty === "normal" ? "diffBtn on" : "diffBtn"
-                          }
-                          onClick={() => setDifficulty("normal")}
-                        >
+                        <button type="button" className={difficulty === "normal" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("normal")}>
                           NORMAL
                         </button>
-                        <button
-                          type="button"
-                          className={
-                            difficulty === "hard" ? "diffBtn on" : "diffBtn"
-                          }
-                          onClick={() => setDifficulty("hard")}
-                        >
+                        <button type="button" className={difficulty === "hard" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("hard")}>
                           HARD
                         </button>
                       </div>
 
-                      <button
-                        type="button"
-                        className="overlayPrimary"
-                        onClick={startGameFlow}
-                      >
+                      <button type="button" className="overlayPrimary" onClick={startGameFlow}>
                         START
                       </button>
 
@@ -1386,11 +1464,7 @@ export default function Game() {
                 <div className="overlayCard">
                   <div className="overlayTitle">○×クイズ</div>
                   <div className="overlayText quizQuestion">{quizText}</div>
-                  <button
-                    type="button"
-                    className="overlayPrimary"
-                    onClick={onQuizConfirm}
-                  >
+                  <button type="button" className="overlayPrimary" onClick={onQuizConfirm}>
                     クイズ開始
                   </button>
                 </div>
@@ -1400,60 +1474,105 @@ export default function Game() {
             {(phase === "gameover" || phase === "timeup") && (
               <div className="overlay">
                 <div className="overlayCard">
-                  <div className="overlayTitle">
-                    {phase === "gameover" ? "GAME OVER" : "TIME UP"}
-                  </div>
-
+                  <div className="overlayTitle">{phase === "gameover" ? "GAME OVER" : "TIME UP"}</div>
                   <div className="overlayText center">SCORE: {score}</div>
 
-                  {/* ✅ クーポン：条件一致の時だけ表示（未達は何も出さない・コードも出さない） */}
-                  <div className="overlayText center" style={{ marginTop: 10 }}>
-                    {couponUi.status === "loading" && "クーポン確認中…"}
+                  {couponUi.status === "issuing" && (
+                    <div className="overlayText center" style={{ marginTop: 12 }}>
+                      クーポン発行中…
+                    </div>
+                  )}
 
-                    {couponUi.status === "error" && (
-                      <span style={{ color: "#ff6b6b" }}>
-                        クーポン発行エラー：{couponUi.message}
-                      </span>
-                    )}
+                  {couponUi.status === "issued" ? (
+                    <div style={{ textAlign: "center", marginTop: 14 }}>
+                      <div style={{ fontWeight: 900, marginBottom: 10 }}>🎉 クーポン獲得！</div>
+                      <button type="button" className="overlayPrimary" onClick={() => nav("/game/coupon")}>
+                        詳細を確認する
+                      </button>
+                    </div>
+                  ) : null}
 
-                    {couponUi.status === "issued" && (
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontWeight: 900, marginBottom: 10 }}>
-                          🎉 クーポン獲得！
-                        </div>
-
-                        <button
-                          type="button"
-                          className="overlayPrimary"
-                          onClick={() => nav("/game/coupon")}
-                        >
-                          QRと詳細を見る
-                        </button>
-                      </div>
-                    )}
-
-                    {/* ✅ none は何も表示しない */}
-                  </div>
-
-                  <div className="overlayRow" style={{ marginTop: 14 }}>
-                    <button
-                      type="button"
-                      className="overlayPrimary ghost"
-                      onClick={() => resetGame(false)}
-                    >
-                      TOP（ゲーム最初へ）
-                    </button>
-                    <button
-                      type="button"
-                      className="overlayPrimary"
-                      onClick={startGameFlow}
-                    >
-                      もう一度
-                    </button>
-                  </div>
+                  {!lockEndButtons && (
+                    <div className="overlayRow" style={{ marginTop: 14 }}>
+                      <button type="button" className="overlayPrimary ghost" onClick={() => resetGame(false)}>
+                        TOP（ゲーム最初へ）
+                      </button>
+                      <button type="button" className="overlayPrimary" onClick={startGameFlow}>
+                        もう一度
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
+          </div>
+
+          {/* =========================
+             ✅ 下セクション
+          ========================= */}
+          <div className="gBelow">
+            {/* ① 報酬リスト：coupon_rewards から表示 */}
+            <div className="gSectionCard">
+              <div className="gSectionHead">
+                <div className="gSectionTitle">スコア達成で報酬ゲット</div>
+                <div className="gSectionSub">達成するとクーポンが出る（端末で1回のみ）</div>
+              </div>
+
+              {rewardLoading ? (
+                <div className="gSectionInfo">読み込み中…</div>
+              ) : rewardErr ? (
+                <div className="gSectionErr">取得失敗：{rewardErr}</div>
+              ) : rewardRows.length === 0 ? (
+                <div className="gSectionInfo">現在、配布中の報酬がありません</div>
+              ) : (
+                <ul className="gRewardList">
+                  {rewardRows
+                    .slice()
+                    .sort((a, b) => Number(a.score_threshold) - Number(b.score_threshold))
+                    .map((r) => (
+                      <li key={r.id}>
+                        <span className="badge">{r.score_threshold}点</span>
+                        {r.coupon_title}（{r.store_name} / {r.product_name}）
+                        {r.description ? <div className="gRewardDesc">{r.description}</div> : null}
+                      </li>
+                    ))}
+                </ul>
+              )}
+
+              <div className="gSectionNote">※報酬は「coupon_rewards」の設定がそのまま表示されます</div>
+            </div>
+
+            {/* ② 遊び方：文字＋手順＋“説明画像の枠” */}
+            <div className="gSectionCard">
+              <div className="gSectionHead">
+                <div className="gSectionTitle">遊び方</div>
+                <div className="gSectionSub">操作・ルール</div>
+              </div>
+
+              <div className="gHowto">
+                <div className="step">
+                  <div className="n">1</div>
+                  <div className="t">左右キー / スワイプでバーを動かしてボールを落とさない</div>
+                </div>
+                <div className="step">
+                  <div className="n">2</div>
+                  <div className="t">「?」に当たると○×クイズ！ボールで○/×に当てて回答</div>
+                </div>
+                <div className="step">
+                  <div className="n">3</div>
+                  <div className="t">高スコアで報酬が出たら「詳細を確認する」からQRを表示</div>
+                </div>
+              </div>
+
+              <div className="gHowtoImgs">
+                <div className="gHowtoImgPh">ここに説明画像①（後で差し替え）</div>
+                <div className="gHowtoImgPh">ここに説明画像②（後で差し替え）</div>
+                <div className="gHowtoImgPh">ここに説明画像③（後で差し替え）</div>
+              </div>
+            </div>
+
+            {/* ③ ランキング TOP50 */}
+            <RankTop50 difficulty="all" />
           </div>
         </div>
       </main>

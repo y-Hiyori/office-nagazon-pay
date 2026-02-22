@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 type Body = {
   score?: unknown;
   difficulty?: unknown;
-  device_id?: unknown; // ✅ 追加
+  device_id?: unknown; // 任意（フロントで送る推奨）
 };
 
 type RewardRow = {
@@ -27,7 +27,7 @@ type IssuanceExistingRow = {
   used: boolean | null;
   used_confirmed_at: string | null;
   issued_at: string | null;
-  ip_hash: string | null; // ✅ 既存列（中身を端末ハッシュにする）
+  ip_hash: string | null; // 端末ハッシュを保存（列名はip_hashのまま）
   coupon_rewards: RewardRow | null;
 };
 
@@ -44,14 +44,15 @@ type IssueOkIssued = {
 type IssueOkNotIssued = {
   ok: true;
   issued: false;
-  reason: "no_reward" | "already_issued";
+  reason: "no_reward" | "already_issued" | "missing_env";
 };
 
 type IssueNg = { ok: false; error: string };
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -60,13 +61,6 @@ function json(data: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "content-type": "application/json" },
   });
-}
-
-function getClient() {
-  const supabaseUrl = Deno.env.get("PROJECT_URL") || Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) throw new Error("PROJECT_URL / SERVICE_ROLE_KEY is missing");
-  return createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 }
 
 function errToString(e: unknown) {
@@ -79,10 +73,23 @@ function errToString(e: unknown) {
   }
 }
 
+function getClient() {
+  const supabaseUrl =
+    Deno.env.get("PROJECT_URL") || Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) return null;
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function randToken(len = 44) {
@@ -102,7 +109,7 @@ function pickOrigin(req: Request) {
     try {
       return new URL(referer).origin;
     } catch {
-      // ignore invalid referer
+      // ignore
     }
   }
 
@@ -144,9 +151,32 @@ function isExistingRow(v: unknown): v is IssuanceExistingRow {
   if (!isRecord(v)) return false;
   const token = v.token;
   const cr = (v as Record<string, unknown>)["coupon_rewards"];
-  if (!(typeof token === "string" || token === null || token === undefined)) return false;
+  if (!(typeof token === "string" || token === null || token === undefined))
+    return false;
   if (cr !== null && cr !== undefined && !isRewardRow(cr)) return false;
   return true;
+}
+
+/**
+ * ✅ device_id が無くても動くためのフォールバック
+ * - 端末IDがあるならそれを最優先
+ * - 無いなら (x-forwarded-for / cf-connecting-ip) + user-agent を材料にする
+ */
+async function computeDeviceHash(req: Request, body: Body): Promise<string> {
+  const salt = Deno.env.get("IP_HASH_SALT") ?? "change-me";
+
+  const deviceId =
+    typeof body.device_id === "string" ? body.device_id.trim() : "";
+
+  const ua = req.headers.get("user-agent") ?? "";
+  const xff = req.headers.get("x-forwarded-for") ?? "";
+  const cfi = req.headers.get("cf-connecting-ip") ?? "";
+
+  const basis = deviceId
+    ? `device:${deviceId}`
+    : `fallback:${(cfi || xff || "").split(",")[0].trim()}|ua:${ua}`;
+
+  return await sha256Hex(`${basis}|${salt}`);
 }
 
 serve(async (req: Request) => {
@@ -165,6 +195,10 @@ serve(async (req: Request) => {
           : 0;
 
     const supabase = getClient();
+    if (!supabase) {
+      const res: IssueOkNotIssued = { ok: true, issued: false, reason: "missing_env" };
+      return json(res, 200);
+    }
 
     // threshold <= score の中で一番高い報酬
     const { data: rewards, error: rewErr } = await supabase
@@ -179,22 +213,16 @@ serve(async (req: Request) => {
     if (rewErr) throw rewErr;
 
     const now = new Date();
-    const reward = (rewards ?? []).find((r: RewardRow) => isActiveAndInRange(r, now)) ?? null;
+    const reward =
+      (rewards ?? []).find((r: RewardRow) => isActiveAndInRange(r, now)) ?? null;
 
     if (!reward) {
       const res: IssueOkNotIssued = { ok: true, issued: false, reason: "no_reward" };
       return json(res, 200);
     }
 
-    // ✅ 端末IDベースの一意キー（DB列名は ip_hash のまま使う）
-    const salt = Deno.env.get("IP_HASH_SALT") ?? "change-me";
-    const deviceId = typeof body.device_id === "string" ? body.device_id.trim() : "";
-    if (!deviceId) {
-      // device_idが来ない場合はエラーにする（端末ごとにしたいので必須）
-      const res: IssueNg = { ok: false, error: "device_id missing" };
-      return json(res, 200);
-    }
-    const ipHash = await sha256Hex(`${deviceId}|${salt}`);
+    // ✅ 端末ハッシュ（列は ip_hash を流用）
+    const ipHash = await computeDeviceHash(req, body);
 
     // 既に同じ端末で発行済みなら、そのtokenを返す
     const { data: existingRaw, error: exErr } = await supabase
@@ -233,7 +261,7 @@ serve(async (req: Request) => {
       return json(res, 200);
     }
 
-    // 新規発行（端末ハッシュをip_hashに保存）
+    // 新規発行
     const token = randToken(44);
     const issuedAt = new Date().toISOString();
 
@@ -244,7 +272,7 @@ serve(async (req: Request) => {
       used: false,
       used_at: null,
       used_confirmed_at: null,
-      ip_hash: ipHash, // ✅ ここが端末ハッシュ
+      ip_hash: ipHash,
     });
 
     if (insErr) throw insErr;

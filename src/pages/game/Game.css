@@ -1,26 +1,27 @@
+/* src/pages/game/Game.css */
+
 /* =========================
    Game.css (NAGAZON Pay style / refined)
-   - はみ出し対策
-   - overlay / HUD / ranking の設計を整理
+   ✅ 上下のカード幅ライン統一
+   ✅ スマホ最適化：min-width:0 / wrap / overflow safety
+   ✅ overlayCard の 100vw 依存をやめる（これがはみ出し原因）
+   ✅ 説明画像枠：どの幅でも絶対はみ出さない auto grid
+   ✅ canvas高さはJS制御
 ========================= */
 
 :root{
-  --g-bg: #0b0f19;
-  --g-card: rgba(12, 16, 28, 0.96);
-  --g-line: rgba(255,255,255,0.14);
-  --g-line2: rgba(255,255,255,0.10);
-  --g-text: rgba(255,255,255,0.92);
-  --g-sub: rgba(255,255,255,0.60);
-  --g-sub2: rgba(255,255,255,0.48);
-  --g-glass: rgba(255,255,255,0.08);
-  --g-glass2: rgba(255,255,255,0.06);
-  --g-shadow: 0 18px 50px rgba(0,0,0,0.45);
-  --g-shadow2: 0 10px 26px rgba(0,0,0,0.25);
-}
+  --g-bg:#0b0f19;
+  --g-card2: rgba(15,18,30,0.92);
 
-/* =========================
-   Page base (Game only)
-========================= */
+  --g-shadow: 0 18px 60px rgba(0,0,0,0.38);
+  --g-shadow2: 0 12px 32px rgba(0,0,0,0.30);
+
+  --g-radius2: 20px;
+
+  /* ✅ “安全余白” + iPhone safe-area 対応 */
+  --g-safe-x-base: clamp(10px, 2.6vw, 18px);
+  --g-safe-x: calc(var(--g-safe-x-base) + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
+}
 
 .gamePage{
   min-height: 100svh;
@@ -28,7 +29,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden; /* 横はみ出し完全ブロック */
+  overflow-x: hidden; /* clipより確実に止まる端末がある */
 }
 .gamePage, .gamePage *{ box-sizing: border-box; }
 
@@ -43,16 +44,16 @@ html, body{
 
 .gameMain{
   flex: 1;
-  display: grid;
-  place-items: center;
-  padding: 10px;
-  min-height: 0;
+  display: block;
+  padding: 14px 0 18px;
 }
 
 .gameWrap{
   width: min(980px, 100%);
-  max-width: 100%;
   margin: 0 auto;
+  padding-inline: var(--g-safe-x-base); /* ここはbaseのみ（safe-areaはbody側で効く） */
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* =========================
@@ -63,285 +64,450 @@ html, body{
   position: relative;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
 
-  border-radius: 18px;
+  border-radius: var(--g-radius2);
   overflow: hidden;
 
-  background: var(--g-bg);
-  border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  background:
+    radial-gradient(1200px 600px at 40% 0%,
+      rgba(255,255,255,0.07),
+      rgba(255,255,255,0.00) 60%),
+    radial-gradient(900px 500px at 90% 40%,
+      rgba(90,120,255,0.10),
+      rgba(0,0,0,0.00) 65%),
+    var(--g-bg);
+
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: var(--g-shadow);
 }
 
 .gameCanvas{
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: min(72svh, 760px);
-
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
+  display:block;
+  width:100%;
+  max-width:100%;
+  height:auto; /* JS制御 */
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
 }
 
 /* =========================
-   HUD (top bar)
+   HUD
 ========================= */
 
 .hudBar{
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
+  position:absolute;
+  top:12px;
+  left:12px;
+  right:12px;
 
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
+  display:flex;
+  gap:10px;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
 
-  padding: 10px 12px;
-  border-radius: 14px;
+  padding:10px 12px;
+  border-radius:16px;
 
   background: rgba(255,255,255,0.09);
   border: 1px solid rgba(255,255,255,0.14);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
 
-  z-index: 3;
-  color: #fff;
-  font-weight: 900;
-  letter-spacing: 0.02em;
+  z-index:3;
+  color:#fff;
+  font-weight:900;
+  letter-spacing:0.02em;
+
+  min-width: 0;
 }
-
 .hudItem{
-  opacity: 0.95;
-  white-space: nowrap;
+  opacity:.95;
+  white-space:nowrap;
+  min-width: 0;
 }
 
 /* =========================
    Overlay
+   ✅ overlayCard は 100vw を使わない（はみ出し防止）
 ========================= */
 
 .overlay{
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
 
-  padding: 14px;
-  background: radial-gradient(circle at 50% 40%,
-    rgba(0,0,0,0.20),
-    rgba(0,0,0,0.45)
-  );
+  padding:14px;
+  background: radial-gradient(circle at 50% 40%, rgba(0,0,0,0.18), rgba(0,0,0,0.58));
+  overflow:hidden;
+  z-index:5;
 
-  overflow: hidden;
-  z-index: 5;
+  min-width: 0;
 }
 
 .overlayCard{
-  width: min(760px, 92vw);
-  max-width: 92vw;
+  /* ✅ overlay の padding 内で完結させる（100%基準） */
+  width: min(760px, 100%);
+  max-width: 100%;
+  min-width: 0;
 
-  max-height: min(76svh, 620px);
-  overflow: auto;
+  max-height: min(76svh, 640px);
+  overflow:auto;
   -webkit-overflow-scrolling: touch;
 
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(12, 16, 28, 0.94);
-  color: #fff;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background:
+    radial-gradient(800px 400px at 30% 0%, rgba(255,255,255,0.07), rgba(0,0,0,0) 65%),
+    rgba(12,16,28,0.94);
 
-  padding: 16px;
-  box-shadow: var(--g-shadow);
+  color:#fff;
+  padding:16px;
+  box-shadow: 0 22px 70px rgba(0,0,0,0.55);
 }
 
 .overlayTitle{
-  font-weight: 950;
-  font-size: 22px;
-  margin-bottom: 10px;
-  text-align: center;
-  letter-spacing: 0.2px;
+  font-weight:950;
+  font-size:22px;
+  margin-bottom:10px;
+  text-align:center;
 }
 
 .overlayText{
-  font-weight: 800;
-  font-size: 15px;
-  line-height: 1.6;
-  opacity: 0.96;
-  margin-bottom: 12px;
+  font-weight:800;
+  font-size:15px;
+  line-height:1.6;
+  opacity:.96;
+  margin-bottom:12px;
   word-break: break-word;
 }
+.overlayText.center{ text-align:center; }
 
-.overlayText.center{ text-align: center; }
-
-/* ✅ クイズ問題文：もっと大きく（スマホでも綺麗） */
 .overlayText.quizQuestion{
   font-size: clamp(16px, 2.2vw, 22px);
   line-height: 1.75;
-  letter-spacing: 0.02em;
+  letter-spacing: .02em;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
 }
 
 .overlayRow{
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+  min-width: 0;
 }
 
 .overlayHint{
-  margin-top: 10px;
-  font-size: 12px;
-  opacity: 0.75;
-  text-align: center;
+  margin-top:10px;
+  font-size:12px;
+  opacity:.75;
+  text-align:center;
 }
 
-/* =========================
-   Buttons (common)
-========================= */
-
+/* Buttons */
 .overlayPrimary{
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 14px;
-
-  border: 1px solid rgba(255,255,255,0.16);
+  width:100%;
+  padding:12px 14px;
+  border-radius:14px;
+  border: 1px solid rgba(255,255,255,0.18);
   background: rgba(255,255,255,0.10);
-  color: #fff;
-
-  font-weight: 950;
-  cursor: pointer;
-
+  color:#fff;
+  font-weight:950;
+  cursor:pointer;
   transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
-
 .overlayPrimary:hover{
   background: rgba(255,255,255,0.14);
-  border-color: rgba(255,255,255,0.24);
+  border-color: rgba(255,255,255,0.26);
   transform: translateY(-1px);
 }
 .overlayPrimary:active{ transform: translateY(0); }
+.overlayPrimary.ghost{ background: rgba(255,255,255,0.06); }
 
-.overlayPrimary.ghost{
-  background: rgba(255,255,255,0.05);
-}
-
-/* difficulty pills */
 .diffBtn{
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
+  padding:10px 14px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.14);
   background: rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.92);
-
-  font-weight: 950;
-  cursor: pointer;
-
-  min-width: 92px;
-  max-width: 42vw;
-
-  text-align: center;
-  white-space: nowrap;
-
-  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+  font-weight:950;
+  cursor:pointer;
+  min-width:92px;
+  max-width:44vw;
+  text-align:center;
+  white-space:nowrap;
 }
-.diffBtn:hover{
-  background: rgba(255,255,255,0.10);
-  transform: translateY(-1px);
-}
-.diffBtn:active{ transform: translateY(0); }
 .diffBtn.on{
-  border-color: rgba(255,255,255,0.26);
+  border-color: rgba(255,255,255,0.28);
   background: rgba(255,255,255,0.14);
 }
 
-/* =========================
-   Quiz choice buttons (X / O)
-   ✅ 余計な枠/リング/タップハイライトを完全排除
-========================= */
-
-.quizBtn{
-  width: 94px;
-  height: 64px;
-  border-radius: 16px;
-
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(255,255,255,0.08);
-
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  appearance: none;
-  -webkit-appearance: none;
-
-  display: grid;
-  place-items: center;
-
-  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-}
-.quizBtn:hover{
-  background: rgba(255,255,255,0.12);
-  transform: translateY(-1px);
-}
-.quizBtn:active{ transform: translateY(0); }
-
-.quizBtn.on{
-  border-color: rgba(255,255,255,0.42);
-  background: rgba(255,255,255,0.18);
-}
-
-.quizBtn,
-.quizBtn:focus,
-.quizBtn:focus-visible{
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* ボタン内に “×/○” をCSSで描く（画像不要） */
-.quizBtn[aria-label*="×"]::before{
-  content: "×";
-  font-weight: 950;
-  font-size: 28px;
-  color: rgba(58,134,255,0.98);
-  text-shadow: 0 10px 30px rgba(58,134,255,0.25);
-}
-.quizBtn[aria-label*="○"]::before{
-  content: "○";
-  font-weight: 950;
-  font-size: 28px;
-  color: rgba(255,77,109,0.98);
-  text-shadow: 0 10px 30px rgba(255,77,109,0.25);
-}
-
-/* ===========================
-   ✅ Game Start画面：ランキング（更新ボタンなし）
-   ・Homeに干渉しないよう gRank* で完全分離
-=========================== */
-
+/* Start overlay layout */
 .gStartGrid{
-  display: grid;
+  display:grid;
   grid-template-columns: 1fr 330px;
-  gap: 14px;
-  align-items: stretch;
+  gap:14px;
+  align-items:stretch;
+  min-width: 0;
 }
-.gStartLeft, .gStartRight{ min-width: 0; }
-
+.gStartLeft, .gStartRight{ min-width:0; }
 @media (max-width: 860px){
   .gStartGrid{ grid-template-columns: 1fr; }
 }
 
+/* =========================
+   Below sections
+========================= */
+
+.gBelow{
+  width:100%;
+  margin:16px auto 64px;
+  display:grid;
+  gap:14px;
+  min-width: 0;
+}
+
+.gSectionCard{
+  border-radius: var(--g-radius2);
+  padding:18px 16px;
+  background:
+    radial-gradient(900px 400px at 30% 0%, rgba(255,255,255,0.06), rgba(0,0,0,0) 65%),
+    var(--g-card2);
+  border:1px solid rgba(255,255,255,0.08);
+  box-shadow: var(--g-shadow);
+  color:#fff;
+
+  /* ✅ はみ出し事故を止める */
+  overflow: hidden;
+  min-width: 0;
+}
+
+.gSectionHead{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  margin-bottom:12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.gSectionTitle{
+  font-size:18px;
+  font-weight:950;
+  letter-spacing:.02em;
+  min-width: 0;
+}
+
+.gSectionSub{
+  font-size:12px;
+  opacity:.74;
+  white-space: normal;
+  line-height:1.4;
+  text-align:right;
+  max-width:100%;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.gSectionInfo{
+  opacity:.82;
+  font-size:13px;
+  font-weight:800;
+}
+.gSectionErr{
+  color:#ff7b7b;
+  font-weight:900;
+  font-size:13px;
+}
+.gSectionNote{
+  margin-top:10px;
+  font-size:12px;
+  opacity:.70;
+  word-break: break-word;
+}
+
+/* Rewards */
+.gRewardList{
+  margin:0;
+  padding-left:18px;
+  display:grid;
+  gap:10px;
+  min-width: 0;
+}
+.gRewardList li{ line-height:1.55; }
+.gRewardList .badge{
+  display:inline-block;
+  margin-right:8px;
+  padding:3px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:950;
+  background: rgba(255,255,255,0.12);
+  border:1px solid rgba(255,255,255,0.10);
+}
+.gRewardDesc{
+  margin-top:4px;
+  font-size:12px;
+  opacity:.72;
+  word-break: break-word;
+}
+
+/* Howto */
+.gHowto{
+  display:grid;
+  gap:10px;
+  min-width: 0;
+}
+.gHowto .step{
+  display:grid;
+  grid-template-columns: 34px 1fr;
+  gap:12px;
+  align-items:center;
+  padding:12px 14px;
+  border-radius:18px;
+  background: rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.09);
+  min-width: 0;
+}
+.gHowto .n{
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  font-weight:950;
+  background: rgba(167,199,255,0.20);
+  border:1px solid rgba(255,255,255,0.10);
+}
+.gHowto .t{
+  font-size:13px;
+  font-weight:850;
+  opacity:.92;
+  min-width:0;
+  word-break: break-word;
+}
+
+/* ✅ “説明画像枠” = どの幅でも絶対はみ出さない */
+.gHowtoImgs{
+  margin-top:12px;
+  display:grid;
+  gap:10px;
+
+  /* ✅ 220pxが強すぎたので、もっと柔らかく＆確実に折り返す */
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.gHowtoImgs > *{ min-width:0; }
+
+.gHowtoImgPh{
+  min-height:150px;
+  border-radius:18px;
+  border:1px dashed rgba(255,255,255,0.20);
+  background: rgba(255,255,255,0.03);
+  display:grid;
+  place-items:center;
+  text-align:center;
+  padding:14px;
+  opacity:.85;
+  font-size:13px;
+  font-weight:850;
+
+  word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Rank top50 */
+.gRank50Wrap{
+  width:100%;
+  overflow:auto;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+  min-width: 0;
+}
+.gRank50Table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:560px; /* 横スクロール前提 */
+}
+.gRank50Table th, .gRank50Table td{
+  padding:11px 12px;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  font-size:13px;
+}
+.gRank50Table th{
+  text-align:left;
+  opacity:.75;
+  font-weight:950;
+  white-space:nowrap;
+}
+.gRank50Table tbody tr:hover td{ background: rgba(255,255,255,0.04); }
+.gRank50Table td.num{ width:60px; font-weight:950; color: rgba(255,255,255,0.75); }
+.gRank50Table td.score{ text-align:right; font-weight:950; letter-spacing:.02em; }
+.gRank50Table td.diff{ width:90px; opacity:.88; font-weight:900; }
+
+/* =========================
+   Mobile tuning
+========================= */
+
+@media (max-width: 520px){
+  .gameMain{ padding:10px 0 16px; }
+
+  .hudBar{
+    top:10px; left:10px; right:10px;
+    padding:9px 10px;
+    gap:8px;
+    border-radius:14px;
+  }
+  .hudItem{ font-size:12px; }
+
+  .overlay{ padding:10px; }
+  .overlayCard{ padding:14px; border-radius:18px; }
+  .overlayTitle{ font-size:20px; }
+
+  .diffBtn{ min-width:86px; padding:10px 12px; max-width:46vw; }
+
+  .gSectionCard{ padding:16px 14px; border-radius:18px; }
+  .gSectionHead{ align-items:flex-start; }
+  .gSectionSub{ text-align:left; }
+}
+
+button:focus-visible{
+  outline:2px solid rgba(255,255,255,0.55);
+  outline-offset:2px;
+}
+
+/* =========================
+   ✅ Start overlay ranking card（枠が消えたのを復活）
+   GameRankingMini の見た目をカード化
+========================= */
+
 .gRankCard{
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: linear-gradient(
-    180deg,
-    rgba(255,255,255,0.06),
-    rgba(255,255,255,0.03)
-  );
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background:
+    radial-gradient(700px 340px at 35% 0%,
+      rgba(255,255,255,0.06),
+      rgba(0,0,0,0) 65%),
+    rgba(10, 13, 22, 0.55);
   box-shadow: var(--g-shadow2);
   overflow: hidden;
-  min-height: 220px;
+  min-width: 0;
 }
 
 .gRankHead{
@@ -350,19 +516,25 @@ html, body{
   align-items: baseline;
   gap: 10px;
   padding: 12px 12px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  min-width: 0;
 }
 
 .gRankTitle{
   font-weight: 950;
-  letter-spacing: 0.02em;
+  font-size: 14px;
   color: rgba(255,255,255,0.92);
-  font-size: 13px;
+  letter-spacing: .02em;
+  min-width: 0;
 }
+
 .gRankSub{
-  font-weight: 950;
+  font-weight: 900;
   font-size: 12px;
   color: rgba(255,255,255,0.55);
+  min-width: 0;
+  word-break: break-word;
+  text-align: right;
 }
 
 .gRankInfo,
@@ -371,33 +543,35 @@ html, body{
   padding: 12px;
   font-weight: 850;
   font-size: 12px;
-  color: rgba(255,255,255,0.70);
+  color: rgba(255,255,255,0.72);
 }
 .gRankErr{ color: rgba(255, 130, 130, 0.95); }
 
 .gRankTableWrap{
-  padding: 8px 10px 12px;
+  padding: 10px 12px 12px;
   overflow: hidden;
+  min-width: 0;
 }
 
 .gRankTable{
   width: 100%;
   border-collapse: collapse;
+  min-width: 0;
 }
 
 .gRankTable thead th{
   text-align: left;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 950;
   color: rgba(255,255,255,0.60);
   padding: 8px 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.10);
   white-space: nowrap;
 }
 
 .gRankTable tbody td{
-  padding: 9px 6px;
-  font-size: 12px;
+  padding: 10px 6px;
+  font-size: 13px;
   color: rgba(255,255,255,0.88);
   border-bottom: 1px solid rgba(255,255,255,0.06);
   white-space: nowrap;
@@ -408,13 +582,13 @@ html, body{
 }
 
 .gRankNum{
-  color: rgba(255,255,255,0.55);
+  width: 28px;
+  color: rgba(255,255,255,0.60);
   font-weight: 950;
-  width: 26px;
 }
 
 .gRankName{
-  max-width: 170px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -422,46 +596,16 @@ html, body{
 .gRankScore{
   text-align: right;
   font-weight: 980;
-  letter-spacing: 0.02em;
+  letter-spacing: .02em;
 }
 
-/* =========================
-   Mobile tuning
-========================= */
-
-@media (max-width: 420px){
-  .gameMain{ padding: 8px; }
-  .overlay{ padding: 10px; }
-
-  .overlayCard{
-    width: min(520px, 94vw);
-    max-width: 94vw;
-    padding: 14px;
+/* ✅ スマホはランキング見出しが折り返しても崩れない */
+@media (max-width: 520px){
+  .gRankHead{
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
-
-  .overlayTitle{ font-size: 20px; }
-
-  .diffBtn{
-    min-width: 88px;
-    padding: 10px 12px;
-    max-width: 44vw;
+  .gRankSub{
+    text-align: left;
   }
-
-  .quizBtn{
-    width: 92px;
-    height: 62px;
-  }
-
-  .overlayText.quizQuestion{
-    font-size: clamp(16px, 4.2vw, 20px);
-  }
-}
-
-/* =========================
-   Keyboard focus (safe)
-========================= */
-
-button:focus-visible{
-  outline: 2px solid rgba(255,255,255,0.55);
-  outline-offset: 2px;
 }
