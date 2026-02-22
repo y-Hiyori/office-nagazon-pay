@@ -57,9 +57,9 @@ function json(data: unknown, status = 200) {
 }
 
 function getClient() {
-  // ✅ SUPABASE_URL がCLI都合で保存できないので PROJECT_URL を使う
   const supabaseUrl = Deno.env.get("PROJECT_URL") || Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
+
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error("PROJECT_URL / SERVICE_ROLE_KEY is missing");
   }
@@ -186,7 +186,7 @@ serve(async (req: Request) => {
 
     if (!reward) {
       const res: IssueOkNotIssued = { ok: true, issued: false, reason: "no_reward" };
-      return json(res);
+      return json(res, 200);
     }
 
     const ip = getIp(req);
@@ -226,7 +226,7 @@ serve(async (req: Request) => {
         expires_at: rewardForView?.valid_to ?? null,
         reused: true,
       };
-      return json(res);
+      return json(res, 200);
     }
 
     const token = randToken(44);
@@ -257,9 +257,12 @@ serve(async (req: Request) => {
       redeem_url: redeemUrl,
       expires_at: reward.valid_to ?? null,
     };
-    return json(res);
+    return json(res, 200);
   } catch (e) {
-    const res: IssueNg = { ok: false, error: errToString(e) };
-    return json(res, 500);
+    // ✅ 重要：500にしない。200で ok:false を返してフロントで原因が見えるようにする
+    const msg = errToString(e);
+    console.error("[issue-coupon] error:", msg);
+    const res: IssueNg = { ok: false, error: msg };
+    return json(res, 200);
   }
 });
