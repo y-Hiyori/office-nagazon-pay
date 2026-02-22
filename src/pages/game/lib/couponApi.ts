@@ -68,15 +68,42 @@ function buildRedeemUrl(token: string) {
   return `${window.location.origin}/game/coupon-redeem?token=${encodeURIComponent(token)}`;
 }
 
+// ✅ 端末IDを固定する（端末ごと発行）
+const DEVICE_ID_KEY = "nagazon_device_id_v1";
+
+function getOrCreateDeviceId(): string {
+  try {
+    const existing = localStorage.getItem(DEVICE_ID_KEY);
+    if (existing && existing.length >= 16) return existing;
+
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const id = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    localStorage.setItem(DEVICE_ID_KEY, id);
+    return id;
+  } catch {
+    // localStorage不可の環境でも最低限動かす（毎回変わるけど仕方ない）
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+}
+
 export async function issueCouponAfterGame(args: {
   score: number;
   difficulty: Difficulty;
 }): Promise<IssueCouponAfterGameResult> {
   try {
     const score = Math.max(0, Math.floor(args.score || 0));
+    const device_id = getOrCreateDeviceId();
 
     const { data, error } = await supabase.functions.invoke("issue-coupon", {
-      body: { score, difficulty: args.difficulty },
+      body: { score, difficulty: args.difficulty, device_id }, // ✅ 追加
     });
 
     if (error) return { ok: false, error: error.message };
@@ -93,8 +120,9 @@ export async function issueCouponAfterGame(args: {
       title: res.reward?.coupon_title ?? "クーポン",
       redeem_url: res.redeem_url ?? buildRedeemUrl(token),
       expires_at: res.expires_at ?? res.reward?.valid_to ?? null,
-      qr_png_base64: res.qr_png_base64 ?? null,
-      qr_svg: res.qr_svg ?? null,
+
+      qr_png_base64: (res as any).qr_png_base64 ?? null,
+      qr_svg: (res as any).qr_svg ?? null,
 
       store_name: res.reward?.store_name ?? null,
       store_info: res.reward?.store_info ?? null,
@@ -111,7 +139,7 @@ export async function issueCouponAfterGame(args: {
   }
 }
 
-// ===== redeem-coupon =====
+/* ===== redeem-coupon 側（既存のまま） ===== */
 
 export type CouponStatusResult =
   | {
@@ -120,7 +148,7 @@ export type CouponStatusResult =
       used: boolean;
       used_at: string | null;
       used_confirmed_at: string | null;
-      reward?: RewardRow | null; // ✅ 追加：店名などを後から復元できる
+      reward?: RewardRow | null;
     }
   | { ok: true; found: false }
   | { ok: false; error: string };

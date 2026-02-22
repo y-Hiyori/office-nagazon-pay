@@ -35,16 +35,16 @@ export type SubmitArgs = {
   score: number;
   difficulty: Difficulty;
 
-  // ✅ ゲストのときだけ使う（ログイン時は無視する）
+  // ゲストのときだけ使う
   displayNameOverride?: string | null;
 
-  // Game.tsx 互換用（偽装には使わない）
+  // Game.tsx互換（偽装には使わない）
   userIdOverride?: string | null;
   isGuestOverride?: boolean;
 };
 
 export type SubmitResult =
-  | { ok: true; mode: "guest_insert" | "user_best_update" | "user_skip" }
+  | { ok: true; mode: "guest_insert" | "user_best_update" | "user_name_sync" | "user_skip" }
   | { ok: false; error: string };
 
 /* =========================
@@ -86,9 +86,7 @@ export async function fetchTopScores(args: FetchTopScoresArgs): Promise<FetchTop
       .order("score", { ascending: false })
       .limit(limit);
 
-    if (difficulty !== "all") {
-      q = q.eq("difficulty", difficulty);
-    }
+    if (difficulty !== "all") q = q.eq("difficulty", difficulty);
 
     const { data, error } = await q;
     if (error) return { ok: false, error: error.message };
@@ -133,7 +131,7 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     const userId = user?.id ?? null;
 
     // ==========================
-    // ✅ ゲスト：毎回insert（ここだけ override を使う）
+    // ゲスト：毎回insert
     // ==========================
     if (!userId || !user) {
       const displayName = safeName(args.displayNameOverride ?? "Guest");
@@ -151,13 +149,13 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     }
 
     // ==========================
-    // ✅ ログイン：必ず user_metadata 由来の名前で保存（確認/仮文字を防ぐ）
+    // ログイン：display_nameは常に同期する（重要）
     // ==========================
     const displayName = getMetaDisplayName(user);
 
     const { data: existing, error: selErr } = await supabase
       .from("game_scores")
-      .select("id, score")
+      .select("id, score, display_name")
       .eq("user_id", userId)
       .eq("difficulty", difficulty)
       .eq("is_guest", false)
@@ -165,6 +163,7 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
 
     if (selErr) return { ok: false, error: selErr.message };
 
+    // 初回
     if (!existing) {
       const { error } = await supabase.from("game_scores").insert({
         user_id: userId,
@@ -179,8 +178,22 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     }
 
     const best = clampScore(existing.score);
+
+    // ✅ スコア更新しない場合でも、名前だけ同期する
+    if ((existing.display_name ?? "").trim() !== displayName) {
+      const { error: nameErr } = await supabase
+        .from("game_scores")
+        .update({ display_name: displayName })
+        .eq("id", existing.id);
+
+      if (nameErr) return { ok: false, error: nameErr.message };
+      // ここで終わってもいいが、スコアが更新なら続ける
+      if (score <= best) return { ok: true, mode: "user_name_sync" };
+    }
+
     if (score <= best) return { ok: true, mode: "user_skip" };
 
+    // ベスト更新（名前も一緒に）
     const { error: updErr } = await supabase
       .from("game_scores")
       .update({ score, display_name: displayName })

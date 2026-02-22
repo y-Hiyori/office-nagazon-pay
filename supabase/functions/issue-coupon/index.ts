@@ -1,7 +1,12 @@
+// supabase/functions/issue-coupon/index.ts
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 
-type Body = { score?: unknown; difficulty?: unknown };
+type Body = {
+  score?: unknown;
+  difficulty?: unknown;
+  device_id?: unknown; // ✅ 追加
+};
 
 type RewardRow = {
   id: string;
@@ -22,7 +27,7 @@ type IssuanceExistingRow = {
   used: boolean | null;
   used_confirmed_at: string | null;
   issued_at: string | null;
-  ip_hash: string | null;
+  ip_hash: string | null; // ✅ 既存列（中身を端末ハッシュにする）
   coupon_rewards: RewardRow | null;
 };
 
@@ -74,14 +79,6 @@ function errToString(e: unknown) {
   }
 }
 
-function getIp(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
-  const xrip = req.headers.get("x-real-ip");
-  if (xrip) return xrip.trim();
-  return "unknown";
-}
-
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -123,6 +120,7 @@ function isIsoDate(s: string | null | undefined) {
 
 function isActiveAndInRange(r: RewardRow, now = new Date()) {
   if (r.is_active === false) return false;
+
   if (r.valid_from && isIsoDate(r.valid_from)) {
     const vf = new Date(r.valid_from);
     if (now < vf) return false;
@@ -137,9 +135,11 @@ function isActiveAndInRange(r: RewardRow, now = new Date()) {
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
+
 function isRewardRow(v: unknown): v is RewardRow {
   return isRecord(v) && typeof v.id === "string";
 }
+
 function isExistingRow(v: unknown): v is IssuanceExistingRow {
   if (!isRecord(v)) return false;
   const token = v.token;
@@ -155,8 +155,8 @@ serve(async (req: Request) => {
     if (req.method !== "POST") return json({ ok: false, error: "Method Not Allowed" }, 405);
 
     const body: Body = (await req.json().catch(() => ({}))) as Body;
-    const scoreRaw = body?.score;
 
+    const scoreRaw = body?.score;
     const score =
       typeof scoreRaw === "number"
         ? Math.max(0, Math.floor(scoreRaw))
@@ -166,6 +166,7 @@ serve(async (req: Request) => {
 
     const supabase = getClient();
 
+    // threshold <= score の中で一番高い報酬
     const { data: rewards, error: rewErr } = await supabase
       .from("coupon_rewards")
       .select(
@@ -185,12 +186,17 @@ serve(async (req: Request) => {
       return json(res, 200);
     }
 
-    // ✅ ip_hash を必ず作る（DBのNOT NULLに合わせる）
-    const ip = getIp(req);
+    // ✅ 端末IDベースの一意キー（DB列名は ip_hash のまま使う）
     const salt = Deno.env.get("IP_HASH_SALT") ?? "change-me";
-    const ipHash = await sha256Hex(`${ip}|${salt}`);
+    const deviceId = typeof body.device_id === "string" ? body.device_id.trim() : "";
+    if (!deviceId) {
+      // device_idが来ない場合はエラーにする（端末ごとにしたいので必須）
+      const res: IssueNg = { ok: false, error: "device_id missing" };
+      return json(res, 200);
+    }
+    const ipHash = await sha256Hex(`${deviceId}|${salt}`);
 
-    // ✅ 既に同じip_hashで発行済みなら、そのtokenを返す
+    // 既に同じ端末で発行済みなら、そのtokenを返す
     const { data: existingRaw, error: exErr } = await supabase
       .from("coupon_issuances")
       .select(
@@ -227,7 +233,7 @@ serve(async (req: Request) => {
       return json(res, 200);
     }
 
-    // ✅ 新規発行（ip_hashを必ず保存）
+    // 新規発行（端末ハッシュをip_hashに保存）
     const token = randToken(44);
     const issuedAt = new Date().toISOString();
 
@@ -238,7 +244,7 @@ serve(async (req: Request) => {
       used: false,
       used_at: null,
       used_confirmed_at: null,
-      ip_hash: ipHash,
+      ip_hash: ipHash, // ✅ ここが端末ハッシュ
     });
 
     if (insErr) throw insErr;
@@ -258,9 +264,7 @@ serve(async (req: Request) => {
     };
     return json(res, 200);
   } catch (e) {
-    const msg = errToString(e);
-    console.error("[issue-coupon] error:", msg);
-    const res: IssueNg = { ok: false, error: msg };
+    const res: IssueNg = { ok: false, error: errToString(e) };
     return json(res, 200);
   }
 });
