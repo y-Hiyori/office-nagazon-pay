@@ -34,6 +34,8 @@ export type MyDisplayNameResult = {
 export type SubmitArgs = {
   score: number;
   difficulty: Difficulty;
+
+  // ✅ ゲストのときだけ使う（ログイン時は無視する）
   displayNameOverride?: string | null;
 
   // Game.tsx 互換用（偽装には使わない）
@@ -61,6 +63,14 @@ function safeName(v: unknown): string {
   return s.slice(0, 20);
 }
 
+function getMetaDisplayName(user: { user_metadata?: unknown } | null): string {
+  const md = (user?.user_metadata ?? undefined) as Record<string, unknown> | undefined;
+  const d1 = typeof md?.display_name === "string" ? md.display_name : "";
+  const d2 = typeof md?.name === "string" ? md.name : "";
+  const name = (d1 || d2 || "User").trim();
+  return name ? name.slice(0, 20) : "User";
+}
+
 /* =========================
    Public: fetchTopScores
 ========================= */
@@ -81,11 +91,9 @@ export async function fetchTopScores(args: FetchTopScoresArgs): Promise<FetchTop
     }
 
     const { data, error } = await q;
-
     if (error) return { ok: false, error: error.message };
 
-    const rows = (data ?? []) as ScoreRow[];
-    return { ok: true, rows };
+    return { ok: true, rows: (data ?? []) as ScoreRow[] };
   } catch (e: unknown) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -105,12 +113,7 @@ export async function getMyDisplayName(): Promise<MyDisplayNameResult> {
 
   if (!userId || !user) return { displayName: "ゲスト", userId: null, isGuest: true };
 
-  const md = user.user_metadata as Record<string, unknown> | undefined;
-  const d1 = typeof md?.display_name === "string" ? md.display_name : "";
-  const d2 = typeof md?.name === "string" ? md.name : "";
-  const displayName = (d1 || d2 || "User").trim().slice(0, 20);
-
-  return { displayName, userId, isGuest: false };
+  return { displayName: getMetaDisplayName(user), userId, isGuest: false };
 }
 
 /* =========================
@@ -130,7 +133,7 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     const userId = user?.id ?? null;
 
     // ==========================
-    // ✅ ゲスト：毎回insert
+    // ✅ ゲスト：毎回insert（ここだけ override を使う）
     // ==========================
     if (!userId || !user) {
       const displayName = safeName(args.displayNameOverride ?? "Guest");
@@ -147,18 +150,11 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
       return { ok: true, mode: "guest_insert" };
     }
 
-    const md = user.user_metadata as Record<string, unknown> | undefined;
-
-    const displayName = safeName(
-      args.displayNameOverride ??
-        (typeof md?.display_name === "string" ? md.display_name : undefined) ??
-        (typeof md?.name === "string" ? md.name : undefined) ??
-        "User"
-    );
-
     // ==========================
-    // ✅ ログイン：自己ベスト管理（user_id + difficulty を1行に）
+    // ✅ ログイン：必ず user_metadata 由来の名前で保存（確認/仮文字を防ぐ）
     // ==========================
+    const displayName = getMetaDisplayName(user);
+
     const { data: existing, error: selErr } = await supabase
       .from("game_scores")
       .select("id, score")
