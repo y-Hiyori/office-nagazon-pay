@@ -15,11 +15,14 @@ type Reward = {
   description: string;
   valid_from: string | null;
   valid_to: string | null;
+  redeem_password_hash: string | null; // ✅ 追加
   created_at: string;
   updated_at: string;
 };
 
-type RewardForm = Omit<Reward, "id" | "created_at" | "updated_at">;
+type RewardForm = Omit<Reward, "id" | "created_at" | "updated_at" | "redeem_password_hash"> & {
+  redeem_password: string; // ✅ UI入力（平文はDBに保存しない）
+};
 
 const emptyForm: RewardForm = {
   is_active: true,
@@ -31,6 +34,7 @@ const emptyForm: RewardForm = {
   description: "",
   valid_from: null,
   valid_to: null,
+  redeem_password: "",
 };
 
 function toLocalInput(iso: string) {
@@ -39,6 +43,14 @@ function toLocalInput(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
     d.getHours()
   )}:${pad(d.getMinutes())}`;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export default function AdminCouponRewardsPage() {
@@ -91,6 +103,7 @@ export default function AdminCouponRewardsPage() {
       description: r.description,
       valid_from: r.valid_from,
       valid_to: r.valid_to,
+      redeem_password: "", // ✅ 編集時は空（空なら変更しない）
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -129,15 +142,44 @@ export default function AdminCouponRewardsPage() {
         return;
       }
 
-      if (isEditing) {
-        const { error } = await supabase
-          .from("coupon_rewards")
-          .update({ ...form })
-          .eq("id", editingId!);
+      // ✅ 新規作成はパスワード必須（編集は空なら変更しない）
+      const pw = form.redeem_password.trim();
+      if (!isEditing && pw.length < 4) {
+        await appDialog.alert({
+          title: "入力不足",
+          message: "パスワードは4文字以上で設定してください。",
+          okText: "OK",
+        });
+        return;
+      }
 
+      // ✅ DBに送るpayload（平文は入れない）
+      const basePayload = {
+        is_active: form.is_active,
+        store_name: form.store_name,
+        store_info: form.store_info,
+        product_name: form.product_name,
+        score_threshold: form.score_threshold,
+        coupon_title: form.coupon_title,
+        description: form.description,
+        valid_from: form.valid_from,
+        valid_to: form.valid_to,
+      };
+
+      // パスワード入力がある場合だけ hash を更新
+      const payload =
+        pw.length >= 4
+          ? {
+              ...basePayload,
+              redeem_password_hash: await sha256Hex(pw),
+            }
+          : basePayload;
+
+      if (isEditing) {
+        const { error } = await supabase.from("coupon_rewards").update(payload).eq("id", editingId!);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("coupon_rewards").insert({ ...form });
+        const { error } = await supabase.from("coupon_rewards").insert(payload);
         if (error) throw error;
       }
 
@@ -165,7 +207,6 @@ export default function AdminCouponRewardsPage() {
   return (
     <div className="adminRewardsPageRoot">
       <AdminHeader />
-      {/* ✅ AdminHeader.css触らずに被り回避 */}
       <div className="adminHeaderSpacer" />
 
       <main className="adminRewardsMain">
@@ -189,7 +230,7 @@ export default function AdminCouponRewardsPage() {
               <div className="panelHead">
                 <div className="panelHeadLeft">
                   <h2>{isEditing ? "編集" : "新規作成"}</h2>
-                  <div className="panelSub">必須：店名 / 商品名</div>
+                  <div className="panelSub">必須：店名 / 商品名 /（新規はパスワード）</div>
                 </div>
               </div>
 
@@ -281,6 +322,22 @@ export default function AdminCouponRewardsPage() {
                   />
                 </label>
 
+                {/* ✅ パスワード（新規必須 / 編集は空で維持） */}
+                <label className="field">
+                  <div className="fieldLabel">
+                    店舗用パスワード{" "}
+                    {!isEditing ? <span className="req">必須</span> : <span style={{ opacity: 0.7 }}>（空なら変更しません）</span>}
+                  </div>
+                  <input
+                    className="input"
+                    type="password"
+                    value={form.redeem_password}
+                    onChange={(e) => setForm((p) => ({ ...p, redeem_password: e.target.value }))}
+                    placeholder={!isEditing ? "例：1234（4文字以上）" : "変更する時だけ入力"}
+                    autoComplete="new-password"
+                  />
+                </label>
+
                 <div className="formRow">
                   <label className="field">
                     <div className="fieldLabel">有効開始（任意）</div>
@@ -356,6 +413,9 @@ export default function AdminCouponRewardsPage() {
                         <div className="itemMeta">
                           <div className="metaChip">しきい値：{r.score_threshold}</div>
                           <div className="metaChip">{r.coupon_title}</div>
+                          <div className="metaChip">
+                            パスワード：{r.redeem_password_hash ? "設定済み" : "未設定"}
+                          </div>
                         </div>
                       </div>
 

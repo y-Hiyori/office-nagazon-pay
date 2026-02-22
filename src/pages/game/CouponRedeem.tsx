@@ -1,4 +1,3 @@
-// src/pages/game/CouponRedeem.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import SiteHeader from "../../components/SiteHeader";
@@ -19,6 +18,9 @@ export default function CouponRedeem() {
 
   const token = useMemo(() => sp.get("token") ?? "", [sp]);
   const [ui, setUi] = useState<UiState>({ status: "checking" });
+
+  // ✅ 追加：店舗パスワード
+  const [pw, setPw] = useState("");
 
   const load = async () => {
     if (!token) {
@@ -51,9 +53,16 @@ export default function CouponRedeem() {
 
   const onConfirm = async () => {
     if (!token) return;
+
+    const p = pw.trim();
+    if (p.length < 4) {
+      setUi({ status: "error", message: "パスワードを入力してください（4文字以上）" });
+      return;
+    }
+
     setUi({ status: "confirming" });
 
-    const res = await confirmCouponRedeem(token);
+    const res = await confirmCouponRedeem(token, p);
     if (!res.ok) {
       setUi({ status: "error", message: res.error });
       return;
@@ -65,6 +74,8 @@ export default function CouponRedeem() {
     setUi({ status: "done" });
   };
 
+  const canConfirm = ui.status === "ready" && ui.used === false && pw.trim().length >= 4;
+
   return (
     <div className="couponDetailPage">
       <SiteHeader />
@@ -75,7 +86,7 @@ export default function CouponRedeem() {
             <div className="couponDetailHead">
               <div className="couponDetailTitle">🏬 店舗用：クーポン確認</div>
               <div className="couponDetailSub">
-                お客さんのQRを読み取った後、この画面で確定してください
+                お客さんのQRを読み取った後、この画面で確定してください（パスワード必須）
               </div>
             </div>
 
@@ -87,20 +98,41 @@ export default function CouponRedeem() {
                     {token || "（なし）"}
                   </div>
                 </div>
+
+                {/* ✅ 追加：パスワード入力 */}
+                <div className="couponInfoRow" style={{ marginTop: 10 }}>
+                  <div className="k">パスワード</div>
+                  <div className="v">
+                    <input
+                      className="input"
+                      type="password"
+                      value={pw}
+                      onChange={(e) => setPw(e.target.value)}
+                      placeholder="店舗用パスワード"
+                      autoComplete="current-password"
+                      style={{
+                        width: "100%",
+                        maxWidth: 320,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        background: "rgba(255,255,255,0.06)",
+                        color: "#fff",
+                      }}
+                    />
+                    <div className="couponAltNote" style={{ marginTop: 6 }}>
+                      ※クーポン設定時のパスワード（4文字以上）
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div style={{ marginTop: 14 }}>
                 {ui.status === "checking" && "状態確認中…"}
                 {ui.status === "confirming" && "受け取り確定中…"}
-                {ui.status === "done" && (
-                  <div style={{ fontWeight: 900 }}>✅ 受け取り完了しました</div>
-                )}
-                {ui.status === "ready" && ui.used && (
-                  <div style={{ fontWeight: 900 }}>✅ すでに受取済みです</div>
-                )}
-                {ui.status === "error" && (
-                  <div style={{ color: "#ff6b6b" }}>エラー：{ui.message}</div>
-                )}
+                {ui.status === "done" && <div style={{ fontWeight: 900 }}>✅ 受け取り完了しました</div>}
+                {ui.status === "ready" && ui.used && <div style={{ fontWeight: 900 }}>✅ すでに受取済みです</div>}
+                {ui.status === "error" && <div style={{ color: "#ff6b6b" }}>エラー：{ui.message}</div>}
               </div>
             </div>
 
@@ -110,7 +142,7 @@ export default function CouponRedeem() {
               </button>
 
               {ui.status === "ready" && ui.used === false ? (
-                <button type="button" className="cBtn" onClick={onConfirm}>
+                <button type="button" className="cBtn" onClick={onConfirm} disabled={!canConfirm}>
                   受け取り完了
                 </button>
               ) : null}
