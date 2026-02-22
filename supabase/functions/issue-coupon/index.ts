@@ -22,6 +22,7 @@ type IssuanceExistingRow = {
   used: boolean | null;
   used_confirmed_at: string | null;
   issued_at: string | null;
+  ip_hash: string | null;
   coupon_rewards: RewardRow | null;
 };
 
@@ -59,10 +60,7 @@ function json(data: unknown, status = 200) {
 function getClient() {
   const supabaseUrl = Deno.env.get("PROJECT_URL") || Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("PROJECT_URL / SERVICE_ROLE_KEY is missing");
-  }
+  if (!supabaseUrl || !serviceRoleKey) throw new Error("PROJECT_URL / SERVICE_ROLE_KEY is missing");
   return createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 }
 
@@ -139,11 +137,9 @@ function isActiveAndInRange(r: RewardRow, now = new Date()) {
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
-
 function isRewardRow(v: unknown): v is RewardRow {
   return isRecord(v) && typeof v.id === "string";
 }
-
 function isExistingRow(v: unknown): v is IssuanceExistingRow {
   if (!isRecord(v)) return false;
   const token = v.token;
@@ -189,16 +185,18 @@ serve(async (req: Request) => {
       return json(res, 200);
     }
 
+    // ✅ ip_hash を必ず作る（DBのNOT NULLに合わせる）
     const ip = getIp(req);
     const salt = Deno.env.get("IP_HASH_SALT") ?? "change-me";
-    const issuedIpHash = await sha256Hex(`${ip}|${salt}`);
+    const ipHash = await sha256Hex(`${ip}|${salt}`);
 
+    // ✅ 既に同じip_hashで発行済みなら、そのtokenを返す
     const { data: existingRaw, error: exErr } = await supabase
       .from("coupon_issuances")
       .select(
-        "token, reward_id, used, used_confirmed_at, issued_at, coupon_rewards(id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active)"
+        "token, reward_id, used, used_confirmed_at, issued_at, ip_hash, coupon_rewards(id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active)"
       )
-      .eq("issued_ip_hash", issuedIpHash)
+      .eq("ip_hash", ipHash)
       .order("issued_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -229,6 +227,7 @@ serve(async (req: Request) => {
       return json(res, 200);
     }
 
+    // ✅ 新規発行（ip_hashを必ず保存）
     const token = randToken(44);
     const issuedAt = new Date().toISOString();
 
@@ -239,7 +238,7 @@ serve(async (req: Request) => {
       used: false,
       used_at: null,
       used_confirmed_at: null,
-      issued_ip_hash: issuedIpHash,
+      ip_hash: ipHash,
     });
 
     if (insErr) throw insErr;
@@ -259,7 +258,6 @@ serve(async (req: Request) => {
     };
     return json(res, 200);
   } catch (e) {
-    // ✅ 重要：500にしない。200で ok:false を返してフロントで原因が見えるようにする
     const msg = errToString(e);
     console.error("[issue-coupon] error:", msg);
     const res: IssueNg = { ok: false, error: msg };
