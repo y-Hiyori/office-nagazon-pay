@@ -18,6 +18,7 @@ export default function AdminHeader() {
 
       // ✅ 追加：ゲームスコア管理
       { label: "ゲームスコア管理", to: "/admin-game-scores" },
+      { label: "ゲーム報酬設定", to: "/admin-coupon-rewards" },
 
       { label: "アカウント管理", to: "/admin-users" },
       { label: "売上状況確認", to: "/admin-sales" },

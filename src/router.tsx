@@ -1,3 +1,4 @@
+// src/router.tsx
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
 
@@ -18,6 +19,9 @@ import Terms from "./pages/Terms";
 
 // ✅ Game
 import Game from "./pages/game/Game";
+// ✅ 追加：クーポン（QR表示 / 店舗確定）
+import CouponDetail from "./pages/game/CouponDetail";
+import CouponRedeem from "./pages/game/CouponRedeem";
 
 // ===== アカウント =====
 import AccountMenu from "./pages/AccountMenu";
@@ -53,6 +57,8 @@ import AdminNotices from "./pages/AdminNotices";
 import AdminNoticeEdit from "./pages/AdminNoticeEdit";
 import AdminPoints from "./pages/AdminPoints";
 
+// 追加 import
+import AdminCouponRewardsPage from "./pages/AdminCouponRewardsPage";
 // ✅ 追加：ゲームスコア管理
 import AdminGameScores from "./pages/AdminGameScores";
 
@@ -83,6 +89,11 @@ const router = createBrowserRouter([
 
       // ✅ Game（Publicで開ける）
       { path: "game", element: <Game /> },
+
+      // ✅ クーポン（Public）
+      // ✅ Coupon（Publicで開ける）
+{ path: "game/coupon", element: <CouponDetail /> }, // 客側：QR表示
+{ path: "game/coupon-redeem", element: <CouponRedeem /> }, // 店側：確定
 
       // ✅ お知らせ詳細（Public）
       { path: "notice/:id", element: <NoticeDetail /> },
@@ -322,12 +333,22 @@ const router = createBrowserRouter([
         ),
       },
 
-      // ✅ ゲームスコア管理（確認 / 個別削除 / 期間削除）
+      // ✅ ゲームスコア管理
       {
         path: "admin-game-scores",
         element: (
           <AdminRoute>
             <AdminGameScores />
+          </AdminRoute>
+        ),
+      },
+
+      // ✅ クーポン報酬管理
+      {
+        path: "admin-coupon-rewards",
+        element: (
+          <AdminRoute>
+            <AdminCouponRewardsPage />
           </AdminRoute>
         ),
       },

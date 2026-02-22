@@ -6,6 +6,11 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// ✅ 開発中だけ：ブラウザConsoleから __sb で触れるようにする
+if (import.meta.env.DEV) {
+  (window as unknown as { __sb?: typeof supabase }).__sb = supabase;
+}
+
 // ============================
 // 画像アップロード関数（修正版）
 // ============================

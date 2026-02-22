@@ -1,0 +1,9 @@
+{
+  "importMap": "./import_map.json",
+  "nodeModulesDir": "auto",
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+}

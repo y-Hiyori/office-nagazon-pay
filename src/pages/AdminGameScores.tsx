@@ -1,10 +1,9 @@
 // src/pages/AdminGameScores.tsx
 import { useEffect, useMemo, useState } from "react";
-import SiteHeader from "../components/SiteHeader";
-import SiteFooter from "../components/SiteFooter";
+import AdminHeader from "../components/AdminHeader";
 import "./AdminGameScores.css";
 
-import { appDialog } from "../lib/appDialog"; // ✅ 追加：統一ダイアログ
+import { appDialog } from "../lib/appDialog";
 
 import {
   adminFetchScores,
@@ -26,29 +25,21 @@ function toJaDateTime(iso: string) {
 export default function AdminGameScores() {
   const [q, setQ] = useState("");
   const [difficulty, setDifficulty] = useState<DiffFilter>("all");
-  const [from, setFrom] = useState(""); // YYYY-MM-DD
-  const [to, setTo] = useState(""); // YYYY-MM-DD
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [limit, setLimit] = useState(200);
 
   const [rows, setRows] = useState<AdminScoreRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const canBulkDelete = useMemo(() => {
-    return Boolean(from && to && from <= to);
-  }, [from, to]);
+  const canBulkDelete = useMemo(() => Boolean(from && to && from <= to), [from, to]);
 
   const load = async () => {
     setLoading(true);
     setErr(null);
 
-    const res = await adminFetchScores({
-      q,
-      difficulty,
-      from,
-      to,
-      limit,
-    });
+    const res = await adminFetchScores({ q, difficulty, from, to, limit });
 
     if (!res.ok) {
       setErr(res.error);
@@ -60,7 +51,9 @@ export default function AdminGameScores() {
   };
 
   useEffect(() => {
+    document.body.classList.add("adminScoresBody");
     void load();
+    return () => document.body.classList.remove("adminScoresBody");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -71,11 +64,9 @@ export default function AdminGameScores() {
       title: "削除確認",
       message: `このスコアを削除しますか？（元に戻せません）${
         target
-          ? `\n\n名前：${target.display_name || "ゲスト"}\nスコア：${
-              target.score
-            }\n難易度：${String(target.difficulty).toUpperCase()}\n日時：${toJaDateTime(
-              target.created_at
-            )}`
+          ? `\n\n名前：${target.display_name || "ゲスト"}\nスコア：${target.score}\n難易度：${String(
+              target.difficulty
+            ).toUpperCase()}\n日時：${toJaDateTime(target.created_at)}`
           : ""
       }`,
       okText: "削除する",
@@ -94,7 +85,6 @@ export default function AdminGameScores() {
       return;
     }
 
-    // ✅ 体感速い：ローカルからも消す
     setRows((prev) => prev.filter((r) => r.id !== id));
 
     await appDialog.alert({
@@ -118,11 +108,7 @@ export default function AdminGameScores() {
 
     if (!ok) return;
 
-    const res = await adminDeleteScoresByRange({
-      from,
-      to,
-      difficulty,
-    });
+    const res = await adminDeleteScoresByRange({ from, to, difficulty });
 
     if (!res.ok) {
       await appDialog.alert({
@@ -144,11 +130,17 @@ export default function AdminGameScores() {
 
   return (
     <div className="adminScoresPage">
-      <SiteHeader />
+      <AdminHeader />
 
+      {/* ✅ AdminHeader（fixed想定）に被らないようにページ側で下げる */}
       <main className="adminScoresMain">
         <div className="adminScoresWrap">
-          <h1 className="adminScoresTitle">ゲームスコア管理</h1>
+          <div className="adminScoresHead">
+            <h1 className="adminScoresTitle">ゲームスコア管理</h1>
+            <div className="adminScoresSub">
+              ※ スコアの更新（改ざん）は不可。削除のみ可能（管理者のみ）。
+            </div>
+          </div>
 
           <section className="adminScoresCard">
             <div className="adminScoresFilters">
@@ -203,20 +195,10 @@ export default function AdminGameScores() {
 
                 <label className="fLabel">
                   期間（To）
-                  <input
-                    className="fInput"
-                    type="date"
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
-                  />
+                  <input className="fInput" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
                 </label>
 
-                <button
-                  type="button"
-                  className="btnPrimary"
-                  onClick={load}
-                  disabled={loading}
-                >
+                <button type="button" className="btnPrimary" onClick={load} disabled={loading}>
                   {loading ? "読み込み中…" : "検索 / 更新"}
                 </button>
 
@@ -236,7 +218,7 @@ export default function AdminGameScores() {
             {!err && loading && <div className="adminScoresInfo">読み込み中…</div>}
 
             {!loading && !err && (
-              <div className="adminScoresTableWrap">
+              <div className="adminScoresTableWrap" role="region" aria-label="スコア一覧">
                 <table className="adminScoresTable">
                   <thead>
                     <tr>
@@ -248,46 +230,47 @@ export default function AdminGameScores() {
                       <th></th>
                     </tr>
                   </thead>
-                 <tbody>
-  {rows.map((r) => (
-    <tr key={r.id}>
-      <td className="tdDate" data-label="日時">{toJaDateTime(r.created_at)}</td>
-      <td className="tdName" data-label="名前">{r.display_name || "ゲスト"}</td>
-      <td className="tdScore" data-label="スコア">{r.score}</td>
-      <td className="tdDiff" data-label="難易度">{String(r.difficulty).toUpperCase()}</td>
-      <td className="tdType" data-label="種別">{r.is_guest ? "GUEST" : "USER"}</td>
-      <td className="tdActions" data-label="操作">
-        <button
-          type="button"
-          className="btnSmallDanger"
-          onClick={() => onDeleteOne(r.id)}
-        >
-          削除
-        </button>
-      </td>
-    </tr>
-  ))}
 
-  {rows.length === 0 && (
-    <tr>
-      <td colSpan={6} className="tdEmpty">
-        該当データがありません
-      </td>
-    </tr>
-  )}
-</tbody>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id}>
+                        <td className="tdDate" data-label="日時">
+                          {toJaDateTime(r.created_at)}
+                        </td>
+                        <td className="tdName" data-label="名前">
+                          {r.display_name || "ゲスト"}
+                        </td>
+                        <td className="tdScore" data-label="スコア">
+                          {r.score}
+                        </td>
+                        <td className="tdDiff" data-label="難易度">
+                          {String(r.difficulty).toUpperCase()}
+                        </td>
+                        <td className="tdType" data-label="種別">
+                          {r.is_guest ? "GUEST" : "USER"}
+                        </td>
+                        <td className="tdActions" data-label="操作">
+                          <button type="button" className="btnSmallDanger" onClick={() => onDeleteOne(r.id)}>
+                            削除
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="tdEmpty">
+                          該当データがありません
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
                 </table>
               </div>
             )}
-
-            <div className="adminScoresHint">
-              ※ スコアの更新（改ざん）は不可。削除のみ可能（管理者のみ）。
-            </div>
           </section>
         </div>
       </main>
-
-      <SiteFooter />
     </div>
   );
 }

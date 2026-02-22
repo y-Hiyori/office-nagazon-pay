@@ -1,5 +1,6 @@
 // src/pages/game/Game.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 import "./Game.css";
@@ -8,12 +9,11 @@ import { getConfig } from "./configs";
 import { drawCell } from "./draw/drawCell";
 import ScoreText from "./ui/ScoreText";
 import MultiplierText from "./ui/MultiplierText";
-
-// ✅ 追加：最初の画面にランキングを出す（更新ボタンなし）
 import GameRankingMini from "./ui/GameRankingMini";
 
 import { QUIZZES, ensureQuizSuffix, getQuizById } from "./quiz/quizzes";
 import { getMyDisplayName, submitGameScore } from "./lib/scoreApi";
+import { issueCouponAfterGame, type IssuedCoupon } from "./lib/couponApi";
 
 import type {
   Difficulty,
@@ -165,7 +165,7 @@ function drawBigOTarget(
 
   ctx.shadowBlur = 0;
   ctx.strokeStyle = "rgba(255,77,109,0.96)";
-  ctx.lineWidth = Math.max(12, r * 0.20);
+  ctx.lineWidth = Math.max(12, r * 0.2);
   ctx.beginPath();
   ctx.arc(x, y, r * 0.72, 0, Math.PI * 2);
   ctx.stroke();
@@ -173,7 +173,31 @@ function drawBigOTarget(
   ctx.restore();
 }
 
+/**
+ * ✅ IssuedCoupon（lib/couponApi.ts）側の型が薄い/別名の可能性があるので、
+ * Game.tsx では「表示用に安全な拡張型」を使う（TS警告ゼロ保証）
+ */
+type IssuedCouponView = IssuedCoupon & {
+  title?: string | null;
+  code?: string | null; // ※運用上は表示しない
+  qr_png_base64?: string | null;
+  qr_svg?: string | null;
+  redeem_url?: string | null;
+  expires_at?: string | null;
+};
+
+type CouponUiState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "none" }
+  | { status: "issued"; coupon: IssuedCouponView }
+  | { status: "error"; message: string };
+
+const COUPON_STORAGE_KEY = "game_last_coupon_v1";
+
 export default function Game() {
+  const nav = useNavigate();
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -231,6 +255,10 @@ export default function Game() {
 
   // ✅ スコア送信「1回だけ」ガード
   const scoreSentRef = useRef(false);
+
+  // ✅ クーポン発行「1回だけ」ガード
+  const couponTriedRef = useRef(false);
+  const [couponUi, setCouponUi] = useState<CouponUiState>({ status: "idle" });
 
   // ✅ 名前を事前に確保して保持（重要）
   const displayNameRef = useRef("ゲスト");
@@ -372,7 +400,7 @@ export default function Game() {
     const areaBottom = Math.floor(h * 0.48);
 
     const baseR = clamp(
-      Math.min(w, h) * 0.060,
+      Math.min(w, h) * 0.06,
       params.baseR.min,
       params.baseR.max
     );
@@ -533,6 +561,13 @@ export default function Game() {
     stopCountdown();
 
     scoreSentRef.current = false;
+    couponTriedRef.current = false;
+    setCouponUi({ status: "idle" });
+
+    // ✅ 直前クーポンの残骸は消しておく（任意）
+    try {
+      sessionStorage.removeItem(COUPON_STORAGE_KEY);
+    } catch {}
 
     scoreRef.current = 0;
     setScore(0);
@@ -695,23 +730,56 @@ export default function Game() {
   }, [activeQuiz]);
 
   /* =========================
-     ✅ GAME OVER / TIME UP：スコア送信（1回だけ）
+     ✅ GAME OVER / TIME UP：
+     1) スコア送信（1回）
+     2) クーポン発行（1回）
   ========================= */
   useEffect(() => {
     if (phase !== "gameover" && phase !== "timeup") return;
-    if (scoreSentRef.current) return;
 
-    scoreSentRef.current = true;
+    // ①スコア送信（1回だけ）
+    if (!scoreSentRef.current) {
+      scoreSentRef.current = true;
 
-    // ✅ 事前に確保した名前を必ず送る
-    submitGameScore({
+      submitGameScore({
+        score: scoreRef.current,
+        difficulty,
+        displayNameOverride: displayNameRef.current,
+        userIdOverride: userIdRef.current,
+        isGuestOverride: isGuestRef.current,
+      }).then((res) => {
+        if (!res.ok) console.warn("score submit failed:", res.error);
+      });
+    }
+
+    // ②クーポン発行（1回だけ）
+    if (couponTriedRef.current) return;
+    couponTriedRef.current = true;
+
+    setCouponUi({ status: "loading" });
+
+    issueCouponAfterGame({
       score: scoreRef.current,
       difficulty,
-      displayNameOverride: displayNameRef.current,
-      userIdOverride: userIdRef.current,
-      isGuestOverride: isGuestRef.current,
     }).then((res) => {
-      if (!res.ok) console.warn("score submit failed:", res.error);
+      if (!res.ok) {
+        setCouponUi({ status: "error", message: res.error });
+        return;
+      }
+      if (!res.issued) {
+        // ✅ 条件未達は「何も表示しない」運用なので state だけ none にする
+        setCouponUi({ status: "none" });
+        return;
+      }
+
+      const c = res.coupon as IssuedCouponView;
+
+      // ✅ 詳細画面用に保存（QRや詳細を次画面で表示）
+      try {
+        sessionStorage.setItem(COUPON_STORAGE_KEY, JSON.stringify(c));
+      } catch {}
+
+      setCouponUi({ status: "issued", coupon: c });
     });
   }, [phase, difficulty]);
 
@@ -744,7 +812,7 @@ export default function Game() {
       ctx.fillRect(0, 0, w, h);
 
       // frame
-      ctx.globalAlpha = 0.10;
+      ctx.globalAlpha = 0.1;
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2;
       ctx.strokeRect(10, 10, w - 20, h - 20);
@@ -1079,7 +1147,6 @@ export default function Game() {
       }
 
       // ===== DRAW =====
-      // obstacles
       if (pNow === "playing") {
         for (const o of obstaclesRef.current) {
           ctx.save();
@@ -1091,7 +1158,6 @@ export default function Game() {
         }
       }
 
-      // targets
       if (
         pNow === "playing" ||
         pNow === "idle" ||
@@ -1114,7 +1180,6 @@ export default function Game() {
         }
       }
 
-      // quiz play targets + reverse T bumper
       if (pNow === "quiz_play") {
         const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
         const yBig = h * 0.3;
@@ -1146,7 +1211,6 @@ export default function Game() {
         ctx.restore();
       }
 
-      // paddle
       ctx.save();
       ctx.globalAlpha = 0.88;
       ctx.fillStyle = "#e6e6e6";
@@ -1154,7 +1218,6 @@ export default function Game() {
       ctx.fill();
       ctx.restore();
 
-      // ball
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff";
@@ -1171,7 +1234,6 @@ export default function Game() {
       ctx.fillStyle = "rgba(0,0,0,0.12)";
       ctx.fill();
 
-      // countdown overlay
       if (
         pNow === "countdown" ||
         pNow === "serve_auto" ||
@@ -1194,7 +1256,6 @@ export default function Game() {
         ctx.restore();
       }
 
-      // quiz result overlay
       if (pNow === "quiz_result" && quizResult) {
         ctx.save();
         ctx.fillStyle = "rgba(0,0,0,0.45)";
@@ -1232,6 +1293,8 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const gameTitle = "がん細胞をたおして、乳がんについて学ぼう！";
+
   return (
     <div className="gamePage">
       <SiteHeader />
@@ -1258,13 +1321,13 @@ export default function Game() {
               onPointerCancel={onPointerUp}
             />
 
-            {/* ✅ 最初の画面：STARTカード内にランキング追加（更新ボタンなし） */}
+            {/* ✅ 最初の画面 */}
             {phase === "idle" && (
               <div className="overlay">
                 <div className="overlayCard">
                   <div className="gStartGrid">
                     <div className="gStartLeft">
-                      <div className="overlayTitle">Body Defense Hockey</div>
+                      <div className="overlayTitle">{gameTitle}</div>
                       <div className="overlayText center">
                         難易度を選んで START
                       </div>
@@ -1340,9 +1403,39 @@ export default function Game() {
                   <div className="overlayTitle">
                     {phase === "gameover" ? "GAME OVER" : "TIME UP"}
                   </div>
+
                   <div className="overlayText center">SCORE: {score}</div>
 
-                  <div className="overlayRow">
+                  {/* ✅ クーポン：条件一致の時だけ表示（未達は何も出さない・コードも出さない） */}
+                  <div className="overlayText center" style={{ marginTop: 10 }}>
+                    {couponUi.status === "loading" && "クーポン確認中…"}
+
+                    {couponUi.status === "error" && (
+                      <span style={{ color: "#ff6b6b" }}>
+                        クーポン発行エラー：{couponUi.message}
+                      </span>
+                    )}
+
+                    {couponUi.status === "issued" && (
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontWeight: 900, marginBottom: 10 }}>
+                          🎉 クーポン獲得！
+                        </div>
+
+                        <button
+                          type="button"
+                          className="overlayPrimary"
+                          onClick={() => nav("/game/coupon")}
+                        >
+                          QRと詳細を見る
+                        </button>
+                      </div>
+                    )}
+
+                    {/* ✅ none は何も表示しない */}
+                  </div>
+
+                  <div className="overlayRow" style={{ marginTop: 14 }}>
                     <button
                       type="button"
                       className="overlayPrimary ghost"

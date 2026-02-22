@@ -40,6 +40,9 @@ function AdminMenu() {
             <button className="admin-menu-btn" onClick={() => navigate("/admin-game-scores")}>
               ゲームスコア管理
             </button>
+            <button className="admin-menu-btn" onClick={() => navigate("/admin-coupon-rewards")}>
+  ゲーム報酬設定
+</button>
 
             <button className="admin-menu-btn" onClick={() => navigate("/admin-users")}>
               アカウント管理

@@ -1,98 +1,219 @@
-/* =========================
-   Mobile Responsive
-   - スマホは表をカード表示にする
-========================= */
-@media (max-width: 720px) {
-  .adminScoresMain {
-    padding: 14px 10px 22px;
-  }
+/* src/pages/AdminGameScores.css */
+:root{
+  --site-bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #64748b;
+  --muted2: #475569;
+  --line: rgba(148, 163, 184, 0.18);
+  --line-strong: rgba(148, 163, 184, 0.35);
+  --shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+  --shadow2: 0 10px 24px rgba(15, 23, 42, 0.06);
+  --brand: rgba(79,110,233,.45);
+  --brandRing: rgba(79,110,233,.10);
+  --danger: rgba(239, 68, 68, .35);
+}
 
-  .adminScoresTitle {
-    font-size: 18px;
-    margin: 6px 2px 12px;
-  }
+/* ページ背景 */
+.adminScoresBody{
+  background: var(--site-bg);
+}
 
-  .adminScoresFilters {
-    padding: 12px;
-  }
+.adminScoresPage{
+  min-height: 100vh;
+}
 
-  .fRow {
-    gap: 10px;
-    margin-bottom: 10px;
-  }
+/* ✅ AdminHeader が fixed の場合でも被らない（ヘッダーCSSは触らない） */
+.adminScoresMain{
+  padding: calc(84px + 24px) 16px 24px; /* ← 84px = ヘッダー想定高さ */
+}
 
-  .fLabel {
-    min-width: 0;
-    width: 100%;
+@supports(padding: max(0px)){
+  .adminScoresMain{
+    padding-top: calc(84px + 24px + env(safe-area-inset-top));
   }
+}
 
-  .fInput,
-  .fSelect {
-    width: 100%;
-  }
+.adminScoresWrap{
+  max-width: 1100px;
+  margin: 0 auto;
+  color: var(--text);
+}
 
-  .btnPrimary,
-  .btnDanger {
-    width: 100%;
-    justify-content: center;
-  }
+.adminScoresHead{
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
 
-  .adminScoresTableWrap {
-    padding: 10px;
-    overflow: visible; /* ✅ スマホは横スクロールじゃなくカードにする */
-  }
+.adminScoresTitle{
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
 
-  .adminScoresTable {
-    min-width: 0;
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0 10px; /* カード間の隙間 */
-  }
+.adminScoresSub{
+  font-size: 12px;
+  color: var(--muted2);
+  line-height: 1.6;
+}
 
-  /* ✅ ヘッダー非表示 */
-  .adminScoresTable thead {
-    display: none;
-  }
+.adminScoresCard{
+  border: 1px solid rgba(148,163,184,.25);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
 
-  /* ✅ 行をカード化 */
-  .adminScoresTable tbody tr {
-    display: grid;
+/* ===== filters ===== */
+.adminScoresFilters{
+  padding: 14px;
+  border-bottom: 1px solid var(--line);
+  background: #f7f7fb;
+  display: grid;
+  gap: 12px;
+}
+
+.fRow{
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto auto;
+  gap: 10px;
+  align-items: end;
+}
+
+@media (max-width: 980px){
+  .fRow{
     grid-template-columns: 1fr 1fr;
-    gap: 8px 10px;
-    padding: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 14px;
-    box-shadow: 0 10px 26px rgba(0,0,0,0.25);
   }
+}
 
-  /* ✅ tdをブロック化してラベルを付ける */
-  .adminScoresTable tbody td {
-    display: grid;
-    gap: 4px;
-    padding: 0;
-    border-bottom: none;
-    white-space: normal; /* ✅ 折り返しOK */
-    font-size: 13px;
-  }
+.fLabel{
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #0f172a;
+}
 
-  .adminScoresTable tbody td::before {
-    content: attr(data-label);
-    font-size: 11px;
-    font-weight: 950;
-    color: rgba(255,255,255,0.55);
-    letter-spacing: 0.02em;
-  }
+.fInput,
+.fSelect{
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text);
+  outline: none;
+  box-sizing: border-box;
+}
 
-  /* ✅ 各列の見た目調整 */
-  .tdDate { grid-column: 1 / -1; }
-  .tdName { grid-column: 1 / -1; max-width: none; overflow: visible; text-overflow: clip; }
-  .tdScore { text-align: left; font-weight: 950; }
-  .tdActions { grid-column: 1 / -1; text-align: right; margin-top: 4px; }
+.fInput:focus,
+.fSelect:focus{
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brandRing);
+}
 
-  .btnSmallDanger {
-    width: 100%;
-    height: 40px;
-    border-radius: 12px;
-  }
+/* buttons */
+.btnPrimary,
+.btnDanger{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  font-weight: 900;
+  cursor: pointer;
+  color: var(--text);
+  box-shadow: var(--shadow2);
+  white-space: nowrap;
+}
+
+.btnPrimary:active,
+.btnDanger:active{
+  transform: translateY(1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+}
+
+.btnDanger{
+  border-color: var(--danger);
+}
+
+.btnPrimary:disabled,
+.btnDanger:disabled{
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ===== info/err ===== */
+.adminScoresErr{
+  padding: 12px 14px;
+  color: #991b1b;
+  background: rgba(239,68,68,.08);
+  border-top: 1px solid rgba(239,68,68,.20);
+}
+
+.adminScoresInfo{
+  padding: 12px 14px;
+  color: var(--muted2);
+}
+
+/* ===== table ===== */
+.adminScoresTableWrap{
+  overflow: auto;
+}
+
+.adminScoresTable{
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+  background: #fff;
+}
+
+.adminScoresTable th,
+.adminScoresTable td{
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.adminScoresTable th{
+  background: #f7f7fb;
+  font-size: 13px;
+  font-weight: 900;
+  color: #0f172a;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.tdScore{
+  font-weight: 900;
+}
+
+.tdActions{
+  text-align: right;
+  white-space: nowrap;
+}
+
+.btnSmallDanger{
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--danger);
+  background: rgba(239, 68, 68, .08);
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.btnSmallDanger:active{
+  transform: translateY(1px);
+}
+
+.tdEmpty{
+  text-align: center;
+  padding: 18px;
+  color: var(--muted);
 }
