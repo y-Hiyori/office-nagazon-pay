@@ -35,7 +35,7 @@ export type SubmitArgs = {
   score: number;
   difficulty: Difficulty;
 
-  // ゲストのときだけ使う
+  // ゲストのときだけ使う（任意）
   displayNameOverride?: string | null;
 
   // Game.tsx互換（偽装には使わない）
@@ -63,12 +63,30 @@ function safeName(v: unknown): string {
   return s.slice(0, 20);
 }
 
-function getMetaDisplayName(user: { user_metadata?: unknown } | null): string {
+/** ✅ ログイン時：profiles.name を優先して取得（なければ user_metadata へフォールバック） */
+async function getDisplayNameForUser(userId: string): Promise<string> {
+  // 1) profiles.name
+  const { data: prof, error: pErr } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!pErr) {
+    const n = typeof prof?.name === "string" ? prof.name.trim() : "";
+    if (n) return n.slice(0, 20);
+  } else {
+    console.warn("profiles read error:", pErr.message);
+  }
+
+  // 2) fallback: user_metadata
+  const { data: sessRes } = await supabase.auth.getSession();
+  const user = sessRes.session?.user ?? null;
   const md = (user?.user_metadata ?? undefined) as Record<string, unknown> | undefined;
   const d1 = typeof md?.display_name === "string" ? md.display_name : "";
   const d2 = typeof md?.name === "string" ? md.name : "";
-  const name = (d1 || d2 || "User").trim();
-  return name ? name.slice(0, 20) : "User";
+  const fallback = (d1 || d2 || "User").trim();
+  return fallback ? fallback.slice(0, 20) : "User";
 }
 
 /* =========================
@@ -106,12 +124,12 @@ export async function getMyDisplayName(): Promise<MyDisplayNameResult> {
   if (error) return { displayName: "ゲスト", userId: null, isGuest: true };
 
   const session = data.session ?? null;
-  const user = session?.user ?? null;
-  const userId = user?.id ?? null;
+  const userId = session?.user?.id ?? null;
 
-  if (!userId || !user) return { displayName: "ゲスト", userId: null, isGuest: true };
+  if (!userId) return { displayName: "ゲスト", userId: null, isGuest: true };
 
-  return { displayName: getMetaDisplayName(user), userId, isGuest: false };
+  const displayName = await getDisplayNameForUser(userId);
+  return { displayName, userId, isGuest: false };
 }
 
 /* =========================
@@ -123,17 +141,17 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     const score = clampScore(args.score);
     const difficulty = args.difficulty;
 
+    // ✅ 実セッションで判断
     const { data: sessRes, error: sessErr } = await supabase.auth.getSession();
     if (sessErr) console.warn("getSession failed:", sessErr.message);
 
     const session = sessRes?.session ?? null;
-    const user = session?.user ?? null;
-    const userId = user?.id ?? null;
+    const userId = session?.user?.id ?? null;
 
     // ==========================
     // ゲスト：毎回insert
     // ==========================
-    if (!userId || !user) {
+    if (!userId) {
       const displayName = safeName(args.displayNameOverride ?? "Guest");
 
       const { error } = await supabase.from("game_scores").insert({
@@ -149,9 +167,9 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     }
 
     // ==========================
-    // ログイン：display_nameは常に同期する（重要）
+    // ログイン：profiles.name を必ず使う
     // ==========================
-    const displayName = getMetaDisplayName(user);
+    const displayName = await getDisplayNameForUser(userId);
 
     const { data: existing, error: selErr } = await supabase
       .from("game_scores")
@@ -163,7 +181,7 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
 
     if (selErr) return { ok: false, error: selErr.message };
 
-    // 初回
+    // 初回 insert
     if (!existing) {
       const { error } = await supabase.from("game_scores").insert({
         user_id: userId,
@@ -179,7 +197,7 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
 
     const best = clampScore(existing.score);
 
-    // ✅ スコア更新しない場合でも、名前だけ同期する
+    // ✅ スコア更新しない場合でも “名前だけ同期” して「確認」を消す
     if ((existing.display_name ?? "").trim() !== displayName) {
       const { error: nameErr } = await supabase
         .from("game_scores")
@@ -187,13 +205,13 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
         .eq("id", existing.id);
 
       if (nameErr) return { ok: false, error: nameErr.message };
-      // ここで終わってもいいが、スコアが更新なら続ける
+
       if (score <= best) return { ok: true, mode: "user_name_sync" };
     }
 
     if (score <= best) return { ok: true, mode: "user_skip" };
 
-    // ベスト更新（名前も一緒に）
+    // ベスト更新
     const { error: updErr } = await supabase
       .from("game_scores")
       .update({ score, display_name: displayName })
