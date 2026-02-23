@@ -8,15 +8,30 @@ import "./Game.css";
 import { supabase } from "../../lib/supabase";
 
 import { getConfig } from "./configs";
+import { RULES } from "./configs/rules";
+
 import { drawCell } from "./draw/drawCell";
 import ScoreText from "./ui/ScoreText";
 import MultiplierText from "./ui/MultiplierText";
 import GameRankingMini from "./ui/GameRankingMini";
 
 import { QUIZZES, ensureQuizSuffix, getQuizById } from "./quiz/quizzes";
-import { getMyDisplayName, submitGameScore, fetchTopScores, type ScoreRow } from "./lib/scoreApi";
+import {
+  getMyDisplayName,
+  submitGameScore,
+  fetchTopScores,
+  type ScoreRow,
+} from "./lib/scoreApi";
 
-import type { Difficulty, Phase, Target, Obstacle, Motion, QuizChoice, TFQuiz } from "./types";
+import type {
+  Difficulty,
+  Phase,
+  Target,
+  Obstacle,
+  Motion,
+  QuizChoice,
+  TFQuiz,
+} from "./types";
 
 import {
   getOrCreateDeviceId,
@@ -37,7 +52,7 @@ function roundRect(
   y: number,
   w: number,
   h: number,
-  r: number
+  r: number,
 ) {
   const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
@@ -55,7 +70,15 @@ function dist2(ax: number, ay: number, bx: number, by: number) {
   return dx * dx + dy * dy;
 }
 
-function circleRectHit(cx: number, cy: number, cr: number, rx1: number, ry1: number, rx2: number, ry2: number) {
+function circleRectHit(
+  cx: number,
+  cy: number,
+  cr: number,
+  rx1: number,
+  ry1: number,
+  rx2: number,
+  ry2: number,
+) {
   const x = clamp(cx, rx1, rx2);
   const y = clamp(cy, ry1, ry2);
   const dx = cx - x;
@@ -68,7 +91,7 @@ function resolveCircleRectBounce(
   rx1: number,
   ry1: number,
   rx2: number,
-  ry2: number
+  ry2: number,
 ) {
   const overlapLeft = Math.abs(b.x - rx1);
   const overlapRight = Math.abs(b.x - rx2);
@@ -186,19 +209,24 @@ type CouponUiState =
   | { status: "issued"; coupon: IssuedCouponView };
 
 const COUPON_STORAGE_KEY = "game_last_coupon_v1";
-const COUPON_STORAGE_KEY_ARRAY = "game_last_coupons_v1"; // ←追加
+const COUPON_STORAGE_KEY_ARRAY = "game_last_coupons_v1";
 
-/* ✅ クーポン（報酬ごと1回）にしたので「全部1回」は使わない */
+/* ✅ クーポン（報酬ごと1回） */
 function isInValidWindow(r: CouponRewardRow, now = new Date()): boolean {
   const fromOk = !r.valid_from || now >= new Date(r.valid_from);
   const toOk = !r.valid_to || now <= new Date(r.valid_to);
   return fromOk && toOk;
 }
 
-async function fetchActiveRewards(): Promise<{ ok: true; rows: CouponRewardRow[] } | { ok: false; error: string }> {
+async function fetchActiveRewards(): Promise<
+  | { ok: true; rows: CouponRewardRow[] }
+  | { ok: false; error: string }
+> {
   const { data, error } = await supabase
     .from("coupon_rewards")
-    .select("id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to")
+    .select(
+      "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to",
+    )
     .eq("is_active", true)
     .order("score_threshold", { ascending: true });
 
@@ -218,7 +246,10 @@ function pickEligibleReward(rewards: CouponRewardRow[], score: number): CouponRe
 }
 
 /* ✅ guest-name: 全体一意チェック＆予約 */
-async function reserveGuestName(name: string, deviceId: string): Promise<
+async function reserveGuestName(
+  name: string,
+  deviceId: string,
+): Promise<
   | { ok: true; available: true }
   | { ok: true; available: false; reason: "taken" }
   | { ok: false; error: string }
@@ -243,8 +274,7 @@ async function reserveGuestName(name: string, deviceId: string): Promise<
 }
 
 /**
- * ✅ issue-coupon: あなたのEdge Function返却に合わせる
- * 重要：device_id と display_name を必ず渡す（ゲストでも発行される）
+ * ✅ issue-coupon: Edge Function返却に合わせる
  */
 async function issueCouponByEdge(args: {
   score: number;
@@ -384,8 +414,20 @@ export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
+  // ✅ difficulty → params / rules を必ず先に作る
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const params = useMemo(() => getConfig(difficulty), [difficulty]);
+  const rules = useMemo(() => RULES[difficulty], [difficulty]);
+
+  // ✅ rulesのクイズ範囲からプールを作る（makeTargetsで毎回sliceしない）
+  const quizPoolSafe = useMemo(() => {
+    const from = Math.max(0, Math.min(QUIZZES.length - 1, rules.quizIndexFrom));
+    const to = Math.max(0, Math.min(QUIZZES.length - 1, rules.quizIndexTo));
+    const a = Math.min(from, to);
+    const b = Math.max(from, to);
+    const sliced = QUIZZES.slice(a, b + 1);
+    return sliced.length > 0 ? sliced : QUIZZES;
+  }, [rules]);
 
   const [phase, setPhase] = useState<Phase>("idle");
   const phaseRef = useRef<Phase>("idle");
@@ -398,11 +440,22 @@ export default function Game() {
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
 
-  const multiplierRef = useRef(1);
-  const [multiplierUi, setMultiplierUi] = useState(1);
+  // ✅ 初期値も rules 連動
+  const multiplierRef = useRef<number>(rules.startMultiplier);
+  const [multiplierUi, setMultiplierUi] = useState<number>(rules.startMultiplier);
 
-  const [timeLeft, setTimeLeft] = useState(60);
-  const timeRef = useRef(60);
+  const [timeLeft, setTimeLeft] = useState<number>(rules.timeSec);
+  const timeRef = useRef<number>(rules.timeSec);
+
+  // ✅ 難易度を切り替えた瞬間に rules の値へ同期（easy固定を消す）
+  useEffect(() => {
+    multiplierRef.current = rules.startMultiplier;
+    setMultiplierUi(rules.startMultiplier);
+
+    timeRef.current = rules.timeSec;
+    setTimeLeft(rules.timeSec);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rules]);
 
   const [activeQuiz, setActiveQuiz] = useState<TFQuiz | null>(null);
   const activeQuizRef = useRef<TFQuiz | null>(null);
@@ -454,12 +507,10 @@ export default function Game() {
       userIdRef.current = v.userId;
       isGuestRef.current = v.isGuest;
 
-      // ログインしてたらゲスト入力UI不要
       if (!v.isGuest) {
         setGuestEditing(false);
         setGuestMsg(null);
       } else {
-        // ゲストなら保存名があれば使う
         const saved = getSavedGuestName();
         if (saved) {
           displayNameRef.current = saved;
@@ -517,7 +568,8 @@ export default function Game() {
     return () => stopCountdown();
   }, []);
 
-  const isControlLocked = (p: Phase) => p === "countdown" || p === "serve_auto" || p === "quiz_countdown";
+  const isControlLocked = (p: Phase) =>
+    p === "countdown" || p === "serve_auto" || p === "quiz_countdown";
 
   /* =========================
      ✅ ゲスト名確定（予約）
@@ -549,7 +601,6 @@ export default function Game() {
       return false;
     }
 
-    // ✅ OK：上書き保存
     setSavedGuestName(name);
     setGuestName(name);
     displayNameRef.current = name;
@@ -558,135 +609,6 @@ export default function Game() {
     setGuestMsg("OK！この名前でプレイします");
     window.setTimeout(() => setGuestMsg(null), 1200);
     return true;
-  };
-
-    /* =========================
-     Resize / DPR  ✅ iOS対策：スクロールで高さが変わっても再計算しない
-  ========================= */
-  const baseCanvasCssHRef = useRef<number | null>(null);
-  const lastCssWRef = useRef<number>(0);
-  const lastDprRef = useRef<number>(1);
-
-  useEffect(() => {
-    const apply = (force = false) => {
-      const canvas = canvasRef.current;
-      const wrap = wrapRef.current;
-      if (!canvas || !wrap) return;
-
-      const rect = wrap.getBoundingClientRect();
-
-      // iOSのスクロールでinnerHeightが変わるのを拾わないため、
-      // 「幅が変わった時だけ」canvas高さを作り直す
-      const cssW = Math.max(1, rect.width);
-
-      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-
-      const widthChanged = Math.abs(cssW - lastCssWRef.current) > 1;
-      const dprChanged = dpr !== lastDprRef.current;
-
-      // 初回 or 幅変更 or DPR変更 or force のときだけ高さを決め直す
-      if (force || baseCanvasCssHRef.current == null || widthChanged || dprChanged) {
-        // ✅ ここは「最初に決めた高さ」を使い続ける
-        // 初回だけ innerHeight を参照する（以降、スクロールでは変えない）
-        const baseH =
-          baseCanvasCssHRef.current ?? Math.min(window.innerHeight * 0.72, 760);
-
-        baseCanvasCssHRef.current = baseH;
-        lastCssWRef.current = cssW;
-        lastDprRef.current = dpr;
-
-        canvas.style.width = `${cssW}px`;
-        canvas.style.height = `${baseH}px`;
-        canvas.width = Math.floor(cssW * dpr);
-        canvas.height = Math.floor(baseH * dpr);
-
-        // レイアウト更新した時だけリセット（スクロール由来では呼ばれない）
-        resetGame(true);
-        return;
-      }
-
-      // ✅ スクロールで高さだけ変わったケースは何もしない（縦幅固定）
-      // ただし、幅は同じでもcanvasのCSSが外部要因で変わってたら戻す（保険）
-      const currentW = parseFloat(canvas.style.width || "0");
-      if (Math.abs(currentW - cssW) > 1) {
-        canvas.style.width = `${cssW}px`;
-      }
-    };
-
-    // 初回
-    apply(true);
-
-    const onResize = () => apply(false);
-    const onOrientation = () => {
-      // 回転したら「高さも作り直し」したいので base をリセット
-      baseCanvasCssHRef.current = null;
-      apply(true);
-    };
-
-    window.addEventListener("resize", onResize);
-    window.addEventListener("orientationchange", onOrientation);
-
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("orientationchange", onOrientation);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficulty]);
-  /* =========================
-     Keyboard
-  ========================= */
-  useEffect(() => {
-    const onDown = (e: KeyboardEvent) => {
-      if (["ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
-      if (e.key === "ArrowLeft") keysRef.current.left = true;
-      if (e.key === "ArrowRight") keysRef.current.right = true;
-
-      if (phaseRef.current === "quiz_prompt") {
-        if (e.key === " ") onQuizConfirm();
-      }
-    };
-
-    const onUp = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") keysRef.current.left = false;
-      if (e.key === "ArrowRight") keysRef.current.right = false;
-    };
-
-    window.addEventListener("keydown", onDown, { passive: false });
-    window.addEventListener("keyup", onUp);
-    return () => {
-      window.removeEventListener("keydown", onDown as unknown as EventListener);
-      window.removeEventListener("keyup", onUp as unknown as EventListener);
-    };
-  }, []);
-
-  /* =========================
-     Pointer
-  ========================= */
-  const toCanvasX = (clientX: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return clientX;
-    const rect = canvas.getBoundingClientRect();
-    const xCss = clientX - rect.left;
-    const dpr = canvas.width / rect.width;
-    return xCss * dpr;
-  };
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    const pNow = phaseRef.current;
-    if (isControlLocked(pNow) || pNow === "quiz_prompt" || pNow === "quiz_result" || pNow === "gameover" || pNow === "timeup") return;
-
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    pointerRef.current.active = true;
-    pointerRef.current.x = toCanvasX(e.clientX);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!pointerRef.current.active) return;
-    pointerRef.current.x = toCanvasX(e.clientX);
-  };
-
-  const onPointerUp = () => {
-    pointerRef.current.active = false;
   };
 
   /* =========================
@@ -738,11 +660,14 @@ export default function Game() {
 
         const spBase = rand(params.motionSpd[0], params.motionSpd[1]);
         const pxPerSec =
-          clamp(spBase * 220, 120, 340) * (difficulty === "hard" ? 1.15 : difficulty === "normal" ? 1.05 : 0.95);
+          clamp(spBase * 220, 120, 340) *
+          (difficulty === "hard" ? 1.15 : difficulty === "normal" ? 1.05 : 0.95);
 
         const ang = rand(0, Math.PI * 2);
         const vx = Math.cos(ang) * pxPerSec;
         const vy = Math.sin(ang) * pxPerSec * 0.75;
+
+        const quiz = isQuiz ? quizPoolSafe[idx % quizPoolSafe.length] : null;
 
         const t: Target = {
           id: `t_${idx}_${Math.random().toString(16).slice(2)}`,
@@ -754,7 +679,7 @@ export default function Game() {
           color: isQuiz ? quizColor : normalColors[idx % normalColors.length],
           hp: 1,
           isQuiz,
-          quizId: isQuiz ? QUIZZES[idx % QUIZZES.length].id : undefined,
+          quizId: isQuiz && quiz ? quiz.id : undefined,
 
           motion,
           t: rand(0, 100),
@@ -784,6 +709,8 @@ export default function Game() {
         const pxPerSec = clamp(spBase * 200, 120, 320);
         const ang = rand(0, Math.PI * 2);
 
+        const quiz = isQuiz ? quizPoolSafe[idx % quizPoolSafe.length] : null;
+
         placed = {
           id: `t_${idx}_${Math.random().toString(16).slice(2)}`,
           x,
@@ -794,7 +721,7 @@ export default function Game() {
           color: isQuiz ? quizColor : normalColors[idx % normalColors.length],
           hp: 1,
           isQuiz,
-          quizId: isQuiz ? QUIZZES[idx % QUIZZES.length].id : undefined,
+          quizId: isQuiz && quiz ? quiz.id : undefined,
 
           motion,
           t: rand(0, 100),
@@ -862,11 +789,12 @@ export default function Game() {
     scoreRef.current = 0;
     setScore(0);
 
-    multiplierRef.current = 1;
-    setMultiplierUi(1);
+    // ✅ rules連動
+    multiplierRef.current = rules.startMultiplier;
+    setMultiplierUi(rules.startMultiplier);
 
-    timeRef.current = params.time;
-    setTimeLeft(params.time);
+    timeRef.current = rules.timeSec;
+    setTimeLeft(rules.timeSec);
 
     setActiveQuiz(null);
     setQuizResult(null);
@@ -892,6 +820,132 @@ export default function Game() {
     lastTsRef.current = performance.now();
 
     if (!keepPhaseIdle) setPhase("idle");
+  };
+
+  /* =========================
+     Resize / DPR  ✅ iOS対策：スクロールで高さが変わっても再計算しない
+  ========================= */
+  const baseCanvasCssHRef = useRef<number | null>(null);
+  const lastCssWRef = useRef<number>(0);
+  const lastDprRef = useRef<number>(1);
+
+  useEffect(() => {
+    const apply = (force = false) => {
+      const canvas = canvasRef.current;
+      const wrap = wrapRef.current;
+      if (!canvas || !wrap) return;
+
+      const rect = wrap.getBoundingClientRect();
+      const cssW = Math.max(1, rect.width);
+
+      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+
+      const widthChanged = Math.abs(cssW - lastCssWRef.current) > 1;
+      const dprChanged = dpr !== lastDprRef.current;
+
+      if (force || baseCanvasCssHRef.current == null || widthChanged || dprChanged) {
+        const baseH = baseCanvasCssHRef.current ?? Math.min(window.innerHeight * 0.72, 760);
+
+        baseCanvasCssHRef.current = baseH;
+        lastCssWRef.current = cssW;
+        lastDprRef.current = dpr;
+
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${baseH}px`;
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(baseH * dpr);
+
+        resetGame(true);
+        return;
+      }
+
+      const currentW = parseFloat(canvas.style.width || "0");
+      if (Math.abs(currentW - cssW) > 1) {
+        canvas.style.width = `${cssW}px`;
+      }
+    };
+
+    apply(true);
+
+    const onResize = () => apply(false);
+    const onOrientation = () => {
+      baseCanvasCssHRef.current = null;
+      apply(true);
+    };
+
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onOrientation);
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onOrientation);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [difficulty, rules.timeSec]);
+
+  /* =========================
+     Keyboard
+  ========================= */
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (["ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
+      if (e.key === "ArrowLeft") keysRef.current.left = true;
+      if (e.key === "ArrowRight") keysRef.current.right = true;
+
+      if (phaseRef.current === "quiz_prompt") {
+        if (e.key === " ") onQuizConfirm();
+      }
+    };
+
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") keysRef.current.left = false;
+      if (e.key === "ArrowRight") keysRef.current.right = false;
+    };
+
+    window.addEventListener("keydown", onDown, { passive: false });
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown as unknown as EventListener);
+      window.removeEventListener("keyup", onUp as unknown as EventListener);
+    };
+  }, []);
+
+  /* =========================
+     Pointer
+  ========================= */
+  const toCanvasX = (clientX: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return clientX;
+    const rect = canvas.getBoundingClientRect();
+    const xCss = clientX - rect.left;
+    const dpr = canvas.width / rect.width;
+    return xCss * dpr;
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const pNow = phaseRef.current;
+    if (
+      isControlLocked(pNow) ||
+      pNow === "quiz_prompt" ||
+      pNow === "quiz_result" ||
+      pNow === "gameover" ||
+      pNow === "timeup"
+    ) {
+      return;
+    }
+
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    pointerRef.current.active = true;
+    pointerRef.current.x = toCanvasX(e.clientX);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!pointerRef.current.active) return;
+    pointerRef.current.x = toCanvasX(e.clientX);
+  };
+
+  const onPointerUp = () => {
+    pointerRef.current.active = false;
   };
 
   /* =========================
@@ -956,15 +1010,13 @@ export default function Game() {
   };
 
   const startGameFlow = async () => {
-    // ✅ ゲストは名前確定が先
     if (isGuestRef.current) {
       const ok = await confirmGuestName();
       if (!ok) return;
     }
 
+    // ✅ resetGameの中で time/mul を rules でセット済み → 二重セットしない
     resetGame(true);
-    timeRef.current = params.time;
-    setTimeLeft(params.time);
     runCountdown("playing", true);
   };
 
@@ -980,17 +1032,29 @@ export default function Game() {
     const q = activeQuizRef.current;
     if (!q) return;
 
-    const correct = (ans === "O" && q.correct === "O") || (ans === "X" && q.correct === "X");
+    const correct =
+      (ans === "O" && q.correct === "O") || (ans === "X" && q.correct === "X");
 
     let delta = 0;
+
     if (correct) {
-      delta = Math.round(160 * multiplierRef.current);
+      delta = Math.round(rules.quizCorrectBase * multiplierRef.current);
       scoreRef.current += delta;
-      multiplierRef.current = clamp(Number((multiplierRef.current + 0.5).toFixed(1)), 1, 5);
+
+      multiplierRef.current = clamp(
+        Number((multiplierRef.current + rules.quizMulUp).toFixed(1)),
+        rules.startMultiplier,
+        rules.maxMultiplier,
+      );
     } else {
-      delta = -90;
+      delta = -Math.abs(rules.quizWrongPenalty);
       scoreRef.current += delta;
-      multiplierRef.current = clamp(Number((multiplierRef.current - 0.5).toFixed(1)), 1, 5);
+
+      multiplierRef.current = clamp(
+        Number((multiplierRef.current - rules.quizMulDown).toFixed(1)),
+        rules.startMultiplier,
+        rules.maxMultiplier,
+      );
     }
 
     setScore(scoreRef.current);
@@ -1015,87 +1079,81 @@ export default function Game() {
      ✅ GAME OVER / TIME UP
   ========================= */
   useEffect(() => {
-  if (phase !== "gameover" && phase !== "timeup") return;
+    if (phase !== "gameover" && phase !== "timeup") return;
 
-  // ✅ いまの表示名（ゲストは保存名、ログインはprofiles名）
-  const nameNow = isGuestRef.current
-    ? (getSavedGuestName() ?? displayNameRef.current)
-    : displayNameRef.current;
+    const nameNow = isGuestRef.current
+      ? getSavedGuestName() ?? displayNameRef.current
+      : displayNameRef.current;
 
-  // ①スコア送信（1回だけ）
-  if (!scoreSentRef.current) {
-    scoreSentRef.current = true;
+    if (!scoreSentRef.current) {
+      scoreSentRef.current = true;
 
-    submitGameScore({
-      score: scoreRef.current,
-      difficulty,
-      displayNameOverride: nameNow,
-    }).then((res) => {
-      if (!res.ok) console.warn("score submit failed:", res.error);
-    });
-  }
-
-  // ②クーポン（1回だけ）
-  if (couponTriedRef.current) return;
-  couponTriedRef.current = true;
-
-  (async () => {
-    // ✅ issuing を「達成した時だけ」出す
-    if (rewardRows.length > 0) {
-      const eligible = pickEligibleReward(rewardRows, scoreRef.current);
-      if (!eligible) return;
-      setCouponUi({ status: "issuing" });
-    }
-
-    const deviceId = deviceIdRef.current || getOrCreateDeviceId();
-
-    // ✅ 複数発行：issued=false になるまで回す（安全上限）
-    const issuedCoupons: IssuedCouponView[] = [];
-    const MAX_LOOP = 6;
-
-    for (let i = 0; i < MAX_LOOP; i++) {
-      const res = await issueCouponByEdge({
+      submitGameScore({
         score: scoreRef.current,
         difficulty,
-        deviceId,
-        displayName: nameNow || "ゲスト",
+        displayNameOverride: nameNow,
+      }).then((res) => {
+        if (!res.ok) console.warn("score submit failed:", res.error);
       });
+    }
 
-      if (!res.ok) {
-        console.warn("coupon issue failed:", res.error);
-        break;
+    if (couponTriedRef.current) return;
+    couponTriedRef.current = true;
+
+    (async () => {
+      if (rewardRows.length > 0) {
+        const eligible = pickEligibleReward(rewardRows, scoreRef.current);
+        if (!eligible) return;
+        setCouponUi({ status: "issuing" });
       }
-      if (!res.issued || !res.coupon) break;
 
-      issuedCoupons.push(res.coupon);
-    }
+      const deviceId = deviceIdRef.current || getOrCreateDeviceId();
 
-    if (issuedCoupons.length === 0) {
-      setCouponUi({ status: "idle" });
-      return;
-    }
+      const issuedCoupons: IssuedCouponView[] = [];
+      const MAX_LOOP = 6;
 
-    // ✅ 互換：最後の1枚（従来キー）
-    try {
-      sessionStorage.setItem(
-        COUPON_STORAGE_KEY,
-        JSON.stringify(issuedCoupons[issuedCoupons.length - 1]),
-      );
-    } catch {
-      // noop
-    }
+      for (let i = 0; i < MAX_LOOP; i++) {
+        const res = await issueCouponByEdge({
+          score: scoreRef.current,
+          difficulty,
+          deviceId,
+          displayName: nameNow || "ゲスト",
+        });
 
-    // ✅ 本命：配列キー（一覧用）
-    try {
-      sessionStorage.setItem(COUPON_STORAGE_KEY_ARRAY, JSON.stringify(issuedCoupons));
-    } catch {
-      // noop
-    }
+        if (!res.ok) {
+          console.warn("coupon issue failed:", res.error);
+          break;
+        }
+        if (!res.issued || !res.coupon) break;
 
-    setCouponUi({ status: "issued", coupon: issuedCoupons[0] });
-  })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [phase, difficulty]);
+        issuedCoupons.push(res.coupon);
+      }
+
+      if (issuedCoupons.length === 0) {
+        setCouponUi({ status: "idle" });
+        return;
+      }
+
+      try {
+        sessionStorage.setItem(
+          COUPON_STORAGE_KEY,
+          JSON.stringify(issuedCoupons[issuedCoupons.length - 1]),
+        );
+      } catch {
+        // noop
+      }
+
+      try {
+        sessionStorage.setItem(COUPON_STORAGE_KEY_ARRAY, JSON.stringify(issuedCoupons));
+      } catch {
+        // noop
+      }
+
+      setCouponUi({ status: "issued", coupon: issuedCoupons[0] });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, difficulty]);
+
   /* =========================
      Game loop
   ========================= */
@@ -1129,6 +1187,7 @@ export default function Game() {
       ctx.strokeRect(10, 10, w - 20, h - 20);
       ctx.globalAlpha = 1;
 
+      // ✅ time (rules.timeSec 連動)
       if (pNow === "playing") {
         timeRef.current -= dt;
         if (timeRef.current <= 0) {
@@ -1141,6 +1200,7 @@ export default function Game() {
         }
       }
 
+      // targets movement
       if (pNow === "playing") {
         const top = clamp(h * 0.12, 86, 170);
         const bottom = Math.floor(h * 0.48);
@@ -1157,11 +1217,21 @@ export default function Game() {
             const spBase = rand(params.motionSpd[0], params.motionSpd[1]);
             const pxPerSec =
               clamp(spBase * 240, 140, 380) *
-              (difficulty === "hard" ? 1.25 : difficulty === "normal" ? 1.12 : 1.0);
+              (difficulty === "hard"
+                ? 1.25
+                : difficulty === "normal"
+                  ? 1.12
+                  : 1.0);
 
             const a = rand(0, Math.PI * 2);
             const bias =
-              t.motion === "circle" ? 1.05 : t.motion === "zigzag" ? 1.12 : t.motion === "drift" ? 1.18 : 1.0;
+              t.motion === "circle"
+                ? 1.05
+                : t.motion === "zigzag"
+                  ? 1.12
+                  : t.motion === "drift"
+                    ? 1.18
+                    : 1.0;
 
             const nx = Math.cos(a) * pxPerSec * bias;
             const ny = Math.sin(a) * pxPerSec * 0.75 * bias;
@@ -1224,6 +1294,7 @@ export default function Game() {
         }
       }
 
+      // obstacles movement
       if (pNow === "playing") {
         for (const o of obstaclesRef.current) {
           o.x += o.vx * dt;
@@ -1238,8 +1309,15 @@ export default function Game() {
         }
       }
 
+      // paddle
       const p = paddleRef.current;
-      if (isControlLocked(pNow) || pNow === "quiz_prompt" || pNow === "quiz_result" || pNow === "gameover" || pNow === "timeup") {
+      if (
+        isControlLocked(pNow) ||
+        pNow === "quiz_prompt" ||
+        pNow === "quiz_result" ||
+        pNow === "gameover" ||
+        pNow === "timeup"
+      ) {
         pointerRef.current.active = false;
         keysRef.current.left = false;
         keysRef.current.right = false;
@@ -1257,6 +1335,7 @@ export default function Game() {
         p.x = clamp(p.x, p.w / 2 + 14, w - p.w / 2 - 14);
       }
 
+      // ball
       const b = ballRef.current;
       if (!b.released) {
         b.x = p.x;
@@ -1291,6 +1370,7 @@ export default function Game() {
             b.vy = Math.abs(b.vy);
           }
 
+          // paddle collision
           const px1 = p.x - p.w / 2;
           const px2 = p.x + p.w / 2;
           const py1 = p.y - p.h / 2;
@@ -1310,6 +1390,7 @@ export default function Game() {
             b.vy *= k;
           }
 
+          // obstacles collision
           if (pNow === "playing") {
             for (const o of obstaclesRef.current) {
               const ox1 = o.x - o.w / 2;
@@ -1323,6 +1404,7 @@ export default function Game() {
             }
           }
 
+          // quiz arena collision
           if (pNow === "quiz_play") {
             const barW = clamp(Math.min(w, h) * 0.72, 260, 520);
             const barH = 16;
@@ -1361,6 +1443,7 @@ export default function Game() {
             }
           }
 
+          // target hits / scoring
           if (pNow === "playing") {
             for (const t of targetsRef.current) {
               if (t.hp <= 0) continue;
@@ -1372,7 +1455,8 @@ export default function Game() {
 
                 if (t.hp <= 0) {
                   if (!t.isQuiz) {
-                    const add = Math.round(60 * multiplierRef.current);
+                    // ✅ rules.ts の点数
+                    const add = Math.round(rules.hitBaseScore * multiplierRef.current);
                     scoreRef.current += add;
                     setScore(scoreRef.current);
                   } else {
@@ -1389,12 +1473,14 @@ export default function Game() {
 
             const remain = targetsRef.current.filter((x) => x.hp > 0).length;
             if (remain === 0) {
-              scoreRef.current += 300;
+              // ✅ rules.ts のボーナス
+              scoreRef.current += rules.clearBonus;
               setScore(scoreRef.current);
               makeTargets(w, h);
             }
           }
 
+          // quiz answer hits
           if (pNow === "quiz_play") {
             const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
             const yBig = h * 0.3;
@@ -1414,6 +1500,7 @@ export default function Game() {
             }
           }
 
+          // ball lost
           if (b.y - b.r > h + 28) {
             if (pNow === "playing") setPhase("gameover");
             else if (pNow === "quiz_play") {
@@ -1425,6 +1512,7 @@ export default function Game() {
         }
       }
 
+      // draw obstacles
       if (pNow === "playing") {
         for (const o of obstaclesRef.current) {
           ctx.save();
@@ -1436,6 +1524,7 @@ export default function Game() {
         }
       }
 
+      // draw targets
       if (pNow === "playing" || pNow === "idle" || pNow === "countdown" || pNow === "serve_auto") {
         for (const t of targetsRef.current) {
           if (t.hp <= 0) continue;
@@ -1453,6 +1542,7 @@ export default function Game() {
         }
       }
 
+      // draw quiz stage
       if (pNow === "quiz_play") {
         const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
         const yBig = h * 0.3;
@@ -1484,6 +1574,7 @@ export default function Game() {
         ctx.restore();
       }
 
+      // draw paddle
       ctx.save();
       ctx.globalAlpha = 0.88;
       ctx.fillStyle = "#e6e6e6";
@@ -1491,6 +1582,7 @@ export default function Game() {
       ctx.fill();
       ctx.restore();
 
+      // draw ball
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff";
@@ -1501,6 +1593,7 @@ export default function Game() {
       ctx.fillStyle = "rgba(0,0,0,0.12)";
       ctx.fill();
 
+      // countdown overlay
       if (pNow === "countdown" || pNow === "serve_auto" || pNow === "quiz_countdown") {
         ctx.save();
         ctx.fillStyle = "rgba(0,0,0,0.35)";
@@ -1519,6 +1612,7 @@ export default function Game() {
         ctx.restore();
       }
 
+      // quiz result overlay
       if (pNow === "quiz_result" && quizResult) {
         ctx.save();
         ctx.fillStyle = "rgba(0,0,0,0.45)";
@@ -1543,13 +1637,13 @@ export default function Game() {
 
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [difficulty, timeLeft, countdown, quizResult, params]);
+  }, [difficulty, timeLeft, countdown, quizResult, params, rules, quizPoolSafe]);
 
   useEffect(() => {
     const t = window.setTimeout(() => resetGame(true), 0);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [difficulty, rules.timeSec]);
 
   const gameTitle = "がん細胞をたおして、乳がんについて学ぼう！";
   const lockEndButtons = couponUi.status === "issuing" || couponUi.status === "issued";
@@ -1565,8 +1659,12 @@ export default function Game() {
           <div className="canvasShell">
             <div className="hudBar">
               <div className="hudItem">TIME: {timeLeft}s</div>
-              <div className="hudItem"><ScoreText score={score} /></div>
-              <div className="hudItem"><MultiplierText multiplier={multiplierUi} /></div>
+              <div className="hudItem">
+                <ScoreText score={score} />
+              </div>
+              <div className="hudItem">
+                <MultiplierText multiplier={multiplierUi} />
+              </div>
             </div>
 
             <canvas
@@ -1593,7 +1691,14 @@ export default function Game() {
                           </div>
 
                           {!guestEditing ? (
-                            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 10,
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                              }}
+                            >
                               <div style={{ fontWeight: 950, fontSize: 16 }}>
                                 {getSavedGuestName() ?? guestName ?? "ゲスト"}
                               </div>
@@ -1680,13 +1785,25 @@ export default function Game() {
                       <div className="overlayText center">難易度を選んで START</div>
 
                       <div className="overlayRow">
-                        <button type="button" className={difficulty === "easy" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("easy")}>
+                        <button
+                          type="button"
+                          className={difficulty === "easy" ? "diffBtn on" : "diffBtn"}
+                          onClick={() => setDifficulty("easy")}
+                        >
                           EASY
                         </button>
-                        <button type="button" className={difficulty === "normal" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("normal")}>
+                        <button
+                          type="button"
+                          className={difficulty === "normal" ? "diffBtn on" : "diffBtn"}
+                          onClick={() => setDifficulty("normal")}
+                        >
                           NORMAL
                         </button>
-                        <button type="button" className={difficulty === "hard" ? "diffBtn on" : "diffBtn"} onClick={() => setDifficulty("hard")}>
+                        <button
+                          type="button"
+                          className={difficulty === "hard" ? "diffBtn on" : "diffBtn"}
+                          onClick={() => setDifficulty("hard")}
+                        >
                           HARD
                         </button>
                       </div>
@@ -1744,9 +1861,13 @@ export default function Game() {
                   {couponUi.status === "issued" ? (
                     <div style={{ textAlign: "center", marginTop: 14 }}>
                       <div style={{ fontWeight: 900, marginBottom: 10 }}>🎉 クーポン獲得！</div>
-                      <button type="button" className="overlayPrimary" onClick={() => nav("/game/coupons")}>
-  獲得クーポン一覧を見る
-</button>
+                      <button
+                        type="button"
+                        className="overlayPrimary"
+                        onClick={() => nav("/game/coupons")}
+                      >
+                        獲得クーポン一覧を見る
+                      </button>
                     </div>
                   ) : null}
 
@@ -1781,22 +1902,22 @@ export default function Game() {
                 <div className="gSectionInfo">現在、配布中の報酬がありません</div>
               ) : (
                 <ul className="gRewardList">
-  {rewardRows
-    .slice()
-    .sort((a, b) => Number(a.score_threshold) - Number(b.score_threshold))
-    .map((r) => (
-      <li key={r.id}>
-        <button
-          type="button"
-          className="gRewardItemBtn"
-          onClick={() => nav(`/game/reward/${r.id}`)}
-        >
-          <span className="badge">{r.score_threshold}点</span>
-          {r.coupon_title || "（タイトル未設定）"}
-        </button>
-      </li>
-    ))}
-</ul>
+                  {rewardRows
+                    .slice()
+                    .sort((a, b) => Number(a.score_threshold) - Number(b.score_threshold))
+                    .map((r) => (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          className="gRewardItemBtn"
+                          onClick={() => nav(`/game/reward/${r.id}`)}
+                        >
+                          <span className="badge">{r.score_threshold}点</span>
+                          {r.coupon_title || "（タイトル未設定）"}
+                        </button>
+                      </li>
+                    ))}
+                </ul>
               )}
 
               <div className="gSectionNote">※報酬は「coupon_rewards」の設定がそのまま表示されます</div>
