@@ -1,6 +1,6 @@
 // src/pages/game/CouponDetail.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import QRCode from "react-qr-code";
 import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
@@ -23,6 +23,10 @@ type IssuedCouponView = {
   description?: string | null;
   valid_from?: string | null;
   valid_to?: string | null;
+
+  // ✅ 表示用（あれば出す）
+  user_name?: string | null;
+  is_guest?: boolean | null;
 };
 
 type CouponStatus =
@@ -32,6 +36,11 @@ type CouponStatus =
       used: boolean;
       used_at: string | null;
       used_confirmed_at: string | null;
+
+      // ✅ ここを couponApi 側で返せるなら表示できる
+      user_name?: string | null;
+      is_guest?: boolean | null;
+
       reward?: {
         store_name: string | null;
         store_info: string | null;
@@ -57,6 +66,10 @@ function formatDateTime(s?: string | null) {
   )}:${pad(d.getMinutes())}`;
 }
 
+function buildRedeemUrl(token: string) {
+  return `${window.location.origin}/game/coupon-redeem?token=${encodeURIComponent(token)}`;
+}
+
 function extractTokenFromUrl(url?: string | null): string | null {
   if (!url) return null;
   try {
@@ -65,10 +78,6 @@ function extractTokenFromUrl(url?: string | null): string | null {
   } catch {
     return null;
   }
-}
-
-function buildRedeemUrl(token: string) {
-  return `${window.location.origin}/game/coupon-redeem?token=${encodeURIComponent(token)}`;
 }
 
 function safeSetStorage(v: IssuedCouponView) {
@@ -81,6 +90,10 @@ function safeSetStorage(v: IssuedCouponView) {
 
 export default function CouponDetail() {
   const nav = useNavigate();
+  const [sp] = useSearchParams();
+
+  // ✅ ① tokenがURLにあれば最優先（一覧→個別遷移で使う）
+  const tokenFromQuery = useMemo(() => (sp.get("token") ?? "").trim(), [sp]);
 
   const [coupon, setCoupon] = useState<IssuedCouponView | null>(null);
   const [status, setStatus] = useState<CouponStatus | null>(null);
@@ -88,14 +101,26 @@ export default function CouponDetail() {
   const tokenRef = useRef<string | null>(null);
   const pollTimerRef = useRef<number | null>(null);
 
+  // ✅ 初期読み込み：token(query)→なければsessionStorage
   useEffect(() => {
+    // query token があるなら sessionStorage に依存しない
+    if (tokenFromQuery) {
+      tokenRef.current = tokenFromQuery;
+      const base: IssuedCouponView = {
+        code: tokenFromQuery,
+        redeem_url: buildRedeemUrl(tokenFromQuery),
+      };
+      setCoupon(base);
+      return;
+    }
+
+    // 従来：sessionStorage の最後の1枚
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) {
         setCoupon(null);
         return;
       }
-
       const parsed = JSON.parse(raw) as IssuedCouponView;
 
       const tokenFromUrl = extractTokenFromUrl(parsed.redeem_url);
@@ -108,12 +133,11 @@ export default function CouponDetail() {
         ...parsed,
         redeem_url: parsed.redeem_url ?? (token ? buildRedeemUrl(token) : null),
       };
-
       setCoupon(fixed);
     } catch {
       setCoupon(null);
     }
-  }, []);
+  }, [tokenFromQuery]);
 
   const title = useMemo(() => coupon?.title ?? "クーポン", [coupon]);
 
@@ -122,35 +146,33 @@ export default function CouponDetail() {
     if (!token) {
       setStatus({
         ok: false,
-        error: "tokenが見つかりません（redeem_urlにtokenが必要 / code(token)も必要）",
+        error: "tokenが見つかりません（URLに ?token= が必要）",
       });
       return;
     }
 
-    const res = await getCouponStatus(token);
-    setStatus(res as CouponStatus);
+    const res = (await getCouponStatus(token)) as CouponStatus;
+    setStatus(res);
 
-    // ✅ ここが本命：reward が取れたら、（未設定）を自動で埋める
+    // ✅ reward が取れたら coupon の表示を補完
     if (res.ok && res.found === true && res.reward && coupon) {
-      const needFix =
-        !(coupon.store_name ?? "").trim() ||
-        !(coupon.product_name ?? "").trim() ||
-        !(coupon.description ?? "").trim();
+      const next: IssuedCouponView = {
+        ...coupon,
+        store_name: res.reward.store_name ?? coupon.store_name ?? null,
+        store_info: res.reward.store_info ?? coupon.store_info ?? null,
+        product_name: res.reward.product_name ?? coupon.product_name ?? null,
+        description: res.reward.description ?? coupon.description ?? null,
+        valid_from: res.reward.valid_from ?? coupon.valid_from ?? null,
+        valid_to: res.reward.valid_to ?? coupon.valid_to ?? null,
+        expires_at: coupon.expires_at ?? res.reward.valid_to ?? null,
+        title: coupon.title ?? res.reward.coupon_title ?? "クーポン",
+        // ✅ 使用者名も返ってくるなら保存してOK
+        user_name: res.user_name ?? coupon.user_name ?? null,
+        is_guest: typeof res.is_guest === "boolean" ? res.is_guest : coupon.is_guest ?? null,
+      };
 
-      if (needFix) {
-        const next: IssuedCouponView = {
-          ...coupon,
-          store_name: res.reward.store_name ?? coupon.store_name ?? null,
-          store_info: res.reward.store_info ?? coupon.store_info ?? null,
-          product_name: res.reward.product_name ?? coupon.product_name ?? null,
-          description: res.reward.description ?? coupon.description ?? null,
-          valid_from: res.reward.valid_from ?? coupon.valid_from ?? null,
-          valid_to: res.reward.valid_to ?? coupon.valid_to ?? null,
-          title: coupon.title ?? res.reward.coupon_title ?? "クーポン",
-        };
-        setCoupon(next);
-        safeSetStorage(next);
-      }
+      setCoupon(next);
+      safeSetStorage(next);
     }
   };
 
@@ -190,6 +212,12 @@ export default function CouponDetail() {
   const productName = (coupon?.product_name ?? "").trim();
   const description = (coupon?.description ?? "").trim();
 
+  const who =
+    ((status?.ok === true && status.found === true ? status.user_name : null) ??
+      (coupon?.user_name ?? null) ??
+      "")
+      .trim();
+
   return (
     <div className="couponDetailPage">
       <SiteHeader />
@@ -202,7 +230,7 @@ export default function CouponDetail() {
               <div className="couponDetailSub">
                 {isRedeemed
                   ? "このクーポンは受取済みです"
-                  : "QRコードを店舗で提示してください（QR以外では店舗画面を開けません）"}
+                  : "QRコードを店舗で提示してください（店舗側で受け取り完了を押すと受取済みになります）"}
               </div>
             </div>
 
@@ -229,7 +257,10 @@ export default function CouponDetail() {
                             src={`data:image/png;base64,${coupon.qr_png_base64}`}
                           />
                         ) : coupon.qr_svg ? (
-                          <div className="couponQrSvg" dangerouslySetInnerHTML={{ __html: coupon.qr_svg }} />
+                          <div
+                            className="couponQrSvg"
+                            dangerouslySetInnerHTML={{ __html: coupon.qr_svg }}
+                          />
                         ) : coupon.redeem_url ? (
                           <div className="couponQrReact">
                             <QRCode value={coupon.redeem_url} size={220} />
@@ -268,6 +299,13 @@ export default function CouponDetail() {
                           ) : null}
                         </div>
                       </div>
+
+                      {who ? (
+                        <div className="couponInfoRow">
+                          <div className="k">使用者</div>
+                          <div className="v">{who}</div>
+                        </div>
+                      ) : null}
 
                       {status?.ok === true && status.found === true && status.used_confirmed_at ? (
                         <div className="couponInfoRow">

@@ -16,6 +16,8 @@ import PurchaseComplete from "./pages/PurchaseComplete";
 import PayPayFailed from "./pages/PayPayFailed";
 import NoticeDetail from "./pages/NoticeDetail";
 import Terms from "./pages/Terms";
+import RewardDetail from "./pages/game/RewardDetail";
+import CouponsList from "./pages/game/CouponsList";
 
 // ✅ Game
 import Game from "./pages/game/Game";
@@ -86,6 +88,8 @@ const router = createBrowserRouter([
       { path: "tokushoho", element: <Tokushoho /> },
       { path: "privacy", element: <PrivacyPolicy /> },
       { path: "terms", element: <Terms /> },
+      { path: "game/reward/:id", element: <RewardDetail /> },
+      { path: "game/coupons", element: <CouponsList /> },
 
       // ✅ Game（Publicで開ける）
       { path: "game", element: <Game /> },

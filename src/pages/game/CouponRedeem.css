@@ -1,0 +1,232 @@
+/* src/pages/game/CouponRedeem.css
+   ✅ EC寄せ（白カード）
+   ✅ 左右はみ出し完全防止
+   ✅ cr* クラスのみ
+*/
+
+.crPage,
+.crPage *{
+  box-sizing: border-box;
+}
+
+.crPage{
+  /* ✅ 変数は :root じゃなく .crPage に閉じる（他ページと衝突しない） */
+  --cr-bg: #f4f6fb;
+  --cr-card: #ffffff;
+  --cr-panel: #f7f8fc;
+  --cr-line: rgba(17,24,39,0.10);
+  --cr-text: #111827;
+  --cr-sub: rgba(17,24,39,0.65);
+
+  --cr-shadow: 0 10px 30px rgba(17,24,39,0.10);
+  --cr-shadow2: 0 6px 18px rgba(17,24,39,0.08);
+
+  --cr-radius: 18px;
+  --cr-safe-x: clamp(12px, 3vw, 20px);
+
+  --cr-primary: #2563eb;
+  --cr-primary2: #1d4ed8;
+  --cr-ok: #16a34a;
+
+  min-height: 100svh;
+  background:
+    radial-gradient(900px 480px at 20% 0%, rgba(37,99,235,0.10), rgba(0,0,0,0) 60%),
+    radial-gradient(700px 400px at 90% 20%, rgba(14,165,233,0.10), rgba(0,0,0,0) 55%),
+    var(--cr-bg);
+  color: var(--cr-text);
+
+  /* ✅ ここが重要：はみ出しても横スクロールさせない */
+  overflow-x: hidden;
+}
+
+.crMain{
+  min-height: 100svh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+
+  /* ✅ 左右に必ず余白を付ける（これで切れない） */
+  padding: 28px var(--cr-safe-x);
+}
+
+.crWrap{
+  /* ✅ padding は crMain に寄せる（2重余白を避ける） */
+  width: 100%;
+  max-width: 980px;
+  min-width: 0;
+}
+
+.crCard{
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+
+  border-radius: var(--cr-radius);
+  background: var(--cr-card);
+  box-shadow: var(--cr-shadow);
+  overflow: hidden;
+  border: 1px solid rgba(17,24,39,0.06);
+}
+
+/* Head */
+.crHead{
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(17,24,39,0.08);
+  background: linear-gradient(180deg, rgba(37,99,235,0.06), rgba(255,255,255,0));
+}
+
+.crHeadTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.crTitle{
+  font-weight: 950;
+  font-size: 20px;
+}
+
+.tag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(17,24,39,0.12);
+  background: rgba(17,24,39,0.04);
+  color: rgba(17,24,39,0.72);
+}
+.tag.ok{ background: rgba(22,163,74,0.10); color:#0f6b31; border-color: rgba(22,163,74,0.25); }
+.tag.ng{ background: rgba(239,68,68,0.10); color:#9b1c1c; border-color: rgba(239,68,68,0.25); }
+.tag.wait{ background: rgba(14,165,233,0.10); color:#075985; border-color: rgba(14,165,233,0.25); }
+
+.crErr{
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 900;
+  color: #9b1c1c;
+  background: rgba(239,68,68,0.10);
+  border: 1px solid rgba(239,68,68,0.18);
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+/* Body */
+.crBody{
+  padding: 14px 16px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+.crPanel{
+  border-radius: var(--cr-radius);
+  border: 1px solid rgba(17,24,39,0.08);
+  background: var(--cr-panel);
+  box-shadow: var(--cr-shadow2);
+  padding: 14px;
+  min-width: 0;
+}
+
+.crPanelTitle{
+  font-weight: 950;
+  font-size: 13px;
+  color: rgba(17,24,39,0.72);
+  margin-bottom: 10px;
+}
+
+.crBigTitle{
+  font-weight: 950;
+  font-size: 18px;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.crRow{
+  display:grid;
+  grid-template-columns: 84px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(17,24,39,0.08);
+  min-width: 0;
+}
+.crRow:last-child{ border-bottom:none; }
+
+.crK{
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(17,24,39,0.58);
+  min-width: 0;
+}
+.crV{
+  font-size: 14px;
+  font-weight: 950;
+  color: rgba(17,24,39,0.92);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.crInfo{
+  font-size: 13px;
+  font-weight: 900;
+  color: rgba(17,24,39,0.75);
+}
+
+/* Password */
+.crPw{
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(17,24,39,0.14);
+  background: #fff;
+  font-weight: 900;
+}
+.crPw:focus{
+  border-color: rgba(37,99,235,0.40);
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+  outline: none;
+}
+
+/* Buttons */
+.crActions{
+  margin-top: 12px;
+  display:grid;
+  gap: 10px;
+}
+
+.crBtn{
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(17,24,39,0.14);
+  background: #fff;
+  font-weight: 950;
+  cursor: pointer;
+}
+.crBtn.primary{
+  background: var(--cr-primary);
+  color: #fff;
+  border-color: rgba(37,99,235,0.20);
+}
+.crBtn.primary:hover{ background: var(--cr-primary2); }
+.crBtn.ghost{ background:#fff; }
+
+.crDoneText{ font-weight: 950; font-size: 16px; color: var(--cr-ok); }
+.crDoneSub{ font-size: 12px; font-weight: 850; color: rgba(17,24,39,0.65); }
+
+/* Responsive */
+@media (max-width: 860px){
+  .crBody{ grid-template-columns: 1fr; }
+}
+@media (max-width: 520px){
+  .crHead{ padding: 16px 14px 12px; }
+  .crBody{ padding: 12px 12px 14px; }
+  .crPanel{ padding: 12px; }
+  .crRow{ grid-template-columns: 74px 1fr; gap: 10px; }
+}

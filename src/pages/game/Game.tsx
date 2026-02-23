@@ -18,6 +18,13 @@ import { getMyDisplayName, submitGameScore, fetchTopScores, type ScoreRow } from
 
 import type { Difficulty, Phase, Target, Obstacle, Motion, QuizChoice, TFQuiz } from "./types";
 
+import {
+  getOrCreateDeviceId,
+  getSavedGuestName,
+  setSavedGuestName,
+  normalizeGuestName,
+} from "./lib/guestName";
+
 /* =========================
    Utils
 ========================= */
@@ -143,7 +150,7 @@ function drawBigOTarget(ctx: CanvasRenderingContext2D, x: number, y: number, r: 
 }
 
 /* =========================
-   Rewards / Coupon (device once)
+   Rewards / Coupon
 ========================= */
 
 type CouponRewardRow = {
@@ -179,23 +186,9 @@ type CouponUiState =
   | { status: "issued"; coupon: IssuedCouponView };
 
 const COUPON_STORAGE_KEY = "game_last_coupon_v1";
-const COUPON_DEVICE_DONE_KEY = "nagazon_coupon_issued_device_v1";
+const COUPON_STORAGE_KEY_ARRAY = "game_last_coupons_v1"; // ←追加
 
-function isDeviceCouponDone(): boolean {
-  try {
-    return localStorage.getItem(COUPON_DEVICE_DONE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-function setDeviceCouponDone(): void {
-  try {
-    localStorage.setItem(COUPON_DEVICE_DONE_KEY, "1");
-  } catch {
-    // noop
-  }
-}
-
+/* ✅ クーポン（報酬ごと1回）にしたので「全部1回」は使わない */
 function isInValidWindow(r: CouponRewardRow, now = new Date()): boolean {
   const fromOk = !r.valid_from || now >= new Date(r.valid_from);
   const toOk = !r.valid_to || now <= new Date(r.valid_to);
@@ -224,39 +217,67 @@ function pickEligibleReward(rewards: CouponRewardRow[], score: number): CouponRe
   return eligible[eligible.length - 1] ?? null;
 }
 
+/* ✅ guest-name: 全体一意チェック＆予約 */
+async function reserveGuestName(name: string, deviceId: string): Promise<
+  | { ok: true; available: true }
+  | { ok: true; available: false; reason: "taken" }
+  | { ok: false; error: string }
+> {
+  try {
+    const { data, error } = await supabase.functions.invoke("guest-name", {
+      body: { name, device_id: deviceId },
+    });
+    if (error) return { ok: false, error: error.message };
+
+    const obj = (data ?? null) as Record<string, unknown> | null;
+    const ok = obj?.ok === true;
+    if (!ok) return { ok: false, error: String(obj?.error ?? "guest-name failed") };
+
+    const available = obj?.available === true;
+    if (!available) return { ok: true, available: false, reason: "taken" };
+
+    return { ok: true, available: true };
+  } catch (e: unknown) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /**
- * ✅ あなたの issue-coupon Edge Function の返却に合わせる
- * return:
- * {
- *   ok:true,
- *   issued:boolean,
- *   token?:string,
- *   redeem_url?:string,
- *   qr_png_base64?:string,
- *   qr_svg?:string,
- *   expires_at?:string,
- *   reward?:{ coupon_title, store_name, product_name, description, score_threshold, ... }
- * }
+ * ✅ issue-coupon: あなたのEdge Function返却に合わせる
+ * 重要：device_id と display_name を必ず渡す（ゲストでも発行される）
  */
-async function issueCouponByEdge(args: { score: number; difficulty: Difficulty }): Promise<
-  | { ok: true; issued: boolean; coupon?: IssuedCouponView }
+async function issueCouponByEdge(args: {
+  score: number;
+  difficulty: Difficulty;
+  deviceId: string;
+  displayName: string;
+}): Promise<
+  | { ok: true; issued: boolean; coupon?: IssuedCouponView; reason?: string }
   | { ok: false; error: string }
 > {
   try {
     const { data, error } = await supabase.functions.invoke("issue-coupon", {
-      body: { score: args.score, difficulty: args.difficulty },
+      body: {
+        score: args.score,
+        difficulty: args.difficulty,
+        device_id: args.deviceId,
+        display_name: args.displayName,
+      },
     });
 
     if (error) return { ok: false, error: error.message };
 
     const obj = data as Record<string, unknown> | null;
-    const issued = obj?.issued === true;
+    const ok = obj?.ok === true;
+    if (!ok) return { ok: false, error: String(obj?.error ?? "issue-coupon failed") };
 
-    if (!issued) return { ok: true, issued: false };
+    const issued = obj?.issued === true;
+    const reason = typeof obj?.reason === "string" ? obj.reason : undefined;
+
+    if (!issued) return { ok: true, issued: false, reason };
 
     const token = typeof obj?.token === "string" ? obj.token : "";
     const redeem_url = typeof obj?.redeem_url === "string" ? obj.redeem_url : "";
-
     const qr_png_base64 = typeof obj?.qr_png_base64 === "string" ? obj.qr_png_base64 : null;
     const qr_svg = typeof obj?.qr_svg === "string" ? obj.qr_svg : null;
     const expires_at = typeof obj?.expires_at === "string" ? obj.expires_at : null;
@@ -342,7 +363,7 @@ function RankTop50({ difficulty }: { difficulty: "all" | Difficulty }) {
                   {rows.map((r, i) => (
                     <tr key={r.id}>
                       <td className="num">{i + 1}</td>
-                      <td className="name">{(r.display_name ?? "").trim() || "Guest"}</td>
+                      <td className="name">{(r.display_name ?? "").trim() || "ゲスト"}</td>
                       <td className="score">{r.score}</td>
                       <td className="diff">{String(r.difficulty).toUpperCase()}</td>
                     </tr>
@@ -410,7 +431,49 @@ export default function Game() {
   const [rewardLoading, setRewardLoading] = useState(true);
   const [rewardErr, setRewardErr] = useState<string | null>(null);
 
-  // ✅ rewards 読み込み（ok分岐で rows を触る）
+  // ✅ 端末ID（クーポン・名前に使う）
+  const deviceIdRef = useRef<string>("");
+  useEffect(() => {
+    deviceIdRef.current = getOrCreateDeviceId();
+  }, []);
+
+  // ✅ ログイン名（ログイン時）
+  const displayNameRef = useRef("ゲスト");
+  const userIdRef = useRef<string | null>(null);
+  const isGuestRef = useRef(true);
+
+  // ✅ ゲスト名UI
+  const [guestName, setGuestName] = useState<string>(() => getSavedGuestName() ?? "");
+  const [guestEditing, setGuestEditing] = useState<boolean>(() => !getSavedGuestName());
+  const [guestMsg, setGuestMsg] = useState<string | null>(null);
+  const [guestBusy, setGuestBusy] = useState(false);
+
+  useEffect(() => {
+    getMyDisplayName().then((v) => {
+      displayNameRef.current = v.displayName;
+      userIdRef.current = v.userId;
+      isGuestRef.current = v.isGuest;
+
+      // ログインしてたらゲスト入力UI不要
+      if (!v.isGuest) {
+        setGuestEditing(false);
+        setGuestMsg(null);
+      } else {
+        // ゲストなら保存名があれば使う
+        const saved = getSavedGuestName();
+        if (saved) {
+          displayNameRef.current = saved;
+          setGuestName(saved);
+          setGuestEditing(false);
+        } else {
+          displayNameRef.current = "ゲスト";
+          setGuestEditing(true);
+        }
+      }
+    });
+  }, []);
+
+  // ✅ rewards 読み込み
   useEffect(() => {
     let mounted = true;
     const run = async () => {
@@ -431,19 +494,6 @@ export default function Game() {
     return () => {
       mounted = false;
     };
-  }, []);
-
-  // ✅ ログイン名保持（ゲストでもOK）
-  const displayNameRef = useRef("ゲスト");
-  const userIdRef = useRef<string | null>(null);
-  const isGuestRef = useRef(true);
-
-  useEffect(() => {
-    getMyDisplayName().then((v) => {
-      displayNameRef.current = v.displayName;
-      userIdRef.current = v.userId;
-      isGuestRef.current = v.isGuest;
-    });
   }, []);
 
   // countdown duplication safe
@@ -468,6 +518,47 @@ export default function Game() {
   }, []);
 
   const isControlLocked = (p: Phase) => p === "countdown" || p === "serve_auto" || p === "quiz_countdown";
+
+  /* =========================
+     ✅ ゲスト名確定（予約）
+  ========================= */
+  const confirmGuestName = async () => {
+    if (!isGuestRef.current) return true;
+
+    setGuestMsg(null);
+
+    const name = normalizeGuestName(guestName);
+    if (!name) {
+      setGuestMsg("名前を入力してください（1〜12文字）");
+      return false;
+    }
+
+    const deviceId = deviceIdRef.current || getOrCreateDeviceId();
+    setGuestBusy(true);
+
+    const res = await reserveGuestName(name, deviceId);
+
+    setGuestBusy(false);
+
+    if (!res.ok) {
+      setGuestMsg(`登録できませんでした：${res.error}`);
+      return false;
+    }
+    if (res.available === false) {
+      setGuestMsg("この名前は使用できません（すでに使われています）");
+      return false;
+    }
+
+    // ✅ OK：上書き保存
+    setSavedGuestName(name);
+    setGuestName(name);
+    displayNameRef.current = name;
+
+    setGuestEditing(false);
+    setGuestMsg("OK！この名前でプレイします");
+    window.setTimeout(() => setGuestMsg(null), 1200);
+    return true;
+  };
 
   /* =========================
      Resize / DPR
@@ -821,7 +912,13 @@ export default function Game() {
     setPhase(next);
   };
 
-  const startGameFlow = () => {
+  const startGameFlow = async () => {
+    // ✅ ゲストは名前確定が先
+    if (isGuestRef.current) {
+      const ok = await confirmGuestName();
+      if (!ok) return;
+    }
+
     resetGame(true);
     timeRef.current = params.time;
     setTimeLeft(params.time);
@@ -875,73 +972,87 @@ export default function Game() {
      ✅ GAME OVER / TIME UP
   ========================= */
   useEffect(() => {
-    if (phase !== "gameover" && phase !== "timeup") return;
+  if (phase !== "gameover" && phase !== "timeup") return;
 
-    // ①スコア送信（1回だけ）
-    if (!scoreSentRef.current) {
-      scoreSentRef.current = true;
+  // ✅ いまの表示名（ゲストは保存名、ログインはprofiles名）
+  const nameNow = isGuestRef.current
+    ? (getSavedGuestName() ?? displayNameRef.current)
+    : displayNameRef.current;
 
-      submitGameScore({
-        score: scoreRef.current,
-        difficulty,
-        displayNameOverride: displayNameRef.current,
-        userIdOverride: userIdRef.current,
-        isGuestOverride: isGuestRef.current,
-      }).then((res) => {
-        if (!res.ok) console.warn("score submit failed:", res.error);
-      });
+  // ①スコア送信（1回だけ）
+  if (!scoreSentRef.current) {
+    scoreSentRef.current = true;
+
+    submitGameScore({
+      score: scoreRef.current,
+      difficulty,
+      displayNameOverride: nameNow,
+    }).then((res) => {
+      if (!res.ok) console.warn("score submit failed:", res.error);
+    });
+  }
+
+  // ②クーポン（1回だけ）
+  if (couponTriedRef.current) return;
+  couponTriedRef.current = true;
+
+  (async () => {
+    // ✅ issuing を「達成した時だけ」出す
+    if (rewardRows.length > 0) {
+      const eligible = pickEligibleReward(rewardRows, scoreRef.current);
+      if (!eligible) return;
+      setCouponUi({ status: "issuing" });
     }
 
-    // ②クーポン（1回だけ）
-    if (couponTriedRef.current) return;
-    couponTriedRef.current = true;
+    const deviceId = deviceIdRef.current || getOrCreateDeviceId();
 
-    // 端末1回制御
-    if (isDeviceCouponDone()) return;
+    // ✅ 複数発行：issued=false になるまで回す（安全上限）
+    const issuedCoupons: IssuedCouponView[] = [];
+    const MAX_LOOP = 6;
 
-    (async () => {
-      // “条件達成時だけ issuing 表示”したいので、
-      // rewards が取れてる時は先に eligibility 判定する
-      let canShowIssuing = false;
-
-      if (rewardRows.length > 0) {
-        const eligible = pickEligibleReward(rewardRows, scoreRef.current);
-        if (!eligible) return;
-        canShowIssuing = true;
-      } else if (!rewardLoading && rewardErr) {
-        // rewards が読めない（RLS等） → issuing は出さずに edge に任せる
-        canShowIssuing = false;
-      } else if (!rewardLoading && rewardRows.length === 0) {
-        // 0件なら条件達成もないのでreturn
-        return;
-      }
-
-      if (canShowIssuing) setCouponUi({ status: "issuing" });
-
-      const res = await issueCouponByEdge({ score: scoreRef.current, difficulty });
+    for (let i = 0; i < MAX_LOOP; i++) {
+      const res = await issueCouponByEdge({
+        score: scoreRef.current,
+        difficulty,
+        deviceId,
+        displayName: nameNow || "ゲスト",
+      });
 
       if (!res.ok) {
         console.warn("coupon issue failed:", res.error);
-        setCouponUi({ status: "idle" });
-        return;
+        break;
       }
-      if (!res.issued || !res.coupon) {
-        setCouponUi({ status: "idle" });
-        return;
-      }
+      if (!res.issued || !res.coupon) break;
 
-      try {
-        sessionStorage.setItem(COUPON_STORAGE_KEY, JSON.stringify(res.coupon));
-      } catch {
-        // noop
-      }
-      setDeviceCouponDone();
+      issuedCoupons.push(res.coupon);
+    }
 
-      setCouponUi({ status: "issued", coupon: res.coupon });
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, difficulty]);
+    if (issuedCoupons.length === 0) {
+      setCouponUi({ status: "idle" });
+      return;
+    }
 
+    // ✅ 互換：最後の1枚（従来キー）
+    try {
+      sessionStorage.setItem(
+        COUPON_STORAGE_KEY,
+        JSON.stringify(issuedCoupons[issuedCoupons.length - 1]),
+      );
+    } catch {
+      // noop
+    }
+
+    // ✅ 本命：配列キー（一覧用）
+    try {
+      sessionStorage.setItem(COUPON_STORAGE_KEY_ARRAY, JSON.stringify(issuedCoupons));
+    } catch {
+      // noop
+    }
+
+    setCouponUi({ status: "issued", coupon: issuedCoupons[0] });
+  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [phase, difficulty]);
   /* =========================
      Game loop
   ========================= */
@@ -1224,7 +1335,6 @@ export default function Game() {
                   } else {
                     const q = getQuizById(t.quizId);
                     setActiveQuiz(q);
-
                     b.released = false;
                     setPhase("quiz_prompt");
                   }
@@ -1399,8 +1509,9 @@ export default function Game() {
   }, []);
 
   const gameTitle = "がん細胞をたおして、乳がんについて学ぼう！";
-
   const lockEndButtons = couponUi.status === "issuing" || couponUi.status === "issued";
+
+  const isGuest = isGuestRef.current;
 
   return (
     <div className="gamePage">
@@ -1430,6 +1541,99 @@ export default function Game() {
                   <div className="gStartGrid">
                     <div className="gStartLeft">
                       <div className="overlayTitle">{gameTitle}</div>
+
+                      {/* ✅ ゲスト名（プレイ前） */}
+                      {isGuest ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontWeight: 900, opacity: 0.92, marginBottom: 6 }}>
+                            ゲスト名（ランキング/クーポン表示に使用）
+                          </div>
+
+                          {!guestEditing ? (
+                            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                              <div style={{ fontWeight: 950, fontSize: 16 }}>
+                                {getSavedGuestName() ?? guestName ?? "ゲスト"}
+                              </div>
+                              <button
+                                type="button"
+                                className="overlayPrimary ghost"
+                                style={{ width: "auto", padding: "10px 12px" }}
+                                onClick={() => {
+                                  setGuestEditing(true);
+                                  setGuestMsg(null);
+                                }}
+                              >
+                                変更
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <input
+                                className="input"
+                                value={guestName}
+                                onChange={(e) => {
+                                  setGuestName(e.target.value);
+                                  setGuestMsg(null);
+                                }}
+                                placeholder="例：hiyori（1〜12文字）"
+                                style={{
+                                  width: "100%",
+                                  padding: "12px 12px",
+                                  borderRadius: 14,
+                                  border: "1px solid rgba(255,255,255,0.16)",
+                                  background: "rgba(255,255,255,0.06)",
+                                  color: "#fff",
+                                  fontWeight: 900,
+                                  outline: "none",
+                                }}
+                              />
+                              <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                                <button
+                                  type="button"
+                                  className="overlayPrimary"
+                                  style={{ width: "auto", padding: "10px 14px" }}
+                                  disabled={guestBusy}
+                                  onClick={() => void confirmGuestName()}
+                                >
+                                  {guestBusy ? "確認中…" : "この名前で決定"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="overlayPrimary ghost"
+                                  style={{ width: "auto", padding: "10px 14px" }}
+                                  onClick={() => {
+                                    const saved = getSavedGuestName();
+                                    if (saved) {
+                                      setGuestName(saved);
+                                      setGuestEditing(false);
+                                      setGuestMsg(null);
+                                    } else {
+                                      setGuestMsg("名前を決めてください");
+                                    }
+                                  }}
+                                >
+                                  キャンセル
+                                </button>
+                              </div>
+                            </>
+                          )}
+
+                          {guestMsg ? (
+                            <div style={{ marginTop: 8, fontSize: 12, fontWeight: 900, opacity: 0.85 }}>
+                              {guestMsg.startsWith("OK") ? (
+                                <span style={{ color: "rgba(150,255,180,0.95)" }}>{guestMsg}</span>
+                              ) : (
+                                <span style={{ color: "rgba(255,160,160,0.95)" }}>{guestMsg}</span>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="overlayText center" style={{ marginBottom: 12 }}>
+                          ログイン中：{displayNameRef.current}
+                        </div>
+                      )}
+
                       <div className="overlayText center">難易度を選んで START</div>
 
                       <div className="overlayRow">
@@ -1444,11 +1648,22 @@ export default function Game() {
                         </button>
                       </div>
 
-                      <button type="button" className="overlayPrimary" onClick={startGameFlow}>
+                      <button
+                        type="button"
+                        className="overlayPrimary"
+                        onClick={() => void startGameFlow()}
+                        disabled={isGuest && (guestEditing || !(getSavedGuestName() ?? "").trim())}
+                      >
                         START
                       </button>
 
-                      <div className="overlayHint">操作：左右キー / スワイプ</div>
+                      {isGuest && (guestEditing || !(getSavedGuestName() ?? "").trim()) ? (
+                        <div className="overlayHint" style={{ color: "rgba(255,170,170,0.95)" }}>
+                          ※ゲスト名を決定してからSTARTできます
+                        </div>
+                      ) : (
+                        <div className="overlayHint">操作：左右キー / スワイプ</div>
+                      )}
                     </div>
 
                     <div className="gStartRight">
@@ -1486,9 +1701,9 @@ export default function Game() {
                   {couponUi.status === "issued" ? (
                     <div style={{ textAlign: "center", marginTop: 14 }}>
                       <div style={{ fontWeight: 900, marginBottom: 10 }}>🎉 クーポン獲得！</div>
-                      <button type="button" className="overlayPrimary" onClick={() => nav("/game/coupon")}>
-                        詳細を確認する
-                      </button>
+                      <button type="button" className="overlayPrimary" onClick={() => nav("/game/coupons")}>
+  獲得クーポン一覧を見る
+</button>
                     </div>
                   ) : null}
 
@@ -1497,7 +1712,7 @@ export default function Game() {
                       <button type="button" className="overlayPrimary ghost" onClick={() => resetGame(false)}>
                         TOP（ゲーム最初へ）
                       </button>
-                      <button type="button" className="overlayPrimary" onClick={startGameFlow}>
+                      <button type="button" className="overlayPrimary" onClick={() => void startGameFlow()}>
                         もう一度
                       </button>
                     </div>
@@ -1507,15 +1722,12 @@ export default function Game() {
             )}
           </div>
 
-          {/* =========================
-             ✅ 下セクション
-          ========================= */}
+          {/* 下セクション */}
           <div className="gBelow">
-            {/* ① 報酬リスト：coupon_rewards から表示 */}
             <div className="gSectionCard">
               <div className="gSectionHead">
                 <div className="gSectionTitle">スコア達成で報酬ゲット</div>
-                <div className="gSectionSub">達成するとクーポンが出る（端末で1回のみ）</div>
+                <div className="gSectionSub">達成するとクーポンが出る（報酬ごとに端末1回）</div>
               </div>
 
               {rewardLoading ? (
@@ -1526,23 +1738,27 @@ export default function Game() {
                 <div className="gSectionInfo">現在、配布中の報酬がありません</div>
               ) : (
                 <ul className="gRewardList">
-                  {rewardRows
-                    .slice()
-                    .sort((a, b) => Number(a.score_threshold) - Number(b.score_threshold))
-                    .map((r) => (
-                      <li key={r.id}>
-                        <span className="badge">{r.score_threshold}点</span>
-                        {r.coupon_title}（{r.store_name} / {r.product_name}）
-                        {r.description ? <div className="gRewardDesc">{r.description}</div> : null}
-                      </li>
-                    ))}
-                </ul>
+  {rewardRows
+    .slice()
+    .sort((a, b) => Number(a.score_threshold) - Number(b.score_threshold))
+    .map((r) => (
+      <li key={r.id}>
+        <button
+          type="button"
+          className="gRewardItemBtn"
+          onClick={() => nav(`/game/reward/${r.id}`)}
+        >
+          <span className="badge">{r.score_threshold}点</span>
+          {r.coupon_title || "（タイトル未設定）"}
+        </button>
+      </li>
+    ))}
+</ul>
               )}
 
               <div className="gSectionNote">※報酬は「coupon_rewards」の設定がそのまま表示されます</div>
             </div>
 
-            {/* ② 遊び方：文字＋手順＋“説明画像の枠” */}
             <div className="gSectionCard">
               <div className="gSectionHead">
                 <div className="gSectionTitle">遊び方</div>
@@ -1571,7 +1787,6 @@ export default function Game() {
               </div>
             </div>
 
-            {/* ③ ランキング TOP50 */}
             <RankTop50 difficulty="all" />
           </div>
         </div>

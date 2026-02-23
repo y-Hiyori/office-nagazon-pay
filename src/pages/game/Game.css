@@ -609,3 +609,201 @@ button:focus-visible{
     text-align: left;
   }
 }
+
+/* ===== Ranking mini card (Start overlay) ===== */
+.gRankCard{
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  box-shadow: var(--g-shadow2);
+  overflow: hidden;
+  min-height: 220px;
+}
+.gRankHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+  padding:12px 12px 10px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.gRankTitle{
+  font-weight: 950;
+  letter-spacing: .02em;
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+}
+.gRankSub{
+  font-weight: 950;
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+}
+.gRankTableWrap{ padding: 8px 10px 12px; overflow:hidden; }
+.gRankTable{ width:100%; border-collapse:collapse; }
+.gRankTable thead th{
+  text-align:left;
+  font-size:11px;
+  font-weight:950;
+  color: rgba(255,255,255,0.60);
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  white-space:nowrap;
+}
+.gRankTable tbody td{
+  padding: 9px 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.88);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  white-space:nowrap;
+}
+.gRankNum{ color: rgba(255,255,255,0.55); font-weight:950; width:26px; }
+.gRankScore{ text-align:right; font-weight:980; letter-spacing:.02em; }
+
+/* =========================
+   Ranking mini card (start overlay)
+========================= */
+
+.gRankCard{
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.07),
+    rgba(255,255,255,0.03)
+  );
+  box-shadow: var(--g-shadow2);
+  overflow: hidden;
+  min-height: 220px;
+  min-width: 0; /* ✅ はみ出し防止 */
+}
+
+.gRankHead{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.gRankTitle{
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+}
+
+.gRankSub{
+  font-weight: 950;
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+  white-space: nowrap;
+}
+
+.gRankInfo,
+.gRankEmpty,
+.gRankErr{
+  padding: 12px;
+  font-weight: 850;
+  font-size: 12px;
+  color: rgba(255,255,255,0.70);
+}
+
+.gRankErr{ color: rgba(255, 130, 130, 0.95); }
+
+.gRankTableWrap{
+  padding: 8px 10px 12px;
+  overflow: hidden;
+}
+
+.gRankTable{
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gRankTable thead th{
+  text-align: left;
+  font-size: 11px;
+  font-weight: 950;
+  color: rgba(255,255,255,0.60);
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  white-space: nowrap;
+}
+
+.gRankTable tbody td{
+  padding: 9px 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.88);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  white-space: nowrap;
+}
+
+.gRankTable tbody tr:hover td{
+  background: rgba(255,255,255,0.04);
+}
+
+.gRankNum{
+  color: rgba(255,255,255,0.55);
+  font-weight: 950;
+  width: 26px;
+}
+
+.gRankName{
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gRankScore{
+  text-align: right;
+  font-weight: 980;
+  letter-spacing: 0.02em;
+}
+
+/* Mini ranking table frame (GameRankingMini内の表枠を復活) */
+.gRankTableWrap{
+  margin-top: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.03);
+  overflow: hidden;
+}
+.gRankTable{
+  width: 100%;
+  border-collapse: collapse;
+}
+.gRankTable thead th{
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+.gRankTable tbody td{
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* HUDの各アイテムを“ピル”にして枠復活 */
+.hudItem{
+  opacity: .98;
+  white-space: nowrap;
+  min-width: 0;
+
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+.gRewardItemBtn{
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.92);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 900;
+}
+.gRewardItemBtn:hover{
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.16);
+}

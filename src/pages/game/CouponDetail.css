@@ -223,3 +223,131 @@
   display: grid;
   place-items: center;
 }
+
+/* =========================
+   Shop Redeem (EC寄せ / ガラッと変更)
+========================= */
+
+.couponRedeemShop .couponDetailCard{
+  background:
+    radial-gradient(1000px 520px at 20% 0%, rgba(255,255,255,0.06), rgba(0,0,0,0) 60%),
+    rgba(12,16,28,0.94);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+.couponRedeemHead{
+  padding: 18px 16px 14px;
+}
+
+.couponRedeemMeta{
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 850;
+  opacity: .75;
+}
+
+.couponRedeemBody{
+  padding-top: 12px;
+}
+
+.couponRedeemGrid{
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.couponRedeemPanel{
+  min-width: 0;
+}
+
+.couponRedeemKV{
+  margin: 6px 0 12px;
+}
+
+.couponRedeemTitle{
+  font-weight: 950;
+  font-size: 16px;
+  letter-spacing: .02em;
+}
+
+.couponRedeemLine{
+  height: 1px;
+  margin-top: 10px;
+  background: rgba(255,255,255,0.08);
+}
+
+.couponRedeemHint{
+  font-size: 12px;
+  font-weight: 850;
+  opacity: .8;
+  line-height: 1.6;
+}
+
+.couponRedeemPwRow{
+  margin-top: 10px;
+}
+
+.couponRedeemPw{
+  width: 100%;
+  max-width: 360px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-weight: 900;
+  outline: none;
+}
+
+.couponRedeemPw:focus{
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.08);
+}
+
+.couponRedeemActions{
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.couponRedeemBtnPrimary{
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-weight: 950;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.couponRedeemBtnPrimary:hover{
+  background: rgba(255,255,255,0.16);
+  border-color: rgba(255,255,255,0.26);
+  transform: translateY(-1px);
+}
+
+.couponRedeemBtnPrimary:disabled{
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.couponRedeemBtnGhost{
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+@media (max-width: 860px){
+  .couponRedeemGrid{
+    grid-template-columns: 1fr;
+  }
+}

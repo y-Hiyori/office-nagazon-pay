@@ -1,9 +1,31 @@
+// src/pages/game/CouponRedeem.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import SiteHeader from "../../components/SiteHeader";
-import SiteFooter from "../../components/SiteFooter";
-import "./CouponDetail.css";
+import { useSearchParams } from "react-router-dom";
+import "./CouponRedeem.css";
 import { confirmCouponRedeem, getCouponStatus } from "./lib/couponApi";
+
+type CouponStatusOkFound = {
+  ok: true;
+  found: true;
+  used: boolean;
+  used_at: string | null;
+  used_confirmed_at: string | null;
+  user_name?: string | null;
+  reward?: {
+    store_name: string | null;
+    store_info: string | null;
+    product_name: string | null;
+    coupon_title: string | null;
+    description: string | null;
+    valid_from: string | null;
+    valid_to: string | null;
+  } | null;
+};
+
+type CouponStatus =
+  | CouponStatusOkFound
+  | { ok: true; found: false }
+  | { ok: false; error: string };
 
 type UiState =
   | { status: "checking" }
@@ -12,32 +34,65 @@ type UiState =
   | { status: "done" }
   | { status: "error"; message: string };
 
+function formatDateTime(s?: string | null) {
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return String(s);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(
+    d.getMinutes()
+  )}`;
+}
+
 export default function CouponRedeem() {
-  const nav = useNavigate();
   const [sp] = useSearchParams();
+  const token = useMemo(() => (sp.get("token") ?? "").trim(), [sp]);
 
-  const token = useMemo(() => sp.get("token") ?? "", [sp]);
   const [ui, setUi] = useState<UiState>({ status: "checking" });
-
-  // ✅ 追加：店舗パスワード
   const [pw, setPw] = useState("");
+
+  const [detail, setDetail] = useState<{
+    title: string;
+    storeName: string;
+    productName: string;
+    userName: string;
+    usedConfirmedAt: string | null;
+  } | null>(null);
+
+  const isConfirming = ui.status === "confirming";
+  const isChecking = ui.status === "checking";
+  const isError = ui.status === "error";
+
+  const used = (ui.status === "ready" && ui.used === true) || ui.status === "done";
+  const canConfirm = ui.status === "ready" && ui.used === false && pw.trim().length >= 4;
 
   const load = async () => {
     if (!token) {
       setUi({ status: "error", message: "tokenがありません（URLに ?token= が必要）" });
       return;
     }
+
     setUi({ status: "checking" });
 
-    const st = await getCouponStatus(token);
+    const st = (await getCouponStatus(token)) as CouponStatus;
+
     if (!st.ok) {
       setUi({ status: "error", message: st.error });
       return;
     }
     if (st.found === false) {
-      setUi({ status: "error", message: "このtokenは見つかりませんでした" });
+      setUi({ status: "error", message: "このクーポンは見つかりませんでした" });
       return;
     }
+
+    const r = st.reward ?? null;
+    setDetail({
+      title: (r?.coupon_title ?? "").trim() || "クーポン",
+      storeName: (r?.store_name ?? "").trim() || "（未設定）",
+      productName: (r?.product_name ?? "").trim() || "（未設定）",
+      userName: (st.user_name ?? "").trim() || "（未設定）",
+      usedConfirmedAt: st.used_confirmed_at ?? null,
+    });
 
     if (st.used || st.used_confirmed_at) {
       setUi({ status: "ready", used: true });
@@ -47,7 +102,7 @@ export default function CouponRedeem() {
   };
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -56,7 +111,7 @@ export default function CouponRedeem() {
 
     const p = pw.trim();
     if (p.length < 4) {
-      setUi({ status: "error", message: "パスワードを入力してください（4文字以上）" });
+      setUi({ status: "error", message: "パスワードを入力してください" });
       return;
     }
 
@@ -68,96 +123,123 @@ export default function CouponRedeem() {
       return;
     }
     if (res.found === false) {
-      setUi({ status: "error", message: "このtokenは見つかりませんでした" });
+      setUi({ status: "error", message: "このクーポンは見つかりませんでした" });
       return;
     }
+
+    setPw("");
     setUi({ status: "done" });
+    void load();
   };
 
-  const canConfirm = ui.status === "ready" && ui.used === false && pw.trim().length >= 4;
+  const badgeText = (() => {
+    if (isChecking) return "確認中";
+    if (isConfirming) return "処理中";
+    if (isError) return "エラー";
+    if (used) return "受取済み";
+    return "未受取";
+  })();
+
+  const badgeCls = (() => {
+    if (isChecking || isConfirming) return "tag wait";
+    if (isError) return "tag ng";
+    if (used) return "tag ok";
+    return "tag";
+  })();
 
   return (
-    <div className="couponDetailPage">
-      <SiteHeader />
-
-      <main className="couponDetailMain">
-        <div className="couponDetailWrap">
-          <div className="couponDetailCard">
-            <div className="couponDetailHead">
-              <div className="couponDetailTitle">🏬 店舗用：クーポン確認</div>
-              <div className="couponDetailSub">
-                お客さんのQRを読み取った後、この画面で確定してください（パスワード必須）
+    <div className="crPage">
+      <main className="crMain">
+        <div className="crWrap">
+          <div className="crCard">
+            <header className="crHead">
+              <div className="crHeadTop">
+                <div className="crTitle">店舗用 クーポン確認</div>
+                <span className={badgeCls}>{badgeText}</span>
               </div>
-            </div>
 
-            <div className="couponDetailBody">
-              <div className="couponInfo">
-                <div className="couponInfoRow">
-                  <div className="k">token</div>
-                  <div className="v" style={{ wordBreak: "break-all" }}>
-                    {token || "（なし）"}
+              {ui.status === "error" ? <div className="crErr">エラー：{ui.message}</div> : null}
+            </header>
+
+            <div className="crBody">
+              <section className="crPanel">
+                <div className="crPanelTitle">クーポン内容</div>
+                <div className="crBigTitle">{detail?.title ?? "（読み込み中）"}</div>
+
+                <div className="crRows">
+                  <div className="crRow">
+                    <div className="crK">店舗名</div>
+                    <div className="crV">{detail?.storeName ?? "（読み込み中）"}</div>
                   </div>
-                </div>
+                  <div className="crRow">
+                    <div className="crK">商品名</div>
+                    <div className="crV">{detail?.productName ?? "（読み込み中）"}</div>
+                  </div>
+                  <div className="crRow">
+                    <div className="crK">使用者</div>
+                    <div className="crV">{detail?.userName ?? "（読み込み中）"}</div>
+                  </div>
 
-                {/* ✅ 追加：パスワード入力 */}
-                <div className="couponInfoRow" style={{ marginTop: 10 }}>
-                  <div className="k">パスワード</div>
-                  <div className="v">
+                  {detail?.usedConfirmedAt ? (
+                    <div className="crRow">
+                      <div className="crK">受取確定</div>
+                      <div className="crV">{formatDateTime(detail.usedConfirmedAt)}</div>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="crPanel">
+                <div className="crPanelTitle">受け取り確定</div>
+
+                {isChecking ? (
+                  <div className="crInfo">状態を確認しています…</div>
+                ) : used ? (
+                  <div className="crDone">
+                    <div className="crDoneMark">✅</div>
+                    <div className="crDoneText">受け取り済み</div>
+                    {detail?.usedConfirmedAt ? (
+                      <div className="crDoneSub">{formatDateTime(detail.usedConfirmedAt)}</div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <>
                     <input
-                      className="input"
+                      className="crPw"
                       type="password"
                       value={pw}
                       onChange={(e) => setPw(e.target.value)}
-                      placeholder="店舗用パスワード"
+                      placeholder="店舗パスワード"
                       autoComplete="current-password"
-                      style={{
-                        width: "100%",
-                        maxWidth: 320,
-                        padding: "10px 12px",
-                        borderRadius: 12,
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        background: "rgba(255,255,255,0.06)",
-                        color: "#fff",
-                      }}
                     />
-                    <div className="couponAltNote" style={{ marginTop: 6 }}>
-                      ※クーポン設定時のパスワード（4文字以上）
+
+                    <div className="crActions">
+                      <button
+                        type="button"
+                        className="crBtn primary"
+                        onClick={onConfirm}
+                        disabled={!canConfirm || isConfirming}
+                      >
+                        {isConfirming ? "処理中…" : "受け取り完了"}
+                      </button>
                     </div>
+
+                    {ui.status === "error" ? <div className="crErrMini">{ui.message}</div> : null}
+                  </>
+                )}
+
+                {(used || ui.status === "error") && (
+                  <div className="crActions" style={{ marginTop: 10 }}>
+                    <button type="button" className="crBtn ghost" onClick={() => void load()}>
+                      再読み込み
+                    </button>
                   </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 14 }}>
-                {ui.status === "checking" && "状態確認中…"}
-                {ui.status === "confirming" && "受け取り確定中…"}
-                {ui.status === "done" && <div style={{ fontWeight: 900 }}>✅ 受け取り完了しました</div>}
-                {ui.status === "ready" && ui.used && <div style={{ fontWeight: 900 }}>✅ すでに受取済みです</div>}
-                {ui.status === "error" && <div style={{ color: "#ff6b6b" }}>エラー：{ui.message}</div>}
-              </div>
-            </div>
-
-            <div className="couponDetailBtns">
-              <button type="button" className="cBtn ghost" onClick={() => nav("/")}>
-                TOPへ
-              </button>
-
-              {ui.status === "ready" && ui.used === false ? (
-                <button type="button" className="cBtn" onClick={onConfirm} disabled={!canConfirm}>
-                  受け取り完了
-                </button>
-              ) : null}
-
-              {ui.status === "done" ? (
-                <button type="button" className="cBtn" onClick={() => load()}>
-                  状態を再読み込み
-                </button>
-              ) : null}
+                )}
+              </section>
             </div>
           </div>
         </div>
       </main>
-
-      <SiteFooter />
     </div>
   );
 }
