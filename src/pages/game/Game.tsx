@@ -1575,7 +1575,7 @@ export default function Game() {
                                   setGuestName(e.target.value);
                                   setGuestMsg(null);
                                 }}
-                                placeholder="例：hiyori（1〜12文字）"
+                                placeholder="（1〜12文字）"
                                 style={{
                                   width: "100%",
                                   padding: "12px 12px",

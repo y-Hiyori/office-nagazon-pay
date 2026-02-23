@@ -51,7 +51,7 @@ html, body{
 .gameWrap{
   width: min(980px, 100%);
   margin: 0 auto;
-  padding-inline: var(--g-safe-x-base); /* ここはbaseのみ（safe-areaはbody側で効く） */
+  padding-inline: var(--g-safe-x); /* ← base じゃなく safe-x にする */
   max-width: 100%;
   min-width: 0;
 }
@@ -806,4 +806,42 @@ button:focus-visible{
 .gRewardItemBtn:hover{
   background: rgba(255,255,255,0.06);
   border-color: rgba(255,255,255,0.16);
+}
+
+/* =========================
+   ✅ iPhone/Safari: スクロールで横幅が揺れるのを防ぐ
+========================= */
+
+/* スクロールバー出現でガタつくブラウザ対策（対応してる所だけ効く） */
+html{
+  scrollbar-gutter: stable both-edges;
+}
+
+/* 画面の基準幅を固定（100vwは使わない） */
+.gamePage{
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ✅ スマホ時は “必ず” 横幅100%固定にする */
+@media (max-width: 520px){
+  .gameWrap{
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;              /* 中央寄せの再計算を潰す */
+    padding-left: var(--g-safe-x) !important;
+    padding-right: var(--g-safe-x) !important;
+  }
+
+  /* canvasShell も100%固定 */
+  .canvasShell{
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* 下のカード群も100%固定 */
+  .gBelow{
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }

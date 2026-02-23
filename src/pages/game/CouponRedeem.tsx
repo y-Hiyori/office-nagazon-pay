@@ -39,9 +39,29 @@ function formatDateTime(s?: string | null) {
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return String(s);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(
-    d.getMinutes()
-  )}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
+
+/** ✅ UI向けにエラー文を整形（password invalid → パスワードが違います） */
+function normalizeUiError(msg: string): string {
+  const s = (msg ?? "").trim();
+  const lower = s.toLowerCase();
+
+  // Edge Functionが返す代表パターンを吸収
+  if (
+    lower === "password invalid" ||
+    lower.includes("password invalid") ||
+    lower.includes("invalid password") ||
+    lower.includes("password_wrong") ||
+    lower.includes("wrong password") ||
+    lower.includes("パスワード") // 既に日本語が入ってる場合はそのままでも良いが…
+  ) {
+    return "パスワードが違います";
+  }
+
+  return s || "エラーが発生しました";
 }
 
 export default function CouponRedeem() {
@@ -77,7 +97,7 @@ export default function CouponRedeem() {
     const st = (await getCouponStatus(token)) as CouponStatus;
 
     if (!st.ok) {
-      setUi({ status: "error", message: st.error });
+      setUi({ status: "error", message: normalizeUiError(st.error) });
       return;
     }
     if (st.found === false) {
@@ -118,8 +138,9 @@ export default function CouponRedeem() {
     setUi({ status: "confirming" });
 
     const res = await confirmCouponRedeem(token, p);
+
     if (!res.ok) {
-      setUi({ status: "error", message: res.error });
+      setUi({ status: "error", message: normalizeUiError(res.error) });
       return;
     }
     if (res.found === false) {
@@ -129,7 +150,7 @@ export default function CouponRedeem() {
 
     setPw("");
     setUi({ status: "done" });
-    void load();
+    void load(); // 確定時刻など更新
   };
 
   const badgeText = (() => {
@@ -141,10 +162,10 @@ export default function CouponRedeem() {
   })();
 
   const badgeCls = (() => {
-    if (isChecking || isConfirming) return "tag wait";
-    if (isError) return "tag ng";
-    if (used) return "tag ok";
-    return "tag";
+    if (isChecking || isConfirming) return "crTag wait";
+    if (isError) return "crTag ng";
+    if (used) return "crTag ok";
+    return "crTag";
   })();
 
   return (
@@ -158,10 +179,11 @@ export default function CouponRedeem() {
                 <span className={badgeCls}>{badgeText}</span>
               </div>
 
-              {ui.status === "error" ? <div className="crErr">エラー：{ui.message}</div> : null}
+              {ui.status === "error" ? <div className="crErr">{ui.message}</div> : null}
             </header>
 
             <div className="crBody">
+              {/* 左：内容 */}
               <section className="crPanel">
                 <div className="crPanelTitle">クーポン内容</div>
                 <div className="crBigTitle">{detail?.title ?? "（読み込み中）"}</div>
@@ -189,6 +211,7 @@ export default function CouponRedeem() {
                 </div>
               </section>
 
+              {/* 右：確定 */}
               <section className="crPanel">
                 <div className="crPanelTitle">受け取り確定</div>
 

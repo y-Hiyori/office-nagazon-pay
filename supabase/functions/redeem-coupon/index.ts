@@ -27,7 +27,16 @@ function safeStr(v: unknown): string {
 }
 
 function normalizePw(v: unknown): string {
+  // 前後空白除去 + 全角/半角などを統一
   return safeStr(v).trim().normalize("NFKC");
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 type IssuanceRow = {
@@ -39,7 +48,8 @@ type IssuanceRow = {
   user_name: string | null;
 };
 
-type RewardView = {
+type RewardRow = {
+  id: string;
   store_name: string | null;
   store_info: string | null;
   product_name: string | null;
@@ -47,7 +57,22 @@ type RewardView = {
   description: string | null;
   valid_from: string | null;
   valid_to: string | null;
+  redeem_password_hash: string | null;
 };
+
+type RewardView = Omit<RewardRow, "id" | "redeem_password_hash">;
+
+function toRewardView(r: RewardRow): RewardView {
+  return {
+    store_name: r.store_name ?? null,
+    store_info: r.store_info ?? null,
+    product_name: r.product_name ?? null,
+    coupon_title: r.coupon_title ?? null,
+    description: r.description ?? null,
+    valid_from: r.valid_from ?? null,
+    valid_to: r.valid_to ?? null,
+  };
+}
 
 serve(async (req: Request) => {
   try {
@@ -57,6 +82,7 @@ serve(async (req: Request) => {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const action = safeStr(body.action).trim() || "confirm";
     const token = safeStr(body.token).trim();
+
     if (!token) return json({ ok: false, error: "token missing" }, 200);
 
     const supabase = getClient();
@@ -66,25 +92,27 @@ serve(async (req: Request) => {
       .from("coupon_issuances")
       .select("token, reward_id, used, used_at, used_confirmed_at, user_name")
       .eq("token", token)
-      .maybeSingle();
+      .maybeSingle<IssuanceRow>();
 
     if (issErr) throw issErr;
     if (!issuance) return json({ ok: true, found: false }, 200);
 
-    const row = issuance as IssuanceRow;
-
-    // ② reward 取得（reward_id があれば）
-    let reward: RewardView | null = null;
-    if (row.reward_id) {
+    // ② reward 取得（reward_id が無いなら reward は null）
+    let rewardRow: RewardRow | null = null;
+    if (issuance.reward_id) {
       const { data: r, error: rErr } = await supabase
         .from("coupon_rewards")
-        .select("store_name, store_info, product_name, coupon_title, description, valid_from, valid_to")
-        .eq("id", row.reward_id)
-        .maybeSingle();
+        .select(
+          "id, store_name, store_info, product_name, coupon_title, description, valid_from, valid_to, redeem_password_hash",
+        )
+        .eq("id", issuance.reward_id)
+        .maybeSingle<RewardRow>();
 
       if (rErr) throw rErr;
-      reward = (r ?? null) as RewardView | null;
+      rewardRow = r ?? null;
     }
+
+    const reward: RewardView | null = rewardRow ? toRewardView(rewardRow) : null;
 
     // status
     if (action === "status") {
@@ -92,29 +120,30 @@ serve(async (req: Request) => {
         {
           ok: true,
           found: true,
-          used: !!row.used,
-          used_at: row.used_at ?? null,
-          used_confirmed_at: row.used_confirmed_at ?? null,
-          user_name: row.user_name ?? null,
+          used: !!issuance.used,
+          used_at: issuance.used_at ?? null,
+          used_confirmed_at: issuance.used_confirmed_at ?? null,
+          user_name: issuance.user_name ?? null,
           reward,
         },
         200,
       );
     }
 
-    // confirm：パスワードが設定されてる時だけ要求
-    const requiredRaw = Deno.env.get("REDEEM_PASSWORD") ?? "";
-    const required = requiredRaw.trim().normalize("NFKC");
-
-    if (required.length > 0) {
+    // confirm：報酬にパスワードが設定されている時だけチェック
+    const requiredHash = (rewardRow?.redeem_password_hash ?? "").trim();
+    if (requiredHash) {
       const pw = normalizePw(body.password);
-      if (!pw || pw !== required) {
+      if (!pw) return json({ ok: false, error: "password invalid" }, 200);
+
+      const pwHash = await sha256Hex(pw);
+      if (pwHash !== requiredHash) {
         return json({ ok: false, error: "password invalid" }, 200);
       }
     }
 
-    const already = !!row.used_confirmed_at;
-    if (already) {
+    // 既に確定済みならそのまま返す
+    if (issuance.used_confirmed_at) {
       return json(
         {
           ok: true,
@@ -122,12 +151,13 @@ serve(async (req: Request) => {
           confirmed: true,
           already: true,
           reward,
-          user_name: row.user_name ?? null,
+          user_name: issuance.user_name ?? null,
         },
         200,
       );
     }
 
+    // 確定更新
     const now = new Date().toISOString();
     const { error: updErr } = await supabase
       .from("coupon_issuances")
@@ -142,7 +172,7 @@ serve(async (req: Request) => {
         found: true,
         confirmed: true,
         reward,
-        user_name: row.user_name ?? null,
+        user_name: issuance.user_name ?? null,
       },
       200,
     );

@@ -15,13 +15,13 @@ type Reward = {
   description: string;
   valid_from: string | null;
   valid_to: string | null;
-  redeem_password_hash: string | null; // ✅ 追加
+  redeem_password_hash: string | null;
   created_at: string;
   updated_at: string;
 };
 
 type RewardForm = Omit<Reward, "id" | "created_at" | "updated_at" | "redeem_password_hash"> & {
-  redeem_password: string; // ✅ UI入力（平文はDBに保存しない）
+  redeem_password: string; // UI入力（平文はDBに保存しない）
 };
 
 const emptyForm: RewardForm = {
@@ -40,9 +40,9 @@ const emptyForm: RewardForm = {
 function toLocalInput(iso: string) {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes(),
+  )}`;
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -53,6 +53,18 @@ async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
+function isValidPw(pw: string) {
+  return pw.trim().length >= 4;
+}
+
+function formatYMDHM(iso?: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function AdminCouponRewardsPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Reward[]>([]);
@@ -60,14 +72,13 @@ export default function AdminCouponRewardsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // ✅ 編集時：パスワード変更するかどうかを明示
+  const [changePw, setChangePw] = useState<boolean>(true); // 新規は必ずtrue
   const isEditing = useMemo(() => Boolean(editingId), [editingId]);
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("coupon_rewards")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("coupon_rewards").select("*").order("created_at", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -89,6 +100,7 @@ export default function AdminCouponRewardsPage() {
   const reset = () => {
     setForm(emptyForm);
     setEditingId(null);
+    setChangePw(true);
   };
 
   const onEdit = (r: Reward) => {
@@ -103,8 +115,12 @@ export default function AdminCouponRewardsPage() {
       description: r.description,
       valid_from: r.valid_from,
       valid_to: r.valid_to,
-      redeem_password: "", // ✅ 編集時は空（空なら変更しない）
+      redeem_password: "",
     });
+
+    // ✅ 編集時は「変更しない」が基本（ミス防止）
+    setChangePw(false);
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -119,11 +135,7 @@ export default function AdminCouponRewardsPage() {
 
     const { error } = await supabase.from("coupon_rewards").delete().eq("id", id);
     if (error) {
-      await appDialog.alert({
-        title: "削除エラー",
-        message: String(error.message),
-        okText: "OK",
-      });
+      await appDialog.alert({ title: "削除エラー", message: String(error.message), okText: "OK" });
       return;
     }
     await load();
@@ -142,18 +154,48 @@ export default function AdminCouponRewardsPage() {
         return;
       }
 
-      // ✅ 新規作成はパスワード必須（編集は空なら変更しない）
       const pw = form.redeem_password.trim();
-      if (!isEditing && pw.length < 4) {
-        await appDialog.alert({
-          title: "入力不足",
-          message: "パスワードは4文字以上で設定してください。",
-          okText: "OK",
-        });
-        return;
+
+      // ✅ 新規は必須 / 編集は changePw=true のときのみ必須
+      if (!isEditing) {
+        if (!isValidPw(pw)) {
+          await appDialog.alert({
+            title: "入力不足",
+            message: "新規作成は店舗用パスワードが必須です（4文字以上）",
+            okText: "OK",
+          });
+          return;
+        }
+      } else {
+        if (changePw && !isValidPw(pw)) {
+          await appDialog.alert({
+            title: "入力不足",
+            message: "パスワードを変更する場合は4文字以上で入力してください。",
+            okText: "OK",
+          });
+          return;
+        }
       }
 
-      // ✅ DBに送るpayload（平文は入れない）
+      // ✅ 保存前要約（ミス防止）
+      const summary = [
+        `状態：${form.is_active ? "ON（配布）" : "OFF（停止）"}`,
+        `店名：${form.store_name}`,
+        `商品名：${form.product_name}`,
+        `しきい値：${form.score_threshold} 点`,
+        `タイトル：${form.coupon_title || "—"}`,
+        `期間：${formatYMDHM(form.valid_from)} 〜 ${formatYMDHM(form.valid_to)}`,
+        `店舗パスワード：${!isEditing ? "新規設定" : changePw ? "変更する" : "変更しない"}`,
+      ].join("\n");
+
+      const ok = await appDialog.confirm({
+        title: isEditing ? "更新確認" : "作成確認",
+        message: `この内容で保存しますか？\n\n${summary}`,
+        okText: "保存する",
+        cancelText: "キャンセル",
+      });
+      if (!ok) return;
+
       const basePayload = {
         is_active: form.is_active,
         store_name: form.store_name,
@@ -166,14 +208,15 @@ export default function AdminCouponRewardsPage() {
         valid_to: form.valid_to,
       };
 
-      // パスワード入力がある場合だけ hash を更新
-      const payload =
-        pw.length >= 4
-          ? {
-              ...basePayload,
-              redeem_password_hash: await sha256Hex(pw),
-            }
-          : basePayload;
+      let payload: Record<string, unknown> = basePayload;
+
+      // ✅ パスワード更新は「新規」or「編集で changePw=true」のときだけ
+      if (!isEditing || changePw) {
+        payload = {
+          ...basePayload,
+          redeem_password_hash: await sha256Hex(pw),
+        };
+      }
 
       if (isEditing) {
         const { error } = await supabase.from("coupon_rewards").update(payload).eq("id", editingId!);
@@ -192,8 +235,7 @@ export default function AdminCouponRewardsPage() {
         okText: "OK",
       });
     } catch (e: unknown) {
-      const msg =
-        typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
+      const msg = typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
       await appDialog.alert({
         title: "保存エラー",
         message: msg,
@@ -216,8 +258,11 @@ export default function AdminCouponRewardsPage() {
               <h1 className="adminRewardsTitle">クーポン配布設定</h1>
               <p className="adminRewardsSub">
                 ゲームスコアに応じて配布されるクーポン報酬（coupon_rewards）を管理します。
+                <br />
+                店舗用パスワードは <b>報酬ごと</b> に設定され、クーポン受け取り（redeem）時に照合されます。
               </p>
             </div>
+
             <div className="adminRewardsPill" title="管理者のみ操作可能">
               <span className="dot" />
               管理画面
@@ -230,14 +275,20 @@ export default function AdminCouponRewardsPage() {
               <div className="panelHead">
                 <div className="panelHeadLeft">
                   <h2>{isEditing ? "編集" : "新規作成"}</h2>
-                  <div className="panelSub">必須：店名 / 商品名 /（新規はパスワード）</div>
+                  <div className="panelSub">必須：店名 / 商品名 /（新規は店舗パスワード）</div>
                 </div>
+
+                {isEditing ? (
+                  <div className="panelHeadRight">
+                    <span className="pill">編集ID：{editingId}</span>
+                  </div>
+                ) : null}
               </div>
 
               <div className="form">
-                {/* 有効スイッチ */}
+                {/* 有効 */}
                 <div className="field">
-                  <div className="fieldLabel">有効</div>
+                  <div className="fieldLabel">配布状態</div>
                   <div className="switchRow">
                     <label className="switch" aria-label="有効/無効">
                       <input
@@ -247,7 +298,7 @@ export default function AdminCouponRewardsPage() {
                       />
                       <span className="slider" />
                     </label>
-                    <div className="switchText">有効（配布対象）</div>
+                    <div className="switchText">{form.is_active ? "ON（配布中）" : "OFF（停止中）"}</div>
                   </div>
                 </div>
 
@@ -271,9 +322,7 @@ export default function AdminCouponRewardsPage() {
                       type="number"
                       min={0}
                       value={form.score_threshold}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, score_threshold: Number(e.target.value || 0) }))
-                      }
+                      onChange={(e) => setForm((p) => ({ ...p, score_threshold: Number(e.target.value || 0) }))}
                     />
                   </label>
                 </div>
@@ -322,21 +371,51 @@ export default function AdminCouponRewardsPage() {
                   />
                 </label>
 
-                {/* ✅ パスワード（新規必須 / 編集は空で維持） */}
-                <label className="field">
+                {/* ✅ パスワード：編集時は「変更する/しない」を明示 */}
+                <div className="field">
                   <div className="fieldLabel">
                     店舗用パスワード{" "}
-                    {!isEditing ? <span className="req">必須</span> : <span style={{ opacity: 0.7 }}>（空なら変更しません）</span>}
+                    {!isEditing ? <span className="req">必須</span> : <span className="hint">（報酬ごとに設定）</span>}
                   </div>
+
+                  {isEditing ? (
+                    <div className="pwModeRow">
+                      <label className={`pwMode ${!changePw ? "on" : ""}`}>
+                        <input
+                          type="radio"
+                          name="pwMode"
+                          checked={!changePw}
+                          onChange={() => {
+                            setChangePw(false);
+                            setForm((p) => ({ ...p, redeem_password: "" }));
+                          }}
+                        />
+                        変更しない
+                      </label>
+
+                      <label className={`pwMode ${changePw ? "on" : ""}`}>
+                        <input type="radio" name="pwMode" checked={changePw} onChange={() => setChangePw(true)} />
+                        変更する
+                      </label>
+                    </div>
+                  ) : null}
+
                   <input
                     className="input"
                     type="password"
                     value={form.redeem_password}
                     onChange={(e) => setForm((p) => ({ ...p, redeem_password: e.target.value }))}
-                    placeholder={!isEditing ? "例：1234（4文字以上）" : "変更する時だけ入力"}
+                    placeholder={!isEditing ? "例：1234（4文字以上）" : changePw ? "新しいパスワード（4文字以上）" : "変更しない場合は入力不要"}
                     autoComplete="new-password"
+                    disabled={isEditing && !changePw}
                   />
-                </label>
+
+                  {isEditing && !changePw ? (
+                    <div className="miniNote">※「変更しない」を選ぶと、既存のパスワードをそのまま維持します。</div>
+                  ) : (
+                    <div className="miniNote">※パスワードは平文保存しません（SHA-256でハッシュ化して保存）。</div>
+                  )}
+                </div>
 
                 <div className="formRow">
                   <label className="field">
@@ -400,21 +479,22 @@ export default function AdminCouponRewardsPage() {
                     <div className="item" key={r.id}>
                       <div className="itemLeft">
                         <div className="itemTop">
-                          <div className="itemTitle">
+                          <div className="itemTitle" title={`${r.store_name} / ${r.product_name}`}>
                             {r.store_name}
                             <span className="sep">/</span>
                             {r.product_name}
                           </div>
-                          <div className={`status ${r.is_active ? "on" : "off"}`}>
-                            {r.is_active ? "ON" : "OFF"}
-                          </div>
+                          <div className={`status ${r.is_active ? "on" : "off"}`}>{r.is_active ? "ON" : "OFF"}</div>
                         </div>
 
                         <div className="itemMeta">
                           <div className="metaChip">しきい値：{r.score_threshold}</div>
                           <div className="metaChip">{r.coupon_title}</div>
+                          <div className={`metaChip ${r.redeem_password_hash ? "ok" : "ng"}`}>
+                            店舗PW：{r.redeem_password_hash ? "設定済み" : "未設定"}
+                          </div>
                           <div className="metaChip">
-                            パスワード：{r.redeem_password_hash ? "設定済み" : "未設定"}
+                            期限：{formatYMDHM(r.valid_from)} 〜 {formatYMDHM(r.valid_to)}
                           </div>
                         </div>
                       </div>
