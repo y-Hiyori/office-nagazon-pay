@@ -560,35 +560,78 @@ export default function Game() {
     return true;
   };
 
-  /* =========================
-     Resize / DPR
+    /* =========================
+     Resize / DPR  ✅ iOS対策：スクロールで高さが変わっても再計算しない
   ========================= */
+  const baseCanvasCssHRef = useRef<number | null>(null);
+  const lastCssWRef = useRef<number>(0);
+  const lastDprRef = useRef<number>(1);
+
   useEffect(() => {
-    const apply = () => {
+    const apply = (force = false) => {
       const canvas = canvasRef.current;
       const wrap = wrapRef.current;
       if (!canvas || !wrap) return;
 
       const rect = wrap.getBoundingClientRect();
+
+      // iOSのスクロールでinnerHeightが変わるのを拾わないため、
+      // 「幅が変わった時だけ」canvas高さを作り直す
+      const cssW = Math.max(1, rect.width);
+
       const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
 
-      const cssW = rect.width;
-      const cssH = Math.min(window.innerHeight * 0.72, 760);
+      const widthChanged = Math.abs(cssW - lastCssWRef.current) > 1;
+      const dprChanged = dpr !== lastDprRef.current;
 
-      canvas.style.width = `${cssW}px`;
-      canvas.style.height = `${cssH}px`;
-      canvas.width = Math.floor(cssW * dpr);
-      canvas.height = Math.floor(cssH * dpr);
+      // 初回 or 幅変更 or DPR変更 or force のときだけ高さを決め直す
+      if (force || baseCanvasCssHRef.current == null || widthChanged || dprChanged) {
+        // ✅ ここは「最初に決めた高さ」を使い続ける
+        // 初回だけ innerHeight を参照する（以降、スクロールでは変えない）
+        const baseH =
+          baseCanvasCssHRef.current ?? Math.min(window.innerHeight * 0.72, 760);
 
-      resetGame(true);
+        baseCanvasCssHRef.current = baseH;
+        lastCssWRef.current = cssW;
+        lastDprRef.current = dpr;
+
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${baseH}px`;
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(baseH * dpr);
+
+        // レイアウト更新した時だけリセット（スクロール由来では呼ばれない）
+        resetGame(true);
+        return;
+      }
+
+      // ✅ スクロールで高さだけ変わったケースは何もしない（縦幅固定）
+      // ただし、幅は同じでもcanvasのCSSが外部要因で変わってたら戻す（保険）
+      const currentW = parseFloat(canvas.style.width || "0");
+      if (Math.abs(currentW - cssW) > 1) {
+        canvas.style.width = `${cssW}px`;
+      }
     };
 
-    apply();
-    window.addEventListener("resize", apply);
-    return () => window.removeEventListener("resize", apply);
+    // 初回
+    apply(true);
+
+    const onResize = () => apply(false);
+    const onOrientation = () => {
+      // 回転したら「高さも作り直し」したいので base をリセット
+      baseCanvasCssHRef.current = null;
+      apply(true);
+    };
+
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onOrientation);
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onOrientation);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficulty]);
-
   /* =========================
      Keyboard
   ========================= */
