@@ -100,6 +100,12 @@ function AccountMenu() {
     return n.slice(0, 1);
   }, [profile?.name]);
 
+  const displayEmail = useMemo(() => {
+    const profileEmail = (profile?.email ?? "").trim();
+    const authEmail = (user?.email ?? "").trim();
+    return profileEmail || authEmail || "メール未設定";
+  }, [profile?.email, user?.email]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     // ✅ alert → アプリ内
@@ -181,7 +187,7 @@ function AccountMenu() {
                 <h2 className="account-name">{profile.name || "ユーザー"}</h2>
                 {profile.is_admin && <span className="account-badge">管理者</span>}
               </div>
-              <p className="account-email">{user.email}</p>
+              <p className="account-email">{displayEmail}</p>
             </div>
           </section>
 

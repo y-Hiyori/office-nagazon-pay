@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { registerDialogEmitter } from "../lib/appDialog";
 import "./AppDialogHost.css";
+import { lockScroll, unlockScroll } from "../lib/scrollLock";
 
 type AlertPayload = {
   title?: string;
@@ -40,9 +41,12 @@ export default function AppDialogHost() {
 
   useEffect(() => {
     // 開いてる間スクロール禁止（Contactのモーダルと同じ系）
-    document.body.style.overflow = dlg ? "hidden" : "";
+    const key = "app-dialog";
+    if (dlg) lockScroll(key);
+    else unlockScroll(key);
+
     return () => {
-      document.body.style.overflow = "";
+      unlockScroll(key);
     };
   }, [dlg]);
 

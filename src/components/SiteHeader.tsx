@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMemo, useState, useEffect } from "react";
 import "./SiteHeader.css";
 import { useCart } from "../context/CartContext";
+import { lockScroll, unlockScroll } from "../lib/scrollLock";
 
 type MenuItem = {
   label: string;
@@ -11,6 +12,37 @@ type MenuItem = {
 type Props = {
   accountHref?: string;
 };
+
+/* ============ アイコン（lucide風・線画SVG） ============ */
+
+const IconCart = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M2 3h2l.6 3M6 6h15l-1.5 9H8L6 6z" />
+    <circle cx="9" cy="20" r="1.5" />
+    <circle cx="18" cy="20" r="1.5" />
+  </svg>
+);
+
+const IconUser = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </svg>
+);
 
 export default function SiteHeader({ accountHref = "/account" }: Props) {
   const navigate = useNavigate();
@@ -24,7 +56,6 @@ export default function SiteHeader({ accountHref = "/account" }: Props) {
     return list.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0), 0);
   }, [cart]);
 
-  // ✅ 「トップ」は入れない（ロゴ押したらホームに戻るだけ）
   const menuItems: MenuItem[] = useMemo(
     () => [
       { label: "商品一覧", to: "/products" },
@@ -42,10 +73,23 @@ export default function SiteHeader({ accountHref = "/account" }: Props) {
 
   // ✅ ドロワー開いてる間スクロール止める（ズレ防止）
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    const key = "site-header-drawer";
+    if (open) lockScroll(key);
+    else unlockScroll(key);
+
     return () => {
-      document.body.style.overflow = "";
+      unlockScroll(key);
     };
+  }, [open]);
+
+  // ✅ Escで閉じる
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
   return (
@@ -66,9 +110,13 @@ export default function SiteHeader({ accountHref = "/account" }: Props) {
                 <span />
               </button>
 
-              {/* 中央：ロゴ（ホームへ） */}
+              {/* 中央：ロゴ */}
               <Link to="/" className="site-header-brand" aria-label="ホームへ">
-                <img src="/assets/logo.png" alt="NAGAZON" className="site-header-logoimg" />
+                <img
+                  src="/assets/logo.png"
+                  alt="NAGAZON"
+                  className="site-header-logoimg"
+                />
               </Link>
 
               {/* 右：カート/アカウント */}
@@ -78,7 +126,7 @@ export default function SiteHeader({ accountHref = "/account" }: Props) {
                   to="/cart"
                   aria-label={`カート（${cartCount}点）`}
                 >
-                  🛒
+                  <IconCart />
                   {cartCount > 0 && (
                     <span className="site-header-badge" aria-hidden="true">
                       {cartCount > 99 ? "99+" : cartCount}
@@ -87,7 +135,7 @@ export default function SiteHeader({ accountHref = "/account" }: Props) {
                 </Link>
 
                 <Link className="site-header-iconbtn" to={accountHref} aria-label="アカウント">
-                  👤
+                  <IconUser />
                 </Link>
               </div>
             </div>
@@ -97,7 +145,6 @@ export default function SiteHeader({ accountHref = "/account" }: Props) {
 
       {open && (
         <div className="site-drawer-overlay" onClick={() => setOpen(false)}>
-          {/* ✅ ×を固定する“箱” */}
           <div className="site-drawer-shell" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
@@ -109,6 +156,7 @@ export default function SiteHeader({ accountHref = "/account" }: Props) {
             </button>
 
             <aside className="site-drawer" role="dialog" aria-modal="true" aria-label="メニュー">
+              <div className="site-drawer-brand">MENU</div>
               <nav className="site-drawer-nav">
                 {menuItems.map((item) => (
                   <button

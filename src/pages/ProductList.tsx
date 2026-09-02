@@ -13,6 +13,7 @@ type ProductRow = {
   id: number;
   name: string;
   price: number;
+  originalPrice: number | null;
   stock: number;
   imageData: string | null;
   createdAt: string | null;
@@ -31,6 +32,11 @@ function ProductList() {
 
   const formatPrice = (value: number | string) =>
     Number(value ?? 0).toLocaleString("ja-JP");
+
+  const getOriginalPrice = (row: { originalPrice?: number | null; price: number }) => {
+    const original = Number(row.originalPrice ?? 0);
+    return Number.isFinite(original) && original > row.price ? original : null;
+  };
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -52,6 +58,7 @@ function ProductList() {
 
       const rows: ProductRow[] = (data ?? []).map((p: any) => {
         const createdAt = p.created_at ?? p.createdAt ?? null;
+        const originalPriceNum = Number(p.original_price ?? p.originalPrice ?? 0);
 
         const isNew = createdAt
           ? now - new Date(createdAt).getTime() <= NEW_PERIOD_MS
@@ -63,6 +70,10 @@ function ProductList() {
           id: Number(p.id),
           name: String(p.name ?? ""),
           price: Number(p.price ?? 0),
+          originalPrice:
+            Number.isFinite(originalPriceNum) && originalPriceNum > Number(p.price ?? 0)
+              ? originalPriceNum
+              : null,
           stock: Number(p.stock ?? 0),
           imageData: p.imageData ?? findProductImage(Number(p.id)) ?? null,
           createdAt,
@@ -78,15 +89,12 @@ function ProductList() {
           const aSold = (a.stock ?? 0) <= 0;
           const bSold = (b.stock ?? 0) <= 0;
 
-          // ① 在庫ありを先、売り切れを後
           if (aSold !== bSold) return aSold ? 1 : -1;
 
-          // ② 在庫あり同士なら NEW を先
           const aNew = !!a.isNew;
           const bNew = !!b.isNew;
           if (aNew !== bNew) return aNew ? -1 : 1;
 
-          // ③ 同じグループ内は新しい順
           const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return bt - at;
@@ -114,7 +122,21 @@ function ProductList() {
         {/* ✅ 検索バー */}
         <div className="plist-search">
           <div className="plist-search-inner">
-            <span className="plist-search-icon">🔎</span>
+            <span className="plist-search-icon" aria-hidden="true">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+            </span>
             <input
               className="plist-search-input"
               value={query}
@@ -128,7 +150,7 @@ function ProductList() {
                 onClick={() => setQuery("")}
                 aria-label="検索をクリア"
               >
-                ×
+                クリア
               </button>
             )}
           </div>
@@ -144,29 +166,69 @@ function ProductList() {
           <div className="plist-grid">
             {filtered.map((p) => {
               const soldOut = (p.stock ?? 0) <= 0;
+              const originalPrice = getOriginalPrice(p);
+              const isSale = !!originalPrice;
+              const discountYen = isSale ? originalPrice! - p.price : 0;
+              const discountRate = isSale
+                ? Math.round((discountYen / originalPrice!) * 100)
+                : 0;
+
+              // ✅ SALE時は on-sale クラスを付与（価格がワインレッドに）
+              const cardClass = [
+                "plist-card",
+                soldOut ? "sold-out" : "",
+                isSale && !soldOut ? "on-sale" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
 
               return (
                 <div
                   key={p.id}
-                  className={`plist-card ${soldOut ? "sold-out" : ""}`}
+                  className={cardClass}
                   onClick={() => navigate(`/products/${p.id}`)}
                 >
-                  {/* ラベル */}
-                  {soldOut ? (
-                    <div className="sold-label">SOLD OUT</div>
-                  ) : p.isNew ? (
-                    <div className="new-label">NEW</div>
-                  ) : null}
+                  {/* ✅ 画像は .plist-media でラップ（正方形 + hoverズーム + SOLDオーバーレイ） */}
+                  <div className="plist-media">
+                    {p.imageData ? (
+                      <img src={p.imageData} alt={p.name} />
+                    ) : (
+                      <div className="plist-noimg">No Image</div>
+                    )}
+                  </div>
 
-                  {/* 画像 */}
-                  {p.imageData ? (
-                    <img src={p.imageData} alt={p.name} />
-                  ) : (
-                    <div className="plist-noimg">No Image</div>
-                  )}
+                  {/* ✅ 通常バッジ（SALE / NEW）は左上に配置 */}
+                  <div className="plist-badges">
+                    {!soldOut && isSale ? (
+                      <div className="sale-label">SALE {discountRate}%OFF</div>
+                    ) : null}
+                    {!soldOut && p.isNew ? (
+                      <div className="new-label">NEW</div>
+                    ) : null}
+                  </div>
+
+                  {/* ✅ SOLD OUT ラベルは .plist-badges の外へ（中央に大表示） */}
+                  {soldOut ? <div className="sold-label">SOLD OUT</div> : null}
 
                   <div className="plist-name">{p.name}</div>
-                  <div className="plist-price">{formatPrice(p.price)}円</div>
+
+                  <div className="plist-price-wrap">
+  {isSale && originalPrice ? (
+    <div className="plist-price-old">
+      ¥{formatPrice(originalPrice)}
+    </div>
+  ) : null}
+
+  <div className="plist-price-row">
+    <div className="plist-price">¥{formatPrice(p.price)}</div>
+    {isSale ? (
+      <div className="plist-price-save">
+        ¥{formatPrice(discountYen)} OFF
+      </div>
+    ) : null}
+  </div>
+</div>
+
                 </div>
               );
             })}

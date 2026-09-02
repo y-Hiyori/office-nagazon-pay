@@ -11,6 +11,7 @@ function AdminAdd() {
   const [productId, setProductId] = useState("");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [originalPrice, setOriginalPrice] = useState("");
   const [stock, setStock] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,6 +30,7 @@ function AdminAdd() {
 
     const idNum = Number(productId);
     const priceNum = Number(price);
+    const originalPriceNum = originalPrice.trim() === "" ? null : Number(originalPrice);
     const stockNum = Number(stock);
 
     if (!Number.isInteger(idNum) || idNum <= 0) {
@@ -49,12 +51,34 @@ function AdminAdd() {
       return;
     }
 
-    const { error } = await supabase.from("products").insert({
+    if (originalPrice.trim() !== "" && (originalPriceNum == null || Number.isNaN(originalPriceNum))) {
+      await appDialog.alert({
+        title: "入力エラー",
+        message: "通常価格は数値で入力してください",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (originalPriceNum != null && originalPriceNum <= priceNum) {
+      await appDialog.alert({
+        title: "入力エラー",
+        message: "通常価格は販売価格より大きい金額を入力してください",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
       id: idNum,
       name,
       price: priceNum,
       stock: stockNum,
-    });
+    };
+
+    if (originalPriceNum != null) payload.original_price = originalPriceNum;
+
+    const { error } = await supabase.from("products").insert(payload);
 
     if (error) {
       console.error(error);
@@ -107,6 +131,13 @@ function AdminAdd() {
         placeholder="価格"
         value={price}
         onChange={(e) => setPrice(e.target.value)}
+      />
+
+      <input
+        type="number"
+        placeholder="通常価格（SALE表示する時だけ）"
+        value={originalPrice}
+        onChange={(e) => setOriginalPrice(e.target.value)}
       />
 
       <input

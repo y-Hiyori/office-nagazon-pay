@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useMemo, useState, useEffect } from "react";
 import "./AdminHeader.css";
+import { lockScroll, unlockScroll } from "../lib/scrollLock";
 
 type MenuItem = { label: string; to: string };
 
@@ -33,9 +34,12 @@ export default function AdminHeader() {
   };
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+    const key = "admin-header-drawer";
+    if (open) lockScroll(key);
+    else unlockScroll(key);
+
     return () => {
-      document.body.style.overflow = "";
+      unlockScroll(key);
     };
   }, [open]);
 

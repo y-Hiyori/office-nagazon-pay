@@ -1,356 +1,351 @@
-/* ================================
-   購入履歴一覧（共通ヘッダー/フッター対応）
-   NAGAZON Pay / Soft Glass UI
-================================ */
+/* ============================================
+   OrdersList  ✨ Refined
+============================================ */
 
-:root{
-  --bg0: #f6f8ff;
-  --bg1: #eef2ff;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --card: rgba(255,255,255,0.9);
-  --card2: rgba(255,255,255,0.72);
-  --line: rgba(15, 23, 42, 0.10);
-  --shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
-  --shadow2: 0 12px 28px rgba(15, 23, 42, 0.12);
-  --radius: 20px;
-}
-
-.orders-page-wrap{
+.orders-page-wrap {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--plist-bg, #fafafa);
+  color: var(--plist-text, #1d1d1f);
 
-  /* アプリ全体の雰囲気に合わせた背景 */
-  background:
-    radial-gradient(1100px 500px at 20% -10%, rgba(99,102,241,0.14), transparent 60%),
-    radial-gradient(900px 500px at 90% 0%, rgba(59,130,246,0.12), transparent 55%),
-    linear-gradient(180deg, var(--bg0), var(--bg1));
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
 }
 
-/* main を伸ばしてフッターを下へ */
-.orders-page{
+.orders-page-wrap {
+  --o-surface: var(--plist-surface, #ffffff);
+  --o-border: var(--plist-border, rgba(15, 23, 42, 0.06));
+  --o-text: var(--plist-text, #1d1d1f);
+  --o-text-sub: var(--plist-text-sub, #6e6e73);
+  --o-text-muted: var(--plist-text-muted, #a1a1a6);
+  --o-accent: var(--plist-accent, #8b1e3f);
+  --o-accent-soft: var(--plist-accent-soft, #f7ecef);
+
+  --o-shadow-1:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.05);
+  --o-shadow-2:
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(15, 23, 42, 0.09);
+}
+
+.orders-page {
   flex: 1;
-  width: min(520px, 100% - 32px);
+  width: min(600px, 100% - 40px);
   margin: 0 auto;
-
-  /* 共通ヘッダー分を確保 */
-  padding: 84px 0 46px;
+  padding: 24px 0 48px;
   box-sizing: border-box;
-
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
 }
 
-/* ヘッダー行：タイトル中央 */
-.orders-header{
+/* ヘッダー */
+.orders-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 0 6px;
-  margin-bottom: 14px;
+  padding: 8px 0 4px;
+  margin-bottom: 20px;
 }
 
-.orders-title{
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+.orders-title {
   margin: 0;
-  color: var(--ink);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--o-text);
 }
+
+.orders-back {
+  position: absolute;
+  left: 0;
+  top: 0;
+
+  border: 1px solid var(--o-border);
+  background: var(--o-surface);
+  padding: 8px 14px;
+  border-radius: 10px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--o-text-sub);
+  letter-spacing: 0.04em;
+
+  cursor: pointer;
+  box-shadow: var(--o-shadow-1);
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+
+.orders-back:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+  color: var(--o-text);
+}
+.orders-back:active { transform: scale(0.97); }
 
 /* 状態表示 */
-.orders-loading{
-  padding: 14px 12px;
-  color: var(--muted);
-}
-
-.no-orders{
-  margin-top: 26px;
+.orders-loading,
+.no-orders {
+  padding: 32px 20px;
   text-align: center;
-  font-size: 15px;
-  color: rgba(100,116,139,0.85);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--o-text-sub);
+  letter-spacing: 0.02em;
 }
 
-/* 一覧全体 */
-.orders-list{
-  margin-top: 10px;
+/* リスト */
+.orders-list {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* 各注文カード */
-.order-item{
+/* カード */
+.order-item {
   position: relative;
-  padding: 14px 16px 14px;
-  border-radius: var(--radius);
-  background: var(--card);
-  border: 1px solid var(--line);
-
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--o-surface);
+  border: 1px solid var(--o-border);
   cursor: pointer;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+  box-shadow: var(--o-shadow-1);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.2s ease,
+    border-color 0.15s ease;
 }
 
-.order-item:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.18);
-  background: rgba(255,255,255,0.95);
-  border-color: rgba(15,23,42,0.14);
+.order-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--o-shadow-2);
+  border-color: rgba(15, 23, 42, 0.1);
+}
+.order-item:active { transform: translateY(0); }
+
+.order-item:focus-visible {
+  outline: none;
+  border-color: rgba(139, 30, 63, 0.35);
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.1), var(--o-shadow-1);
 }
 
-.order-item:active{
-  transform: translateY(0px);
-  box-shadow: var(--shadow2);
-}
-
-/* タイトル（注文ID） */
-.order-item h3{
-  margin: 0 0 2px;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--ink);
-}
-
-/* 基本文 */
-.order-item p{
-  margin: 2px 0;
-  font-size: 13px;
-  color: rgba(71,85,105,0.92);
-}
-
-/* 合計金額強調 */
-.order-item .total{
-  font-weight: 900;
-  font-size: 14px;
-  color: var(--ink);
-}
-
-/* ↓ ここから「クーポン」「明細プレビュー」をクラスで綺麗にする用
-   （TSXを少しだけ直すと使える。TSX修正は下に載せた） */
-.order-top{
+/* トップ行 */
+.order-top {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
-}
-
-.order-badge{
-  font-size: 12px;
-  font-weight: 800;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(99,102,241,0.22);
-  background: rgba(99,102,241,0.10);
-  color: #3730a3;
-  white-space: nowrap;
-}
-
-.order-sub{
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(15,23,42,0.12);
-}
-
-/* クーポン内訳 */
-.coupon-box{
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: var(--card2);
-  border: 1px solid rgba(15,23,42,0.10);
-}
-
-.coupon-row{
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 13px;
-  color: rgba(30,41,59,0.92);
-  line-height: 1.65;
-}
-
-.coupon-row strong{
-  font-weight: 900;
-}
-
-.discount{
-  font-weight: 900;
-  color: #be123c;
-}
-
-/* 明細プレビュー */
-.items-preview{
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(15,23,42,0.12);
-}
-
-.items-preview-title{
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(100,116,139,0.9);
   margin-bottom: 6px;
 }
 
-.preview-row{
+.order-item h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--o-text);
+  letter-spacing: 0.02em;
+}
+
+.order-item p {
+  margin: 2px 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--o-text-muted);
+  letter-spacing: 0.02em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+/* バッジ */
+.order-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--o-accent-soft);
+  color: var(--o-accent);
+  white-space: nowrap;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  text-transform: uppercase;
+}
+
+.order-badge-points {
+  background: rgba(180, 120, 20, 0.1);
+  color: #a06810;
+}
+
+/* 明細プレビュー */
+.items-preview {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--o-border);
+}
+
+.items-preview-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--o-text-muted);
+  margin-bottom: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.preview-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
-  padding: 3px 0;
+  padding: 6px 0;
   font-size: 13px;
-  color: rgba(30,41,59,0.92);
+  color: var(--o-text);
 }
 
-.preview-name{
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 75%;
-}
-
-.preview-qty{
-  white-space: nowrap;
-  font-weight: 800;
-  color: rgba(15,23,42,0.88);
-}
-
-.preview-more{
-  margin-top: 2px;
-  font-size: 12px;
-  color: rgba(100,116,139,0.85);
-}
-
-/* アクセシビリティ */
-.order-item:focus{
-  outline: none;
-}
-.order-item:focus-visible{
-  outline: 3px solid rgba(99,102,241,0.35);
-  outline-offset: 2px;
-}
-
-/* ✅ 戻るボタン（追加） */
-.orders-header{
-  position: relative;
-}
-
-.orders-back{
-  position: absolute;
-  left: 0;
-  top: 0;
-
-  border: none;
-  cursor: pointer;
-
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(15,23,42,0.10);
-
-  padding: 8px 12px;
-  border-radius: 999px;
-
-  font-weight: 900;
-  color: var(--ink);
-
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
-}
-
-.orders-back:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
-  background: rgba(255,255,255,0.92);
-}
-
-.orders-back:active{
-  transform: translateY(0);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
-}
-
-/* ✅ 詳細を見る（追加） */
-.orders-open{
-  margin-top: 10px;
-  font-size: 12px;
-  font-weight: 900;
-  color: rgba(79,110,233,.95);
-  white-space: nowrap;
-  text-align: right;
-}
-
-/* --- 追加：商品サムネ + 計算ブロック + ポイント色 --- */
-
-.preview-left{
+.preview-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
   max-width: 75%;
 }
 
-.preview-thumb{
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+.preview-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   object-fit: cover;
-  flex: 0 0 26px;
-  border: 1px solid rgba(15,23,42,0.08);
+  flex: 0 0 36px;
+  border: 1px solid var(--o-border);
+  background: var(--plist-image-bg, #f4f4f6);
 }
 
-.preview-thumb-placeholder{
-  background: rgba(0,0,0,0.06);
+.preview-thumb-placeholder {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      #f0f0f2 0 6px,
+      #f6f6f8 6px 12px
+    );
 }
 
-.calc-box{
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: var(--card2);
-  border: 1px solid rgba(15,23,42,0.10);
+.preview-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
-.calc-row{
+.preview-qty {
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--o-text-sub);
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+.preview-more {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--o-text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* 計算ボックス */
+.calc-box {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--o-border);
+}
+
+.calc-row {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 13px;
-  color: rgba(30,41,59,0.92);
-  line-height: 1.65;
-  padding: 2px 0;
+  font-size: 12px;
+  color: var(--o-text-sub);
+  line-height: 1.7;
+  padding: 3px 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
 }
 
-.calc-total-row{
+.calc-row strong {
+  color: var(--o-text);
+  font-weight: 600;
+}
+
+.discount {
+  color: var(--o-accent);
+  font-weight: 600;
+}
+
+.calc-points {
+  color: #a06810;
+}
+
+.points-amount {
+  color: #a06810;
+  font-weight: 600;
+}
+
+.calc-total-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(15,23,42,0.12);
+  align-items: baseline;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--o-border);
   font-size: 13px;
+  color: var(--o-text-sub);
 }
 
-.calc-total{
-  font-weight: 900;
-  color: var(--ink);
-  font-size: 14px;
+.calc-total {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--o-text);
+  letter-spacing: -0.01em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
 }
 
-/* ✅ ポイントはオレンジ */
-.calc-points{
-  color: #ff7a00;
-  font-weight: 900;
+/* 詳細を見る */
+.orders-open {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--o-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--o-accent);
+  letter-spacing: 0.04em;
+  text-align: right;
+  transition: transform 0.15s ease;
 }
 
-.points-amount{
-  color: #ff7a00;
-  font-weight: 900;
+.order-item:hover .orders-open {
+  transform: translateX(3px);
 }
 
-/* バッジもポイントだけオレンジに */
-.order-badge-points{
-  border: 1px solid rgba(255,122,0,0.28);
-  background: rgba(255,122,0,0.12);
-  color: #c2410c;
+@media (max-width: 480px) {
+  .orders-page {
+    width: calc(100% - 28px);
+    padding: 20px 0 40px;
+  }
+  .order-item { padding: 16px; }
+  .orders-title { font-size: 18px; }
 }

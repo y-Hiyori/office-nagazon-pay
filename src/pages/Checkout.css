@@ -1,16 +1,13 @@
-/* ===========================
-   Checkout（スマホ縦 / PCで2カラム）
-=========================== */
+/* ============================================
+   Checkout  ✨ Refined
+============================================ */
 
 :root {
-  --checkout-max-mobile: 480px;
-  --checkout-max-desktop: 1100px;
-
-  /* ✅ 固定バーの高さ（ボタンだけ） */
+  --checkout-max-mobile: 600px;
+  --checkout-max-desktop: 1200px;
   --bottom-bar-space: 78px;
 }
 
-/* 表示切り替え */
 .only-mobile { display: block; }
 .only-desktop { display: none; }
 @media (min-width: 901px) {
@@ -22,25 +19,41 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f5f5f7;
+  background: var(--plist-bg, #fafafa);
+  color: var(--plist-text, #1d1d1f);
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
 }
 
-/* ===========================
-   ページ本体
-=========================== */
-.checkout-page {
-  flex: 1; /* ✅ フッターを最下部へ */
+.checkout-page-wrap {
+  --co-surface: var(--plist-surface, #ffffff);
+  --co-image-bg: var(--plist-image-bg, #f4f4f6);
+  --co-border: var(--plist-border, rgba(15, 23, 42, 0.06));
+  --co-text: var(--plist-text, #1d1d1f);
+  --co-text-sub: var(--plist-text-sub, #6e6e73);
+  --co-text-muted: var(--plist-text-muted, #a1a1a6);
+  --co-accent: var(--plist-accent, #8b1e3f);
+  --co-accent-soft: var(--plist-accent-soft, #f7ecef);
+  --co-shadow-1:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.05);
+  --co-shadow-2:
+    0 12px 28px rgba(15, 23, 42, 0.12),
+    0 24px 56px rgba(15, 23, 42, 0.08);
+}
 
+.checkout-page {
+  flex: 1;
   width: 100%;
   margin: 0 auto;
-  padding: 16px;
+  padding: 24px 20px;
   box-sizing: border-box;
-
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  background: #f5f5f7;
-
-  /* ✅ スマホは固定バー分だけ余白 */
-  padding-bottom: calc(var(--bottom-bar-space) + 18px);
+  padding-bottom: calc(var(--bottom-bar-space) + 24px);
 }
 
 @media (max-width: 900px) {
@@ -50,74 +63,74 @@
 @media (min-width: 901px) {
   .checkout-page {
     max-width: var(--checkout-max-desktop);
-    padding-bottom: 24px; /* PCは固定バー無し */
+    padding-bottom: 32px;
   }
 }
 
-/* ===========================
-   レイアウト（スマホ縦 / PCで2カラム）
-=========================== */
 .checkout-layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 18px;
+  gap: 20px;
 }
 
 @media (min-width: 901px) {
   .checkout-layout {
-    grid-template-columns: 1fr 360px;
+    grid-template-columns: 1fr 380px;
+    gap: 32px;
     align-items: start;
   }
   .checkout-side {
     position: sticky;
-    top: 76px;
+    top: 80px;
   }
 }
 
-/* ===========================
-   セクション共通
-=========================== */
-.co-section { margin-top: 14px; }
+.co-section { margin-top: 20px; }
+.co-section:first-child { margin-top: 0; }
 
 .co-section-title {
-  font-size: 14px;
-  font-weight: 900;
-  color: #111827;
-  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--co-text-muted);
+  margin: 0 0 10px;
+  padding-left: 4px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .co-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: var(--co-surface);
+  border: 1px solid var(--co-border);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: var(--co-shadow-1);
 }
 
-/* ===========================
-   購入商品
-=========================== */
 .co-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
+  gap: 14px;
+  padding: 12px 0;
 }
-.co-item + .co-item {
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
-}
+.co-item + .co-item { border-top: 1px solid var(--co-border); }
+.co-item:first-child { padding-top: 0; }
+.co-item:last-child { padding-bottom: 0; }
+
 .co-item-img {
   width: 64px;
   height: 64px;
   object-fit: cover;
-  border-radius: 12px;
-  background: #f3f4f6;
+  border-radius: 10px;
+  background: var(--co-image-bg);
+  border: 1px solid var(--co-border);
+  flex-shrink: 0;
 }
 .co-item-info { flex: 1; min-width: 0; }
 .co-item-name {
   font-size: 14px;
-  font-weight: 900;
-  color: #111827;
+  font-weight: 600;
+  color: var(--co-text);
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -125,194 +138,236 @@
 .co-item-sub {
   margin-top: 4px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--co-text-sub);
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0.02em;
 }
-.co-item-right { text-align: right; }
+.co-item-right { text-align: right; flex-shrink: 0; }
 .co-item-subtotal {
-  font-size: 13px;
-  font-weight: 900;
-  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--co-text);
+  letter-spacing: -0.01em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
 }
 
-/* ===========================
-   クーポン
-=========================== */
 .coupon-row {
   display: flex;
   gap: 10px;
   align-items: center;
 }
+
 .coupon-input {
   flex: 1;
-  height: 42px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  padding: 0 12px;
-  font-size: 14px;
-  outline: none;
-}
-.coupon-apply {
-  height: 42px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--co-border);
   padding: 0 14px;
-  border-radius: 12px;
-  border: none;
-  background: #111827;
-  color: #fff;
-  font-weight: 900;
-  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--co-text);
+  background: #fafafa;
+  letter-spacing: 0.02em;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
+.coupon-input::placeholder { color: var(--co-text-muted); font-weight: 400; }
+.coupon-input:focus {
+  border-color: rgba(139, 30, 63, 0.35);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
+}
+
+.coupon-apply {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+  border: none;
+  background: #1d1d1f;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.coupon-apply:hover { background: #000; }
+.coupon-apply:active { transform: scale(0.97); }
+
 .coupon-msg {
-  margin-top: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
   font-size: 12px;
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  letter-spacing: 0.02em;
 }
-.coupon-msg.ok { color: #16a34a; }
-.coupon-msg.ng { color: #ef4444; }
+.coupon-msg.ok,
+.coupon-msg.ng {
+  color: var(--co-accent);
+  background: var(--co-accent-soft);
+}
+
 .coupon-clear {
   border: none;
   background: transparent;
-  text-decoration: underline;
   cursor: pointer;
+  font-family: inherit;
   font-size: 12px;
   color: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 2px 4px;
 }
 
-/* ===========================
-   支払い方法
-=========================== */
 .pay-card {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: #fff;
-  border-radius: 14px;
-  padding: 12px;
-
+  border: 1px solid var(--co-border);
+  background: var(--co-surface);
+  border-radius: 12px;
+  padding: 16px;
+  font-family: inherit;
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-.pay-card.selected { border: 2px solid #5f85db; }
-.pay-left {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
+.pay-card:hover { border-color: rgba(15, 23, 42, 0.14); }
+.pay-card.selected {
+  border-color: var(--co-accent);
+  background: var(--co-accent-soft);
 }
-.pay-title {
-  font-size: 15px;
-  font-weight: 900;
-  color: #111827;
-}
-.pay-desc {
-  font-size: 12px;
-  color: #6b7280;
-}
-@media (min-width: 901px) {
-  .pay-card.pay-mini .pay-desc { display: none; }
-}
+
+.pay-left { display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.pay-title { font-size: 15px; font-weight: 600; color: var(--co-text); letter-spacing: 0.02em; }
+.pay-desc { font-size: 12px; color: var(--co-text-sub); letter-spacing: 0.02em; }
+@media (min-width: 901px) { .pay-card.pay-mini .pay-desc { display: none; } }
+
 .pay-check-area {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
-  border: 2px solid rgba(148, 163, 184, 0.8);
+  border: 1.5px solid var(--co-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
-.pay-check {
-  font-size: 16px;
-  color: #5f85db;
-  font-weight: 900;
+.pay-card.selected .pay-check-area {
+  background: var(--co-accent);
+  border-color: var(--co-accent);
 }
+.pay-check { font-size: 13px; color: #fff; font-weight: 700; line-height: 1; }
 
-/* ===========================
-   明細
-=========================== */
 .sum-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
   font-size: 13px;
-  color: #111827;
+  color: var(--co-text-sub);
   padding: 6px 0;
+  letter-spacing: 0.02em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+.sum-row span:first-child {
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, sans-serif;
 }
 .sum-sep {
   height: 1px;
-  background: rgba(148, 163, 184, 0.22);
-  margin: 8px 0;
+  background: var(--co-border);
+  margin: 10px 0;
 }
-.sum-total {
-  font-size: 15px;
-  font-weight: 900;
+.sum-total { font-size: 15px; padding-top: 4px; }
+.sum-total span:last-child {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--co-text);
+  letter-spacing: -0.01em;
 }
-.sum-discount {
-  color: #16a34a;
-  font-weight: 900;
-}
+.sum-discount { color: var(--co-accent); font-weight: 600; }
 
-/* PC右サイドの購入ボタン */
 .side-pay-btn {
   width: 100%;
-  margin-top: 14px;
-  padding: 14px 12px;
+  margin-top: 20px;
+  padding: 15px 14px;
   border: none;
-  border-radius: 14px;
-  background: #5f85db;
+  border-radius: 12px;
+  background: var(--co-accent);
   color: #fff;
-  font-size: 16px;
-  font-weight: 900;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   cursor: pointer;
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
-.side-pay-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.side-pay-btn:hover:not(:disabled) {
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
 }
+.side-pay-btn:active:not(:disabled) { transform: scale(0.98); }
+.side-pay-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ===========================
-   ✅ スマホ：購入確定ボタンを画面固定（ボタンだけ）
-=========================== */
 .checkout-bottom-fixed {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   bottom: 0;
-
-  width: calc(100% - 32px);
-  max-width: var(--checkout-max-mobile);
-  box-sizing: border-box;
-
-  background: #ffffffdd;
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 16px;
-
-  padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
   z-index: 300;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-top: 1px solid var(--co-border);
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 .checkout-btn {
   width: 100%;
-  padding: 14px 12px;
+  max-width: var(--checkout-max-mobile);
+  margin: 0 auto;
+  display: block;
+  padding: 14px;
   border: none;
-  border-radius: 14px;
-  background: #5f85db;
+  border-radius: 12px;
+  background: var(--co-accent);
   color: #fff;
-  font-size: 16px;
-  font-weight: 900;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   cursor: pointer;
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
-.checkout-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.checkout-btn:hover:not(:disabled) {
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
 }
+.checkout-btn:active:not(:disabled) { transform: scale(0.98); }
+.checkout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ===========================
-   フッターが固定バーに被らないように下余白（スマホだけ）
-=========================== */
 @media (max-width: 900px) {
   .checkout-page-wrap .site-footer {
     padding-bottom: calc(var(--bottom-bar-space) + env(safe-area-inset-bottom));
@@ -322,46 +377,77 @@
   .checkout-page-wrap .site-footer { padding-bottom: 0; }
 }
 
-/* ===========================
-   モーダル
-=========================== */
+/* NAGAZON PAY ID モーダル */
 .pay-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 20000;
+  padding: 20px;
+  box-sizing: border-box;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .pay-modal {
-  width: 90%;
-  max-width: 380px;
-  background: #fff;
-  padding: 22px;
-  border-radius: 16px;
-  text-align: center;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  width: min(400px, 100%);
+  background: var(--co-surface);
+  border: 1px solid var(--co-border);
+  border-radius: 14px;
+  padding: 28px 24px 24px;
+  text-align: left;
+  box-shadow: var(--co-shadow-2);
+  font-family: inherit;
+  color: var(--co-text);
+  letter-spacing: 0.02em;
+  animation: modalIn 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .pay-modal h3 {
-  margin: 0 0 10px;
-  font-size: 18px;
-  font-weight: 900;
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--co-text);
 }
 
 .store-auth-input {
   width: 100%;
-  padding: 10px 12px;
-  margin-top: 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 13px 14px;
+  margin-top: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--co-border);
+  background: #fafafa;
   box-sizing: border-box;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--co-text);
+  outline: none;
+  letter-spacing: 0.02em;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.store-auth-input:focus {
+  border-color: rgba(139, 30, 63, 0.35);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
 }
 
 .modal-buttons {
-  margin-top: 16px;
+  margin-top: 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -370,21 +456,44 @@
 .modal-main-btn {
   width: 100%;
   padding: 14px;
-  background: #5f85db;
-  color: white;
+  background: var(--co-accent);
+  color: #fff;
   border: none;
   border-radius: 12px;
-  font-size: 16px;
-  font-weight: 900;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  transition: background 0.2s ease, transform 0.12s ease;
 }
+.modal-main-btn:hover { background: #75182f; }
+.modal-main-btn:active { transform: scale(0.98); }
 
 .modal-sub-btn {
   width: 100%;
-  padding: 12px;
-  background: #e5e7eb;
-  color: #111827;
-  border: none;
+  padding: 13px;
+  background: var(--co-surface);
+  color: var(--co-text);
+  border: 1px solid var(--co-border);
   border-radius: 12px;
+  font-family: inherit;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+.modal-sub-btn:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: #fff;
+}
+.modal-sub-btn:active { transform: scale(0.98); }
+
+@media (max-width: 480px) {
+  .checkout-page { padding: 20px 14px; padding-bottom: calc(var(--bottom-bar-space) + 20px); }
+  .co-card { padding: 16px; }
+  .co-item-img { width: 56px; height: 56px; }
+  .checkout-bottom-fixed { padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); }
 }

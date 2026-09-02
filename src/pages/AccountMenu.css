@@ -1,306 +1,306 @@
-:root{
-  --ink: #0f172a;
-  --muted: rgba(100,116,139,0.92);
-  --line: rgba(15,23,42,0.10);
-  --card: rgba(255,255,255,0.86);
-  --shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
-  --shadow2: 0 12px 28px rgba(15, 23, 42, 0.10);
-  --radius: 22px;
-}
+/* ============================================
+   AccountMenu  ✨ Refined
+   Apple風プレミアム × 游ゴシック × ワインレッド
+============================================ */
 
-.account-wrap{
+.account-wrap {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--plist-bg, #fafafa);
+  color: var(--plist-text, #1d1d1f);
+
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
 }
 
-.account-main{
+.account-wrap {
+  --a-surface: var(--plist-surface, #ffffff);
+  --a-border: var(--plist-border, rgba(15, 23, 42, 0.06));
+  --a-text: var(--plist-text, #1d1d1f);
+  --a-text-sub: var(--plist-text-sub, #6e6e73);
+  --a-text-muted: var(--plist-text-muted, #a1a1a6);
+  --a-accent: var(--plist-accent, #8b1e3f);
+  --a-accent-soft: var(--plist-accent-soft, #f7ecef);
+
+  --a-shadow-1:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.05);
+  --a-shadow-2:
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(15, 23, 42, 0.09);
+
+  --a-radius-card: 14px;
+  --a-radius-btn: 12px;
+}
+
+.account-main {
   flex: 1;
-  background:
-    radial-gradient(900px 420px at 20% -10%, rgba(99,102,241,0.14), transparent 60%),
-    radial-gradient(800px 420px at 90% 0%, rgba(59,130,246,0.10), transparent 55%),
-    linear-gradient(180deg, #f6f8ff, #eef2ff);
+  background: transparent;
 }
 
-.account-shell{
-  width: min(560px, 100% - 32px);
+.account-shell {
+  width: min(560px, 100% - 40px);
   margin: 0 auto;
-  padding: 84px 0 46px;
+  padding: 32px 0 48px;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
 }
 
 /* ===== プロフィールカード ===== */
-.account-profile{
+.account-profile {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   align-items: center;
-
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-
-  padding: 14px 16px;
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-card);
+  box-shadow: var(--a-shadow-1);
+  padding: 20px 20px;
 }
 
-.account-avatar{
+.account-avatar {
   width: 56px;
   height: 56px;
-  border-radius: 18px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-
-  background: linear-gradient(135deg, rgba(79,70,229,0.98), rgba(99,102,241,0.98));
-  color: #fff;
-  font-weight: 900;
-  font-size: 22px;
-  box-shadow: 0 14px 26px rgba(79,70,229,0.26);
   flex-shrink: 0;
+  background: var(--a-accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(139, 30, 63, 0.28);
 }
 
-.account-profile-text{
+.account-profile-text {
   min-width: 0;
   text-align: left;
+  flex: 1;
 }
 
-.account-name-row{
+.account-name-row {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
 }
 
-.account-name{
+.account-name {
   margin: 0;
-  font-size: 18px;
-  font-weight: 900;
-  color: var(--ink);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--a-text);
   letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.account-email{
+.account-email {
   margin: 4px 0 0;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--a-text-sub);
+  letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
-.account-badge{
+.account-badge {
   flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 900;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(245,158,11,0.30);
-  background: rgba(245,158,11,0.14);
-  color: rgba(161,98,7,0.95);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--a-accent-soft);
+  color: var(--a-accent);
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  text-transform: uppercase;
 }
 
 /* ===== ポイント ===== */
-.account-points{
-  margin-top: 14px;
-  padding: 14px 14px 12px;
-
-  background: rgba(255,255,255,0.78);
-  border: 1px solid rgba(15,23,42,0.10);
-  border-radius: 20px;
-  box-shadow: var(--shadow2);
-  backdrop-filter: blur(10px);
+.account-points {
+  margin-top: 16px;
+  padding: 20px;
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-card);
+  box-shadow: var(--a-shadow-1);
 }
 
-.account-points-head{
+.account-points-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 
-.account-points-title{
+.account-points-title {
   margin: 0;
   font-size: 15px;
-  font-weight: 900;
-  color: var(--ink);
+  font-weight: 700;
+  color: var(--a-text);
+  letter-spacing: 0.04em;
 }
 
-.account-points-reload{
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(15,23,42,0.14);
-  background: rgba(255,255,255,0.85);
-  color: rgba(15,23,42,0.86);
-  font-weight: 900;
+.account-points-reload {
+  padding: 7px 14px;
+  border-radius: var(--a-radius-btn);
+  border: 1px solid var(--a-border);
+  background: var(--a-surface);
+  color: var(--a-text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   cursor: pointer;
+  box-shadow: var(--a-shadow-1);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
 }
 
-.account-points-row{
+.account-points-reload:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: #fff;
+}
+.account-points-reload:active:not(:disabled) { transform: scale(0.97); }
+.account-points-reload:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.account-points-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.account-points-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--a-text-sub);
+  letter-spacing: 0.02em;
+}
+
+.account-points-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--a-text);
+  letter-spacing: -0.01em;
+  font-feature-settings: "tnum" 1;
+}
+
+.account-points-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--a-text-sub);
+  letter-spacing: 0.02em;
+  border-top: 1px solid var(--a-border);
+}
+
+/* ===== アクション（リスト風） ===== */
+.account-actions {
+  margin-top: 16px;
+  padding: 0;
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-card);
+  box-shadow: var(--a-shadow-1);
+  overflow: hidden;
+}
+
+.acc-btn {
+  width: 100%;
+  padding: 16px 20px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--a-text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-align: left;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 2px;
-}
-
-.account-points-row.sub{
-  opacity: 0.85;
-}
-
-.account-points-label{
-  font-size: 13px;
-  font-weight: 900;
-  color: rgba(15,23,42,0.78);
-}
-
-.account-points-value{
-  font-size: 16px;
-  font-weight: 950;
-  color: var(--ink);
-}
-
-.account-points-note{
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(100,116,139,0.92);
-}
-
-/* ===== ボタンカード ===== */
-.account-actions{
-  margin-top: 14px;
-  padding: 14px;
-  background: rgba(255,255,255,0.78);
-  border: 1px solid rgba(15,23,42,0.10);
-  border-radius: 20px;
-  box-shadow: var(--shadow2);
-  backdrop-filter: blur(10px);
-
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.acc-btn{
-  width: 100%;
-  height: 54px;
-  padding: 0 18px;
-
-  border: 1px solid rgba(15,23,42,0.10);
-  border-radius: 16px;
-
-  font-size: 16px;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
+  gap: 12px;
   cursor: pointer;
-  user-select: none;
-
-  color: #ffffff;
-  background: linear-gradient(180deg, rgba(79,70,229,0.92), rgba(79,70,229,0.86));
-  box-shadow:
-    0 12px 22px rgba(79,70,229,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.22);
-
-  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid var(--a-border);
 }
 
-.acc-btn:hover{
-  transform: translateY(-1px);
-  box-shadow:
-    0 16px 30px rgba(79,70,229,0.22),
-    inset 0 1px 0 rgba(255,255,255,0.25);
+.acc-btn:last-child { border-bottom: none; }
+
+.acc-btn::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-top: 1.5px solid var(--a-text-muted);
+  border-right: 1.5px solid var(--a-text-muted);
+  transform: rotate(45deg);
+  transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
-.acc-btn:active{
-  transform: translateY(0);
-  filter: brightness(0.98);
-  box-shadow:
-    0 10px 18px rgba(79,70,229,0.16),
-    inset 0 2px 10px rgba(0,0,0,0.10);
+.acc-btn:hover { background: rgba(15, 23, 42, 0.03); }
+.acc-btn:hover::after {
+  border-color: var(--a-accent);
+  transform: translateX(2px) rotate(45deg);
 }
 
-.acc-btn:focus{ outline: none; }
-.acc-btn:focus-visible{
-  outline: 3px solid rgba(99,102,241,0.35);
-  outline-offset: 3px;
+.acc-btn:focus-visible {
+  outline: none;
+  background: rgba(139, 30, 63, 0.06);
 }
 
-.acc-btn-admin{
-  background: linear-gradient(180deg, rgba(245,158,11,0.92), rgba(234,88,12,0.88));
-  box-shadow:
-    0 12px 22px rgba(245,158,11,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.22);
+.acc-btn-admin {
+  color: var(--a-accent);
+  font-weight: 600;
 }
-.acc-btn-admin:hover{
-  box-shadow:
-    0 16px 30px rgba(245,158,11,0.22),
-    inset 0 1px 0 rgba(255,255,255,0.25);
-}
+.acc-btn-admin::after { border-color: var(--a-accent); }
 
-.acc-btn-ghost{
-  color: rgba(15,23,42,0.86);
-  background: rgba(255,255,255,0.82);
-  border: 1px solid rgba(15,23,42,0.14);
-  box-shadow:
-    0 10px 18px rgba(15,23,42,0.08),
-    inset 0 1px 0 rgba(255,255,255,0.45);
-}
-.acc-btn-ghost:hover{
-  transform: translateY(-1px);
-  box-shadow:
-    0 14px 24px rgba(15,23,42,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.50);
-}
-.acc-btn-ghost:active{
-  transform: translateY(0);
-  box-shadow:
-    0 10px 18px rgba(15,23,42,0.08),
-    inset 0 2px 10px rgba(0,0,0,0.08);
-}
+.acc-btn-ghost { color: var(--a-text); }
 
-.acc-btn-danger{
-  background: linear-gradient(180deg, rgba(239,68,68,0.92), rgba(185,28,28,0.88));
-  box-shadow:
-    0 12px 22px rgba(239,68,68,0.16),
-    inset 0 1px 0 rgba(255,255,255,0.20);
-}
-.acc-btn-danger:hover{
-  box-shadow:
-    0 16px 30px rgba(239,68,68,0.20),
-    inset 0 1px 0 rgba(255,255,255,0.22);
-}
+.acc-btn-danger { color: #c02323; }
+.acc-btn-danger::after { border-color: #c02323; }
+.acc-btn-danger:hover { background: rgba(192, 35, 35, 0.05); }
 
-.account-ghost{
-  padding: 18px 10px;
-  color: var(--muted);
-  font-weight: 900;
+.account-ghost {
+  padding: 32px 20px;
+  color: var(--a-text-sub);
+  font-size: 13px;
   text-align: center;
 }
-.account-error{
-  padding: 18px 10px;
-  color: #b91c1c;
-  font-weight: 900;
+
+.account-error {
+  padding: 32px 20px;
+  color: var(--a-accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
   white-space: pre-line;
 }
 
-@media (max-width: 420px){
-  .account-shell{
-    width: calc(100% - 24px);
-    padding: 78px 0 40px;
+@media (max-width: 480px) {
+  .account-shell {
+    width: calc(100% - 28px);
+    padding: 24px 0 40px;
   }
-  .acc-btn{
-    height: 50px;
-    font-size: 15px;
-    border-radius: 14px;
-  }
+  .account-avatar { width: 48px; height: 48px; font-size: 20px; }
+  .account-name { font-size: 16px; }
+  .account-points-value { font-size: 22px; }
+  .acc-btn { padding: 14px 16px; font-size: 14px; }
 }

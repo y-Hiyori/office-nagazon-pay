@@ -1,205 +1,237 @@
-/* ================================
-   注文詳細（共通ヘッダー/フッター対応）
-================================ */
+/* ============================================
+   OrderDetail  ✨ Refined
+============================================ */
 
-:root{
-  --ink: #0f172a;
-  --muted: #64748b;
-  --card: rgba(255,255,255,0.9);
-  --card2: rgba(255,255,255,0.72);
-  --line: rgba(15, 23, 42, 0.10);
-  --shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
-  --shadow2: 0 12px 28px rgba(15, 23, 42, 0.12);
-  --radius: 20px;
-}
-
-.orders-page-wrap{
+.orders-page-wrap {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(1100px 500px at 20% -10%, rgba(99,102,241,0.14), transparent 60%),
-    radial-gradient(900px 500px at 90% 0%, rgba(59,130,246,0.12), transparent 55%),
-    linear-gradient(180deg, #f6f8ff, #eef2ff);
-}
+  background: var(--plist-bg, #fafafa);
+  color: var(--plist-text, #1d1d1f);
 
-.orders-page{
-  flex: 1;
-  width: min(520px, 100% - 32px);
-  margin: 0 auto;
-  padding: 84px 0 46px;
-  box-sizing: border-box;
-
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
-}
-
-/* 詳細ヘッダー（戻る無しなので中央固定） */
-.order-header{
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0 6px;
-  margin-bottom: 12px;
-}
-
-.detail-title{
-  margin: 0;
-  font-size: 22px;
-  font-weight: 900;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "palt" 1;
   letter-spacing: 0.02em;
-  color: var(--ink);
 }
 
-/* 読み込み/空表示（OrdersList.cssが無くても動くように） */
-.orders-loading{
-  padding: 14px 12px;
-  color: var(--muted);
+.orders-page-wrap {
+  --od-surface: var(--plist-surface, #ffffff);
+  --od-border: var(--plist-border, rgba(15, 23, 42, 0.06));
+  --od-image-bg: var(--plist-image-bg, #f4f4f6);
+  --od-text: var(--plist-text, #1d1d1f);
+  --od-text-sub: var(--plist-text-sub, #6e6e73);
+  --od-text-muted: var(--plist-text-muted, #a1a1a6);
+  --od-accent: var(--plist-accent, #8b1e3f);
+
+  --od-shadow-1:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
-.no-orders{
-  margin-top: 26px;
-  text-align: center;
-  font-size: 15px;
-  color: rgba(100,116,139,0.85);
+.orders-page {
+  flex: 1;
+  width: min(600px, 100% - 40px);
+  margin: 0 auto;
+  padding: 24px 0 48px;
+  box-sizing: border-box;
 }
 
-/* 注文情報カード */
-.order-info{
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-
-  padding: 14px 16px;
-  margin-bottom: 16px;
-
-  font-size: 14px;
-  color: rgba(30,41,59,0.92);
-}
-
-.order-info p{
-  margin: 6px 0;
-}
-
-.order-info strong{
-  color: var(--ink);
-  font-weight: 900;
-}
-
-/* 内訳を少し見やすく */
-.order-info p + p{
-  border-top: 1px dashed rgba(15,23,42,0.10);
-  padding-top: 8px;
-}
-
-/* 商品一覧タイトル */
-.items-title{
-  font-size: 16px;
-  font-weight: 900;
-  margin: 6px 0 12px;
-  color: var(--ink);
-}
-
-/* 各商品カード */
-.order-item-box{
-  background: var(--card);
-  border: 1px solid var(--line);
-  padding: 12px 12px 14px;
-  border-radius: 20px;
-  margin-bottom: 14px;
-  box-shadow: var(--shadow2);
-  backdrop-filter: blur(8px);
-}
-
-.order-item-box p{
-  margin: 4px 0;
-  font-size: 14px;
-  color: rgba(30,41,59,0.92);
-}
-
-.order-item-box strong{
-  font-weight: 900;
-  color: var(--ink);
-}
-
-/* 商品画像（有り） */
-.order-item-image{
-  width: 100%;
-  height: 190px;
-  object-fit: cover;
-  border-radius: 16px;
-  margin-bottom: 10px;
-  display: block;
-  border: 1px solid rgba(15,23,42,0.08);
-}
-
-/* 商品画像（無し） */
-.order-noimg{
-  width: 100%;
-  height: 190px;
-  border-radius: 16px;
-  margin-bottom: 10px;
-
-  background: rgba(148,163,184,0.18);
-  border: 1px dashed rgba(100,116,139,0.35);
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  color: rgba(100,116,139,0.9);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-/* 詳細ヘッダー（戻る付き） */
-.order-header{
+/* ヘッダー */
+.order-header {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 0 6px;
-  margin-bottom: 12px;
+  padding: 8px 0 4px;
+  margin-bottom: 20px;
 }
 
-.order-back{
+.detail-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--od-text);
+}
+
+.order-back {
   position: absolute;
   left: 0;
   top: 0;
 
-  border: none;
+  border: 1px solid var(--od-border);
+  background: var(--od-surface);
+  padding: 8px 14px;
+  border-radius: 10px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--od-text-sub);
+  letter-spacing: 0.04em;
+
   cursor: pointer;
-
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(15,23,42,0.10);
-
-  padding: 8px 12px;
-  border-radius: 999px;
-
-  font-weight: 900;
-  color: var(--ink);
-
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  box-shadow: var(--od-shadow-1);
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
 }
 
-.order-back:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
-  background: rgba(255,255,255,0.92);
+.order-back:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+  color: var(--od-text);
+}
+.order-back:active { transform: scale(0.97); }
+
+/* 注文情報カード */
+.order-info {
+  background: var(--od-surface);
+  border: 1px solid var(--od-border);
+  border-radius: 14px;
+  box-shadow: var(--od-shadow-1);
+  padding: 6px 20px;
+  margin-bottom: 16px;
+
+  font-size: 13px;
+  color: var(--od-text);
 }
 
-.order-back:active{
-  transform: translateY(0);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+.order-info p {
+  margin: 0;
+  padding: 12px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--od-border);
+  letter-spacing: 0.02em;
+  line-height: 1.5;
 }
 
-/* ✅ スマホ微調整 */
-@media (max-width: 420px){
-  .order-back{
-    padding: 7px 10px;
-    font-size: 13px;
+.order-info p:last-child {
+  border-bottom: none;
+}
+
+.order-info strong {
+  color: var(--od-text-sub);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.order-info p:last-child strong {
+  color: var(--od-text);
+  font-weight: 600;
+}
+
+/* 商品一覧タイトル */
+.items-title {
+  font-size: 12px;
+  font-weight: 500;
+  margin: 20px 0 12px;
+  color: var(--od-text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* 各商品カード */
+.order-item-box {
+  background: var(--od-surface);
+  border: 1px solid var(--od-border);
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--od-shadow-1);
+}
+
+.order-item-box p {
+  margin: 0;
+  padding: 6px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--od-text);
+  letter-spacing: 0.02em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+.order-item-box p:first-of-type {
+  padding-top: 12px;
+  border-top: 1px solid var(--od-border);
+  margin-top: 12px;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.order-item-box strong {
+  font-weight: 500;
+  color: var(--od-text-sub);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* 商品画像 */
+.order-item-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 4px;
+  display: block;
+  background: var(--od-image-bg);
+}
+
+/* 画像なし */
+.order-noimg {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  color: var(--od-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      #f0f0f2 0 8px,
+      #f6f6f8 8px 16px
+    );
+}
+
+/* 状態表示 */
+.orders-loading,
+.no-orders {
+  padding: 32px 20px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--od-text-sub);
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 480px) {
+  .orders-page {
+    width: calc(100% - 28px);
+    padding: 20px 0 40px;
   }
+  .order-info,
+  .order-item-box { padding: 16px; }
+  .detail-title { font-size: 18px; }
 }

@@ -1,228 +1,380 @@
-/* src/pages/AdminEdit.css */
+/* ============================================
+   AdminEdit  ✨ Refined
+   Apple風プレミアム × 游ゴシック × ワインレッド
+============================================ */
 
-/* ===== ページ全体 ===== */
-.ae-page{
+.ae-page {
   min-height: 100vh;
-  padding: 86px 16px 90px;
-  background:
-    radial-gradient(1100px 500px at 20% -10%, rgba(99,102,241,0.14), transparent 60%),
-    radial-gradient(900px 500px at 90% 0%, rgba(59,130,246,0.12), transparent 55%),
-    linear-gradient(180deg, #f6f8ff, #eef2ff);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", Arial, sans-serif;
-  color: #0f172a;
+  padding: 96px 20px 110px;
+  background: var(--plist-bg, #fafafa);
+  color: var(--plist-text, #1d1d1f);
   box-sizing: border-box;
+
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
 }
 
-/* ===== ヘッダー ===== */
-.ae-header{
+.ae-page {
+  --ae-surface: var(--plist-surface, #ffffff);
+  --ae-border: var(--plist-border, rgba(15, 23, 42, 0.06));
+  --ae-text: var(--plist-text, #1d1d1f);
+  --ae-text-sub: var(--plist-text-sub, #6e6e73);
+  --ae-text-muted: var(--plist-text-muted, #a1a1a6);
+  --ae-accent: var(--plist-accent, #8b1e3f);
+  --ae-accent-soft: var(--plist-accent-soft, #f7ecef);
+  --ae-danger: #c02323;
+  --ae-danger-soft: rgba(192, 35, 35, 0.06);
+
+  --ae-shadow-1:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.05);
+  --ae-shadow-2:
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(15, 23, 42, 0.09);
+}
+
+/* ============================================
+   ヘッダー
+============================================ */
+
+.ae-header {
   position: fixed;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: min(520px, 100%);
-  height: 72px;
-  padding: 0 14px;
+  width: min(560px, 100%);
+  height: 64px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: rgba(255,255,255,0.86);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.10);
+  gap: 14px;
+
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--ae-border);
   z-index: 50;
   box-sizing: border-box;
 }
 
-.ae-back{
-  border: 1px solid rgba(15,23,42,0.10);
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(10px);
-  color: #0f172a;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-weight: 900;
-  cursor: pointer;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
-}
+.ae-back {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--ae-border);
+  background: var(--ae-surface);
+  color: var(--ae-text);
+  border-radius: 10px;
 
-.ae-header-title h2{
-  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
   font-size: 18px;
-  font-weight: 900;
-  letter-spacing: 0.01em;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+
+  box-shadow: var(--ae-shadow-1);
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+  flex-shrink: 0;
 }
 
-.ae-header-title p{
+.ae-back:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+  color: var(--ae-text);
+}
+.ae-back:active { transform: scale(0.96); }
+
+.ae-header-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.ae-header-title h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ae-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ae-header-title p {
   margin: 2px 0 0;
-  font-size: 12px;
-  color: rgba(30,41,59,0.75);
+  font-size: 11px;
+  color: var(--ae-text-muted);
+  letter-spacing: 0.06em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
 }
 
-/* ===== カード ===== */
-.ae-card{
-  width: min(520px, 100%);
+.ae-header-title p strong {
+  font-weight: 600;
+  color: var(--ae-text-sub);
+}
+
+/* ============================================
+   カード
+============================================ */
+
+.ae-card {
+  width: min(560px, 100%);
   margin: 0 auto;
-  background: rgba(255,255,255,0.90);
-  border: 1px solid rgba(15, 23, 42, 0.10);
-  border-radius: 22px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
-  backdrop-filter: blur(10px);
-  padding: 16px 16px 8px;
+  background: var(--ae-surface);
+  border: 1px solid var(--ae-border);
+  border-radius: 14px;
+  box-shadow: var(--ae-shadow-1);
+  padding: 24px;
   box-sizing: border-box;
 }
 
-.ae-section-title{
-  padding: 4px 2px 12px;
-  border-bottom: 1px dashed rgba(15,23,42,0.12);
-  margin-bottom: 14px;
+.ae-section-title {
+  padding: 0 0 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--ae-border);
 }
 
-.ae-section-title h3{
+.ae-section-title h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 900;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ae-text);
+  letter-spacing: 0.04em;
 }
 
-.ae-section-title p{
+.ae-section-title p {
   margin: 6px 0 0;
   font-size: 12px;
-  color: rgba(30,41,59,0.70);
+  font-weight: 400;
+  color: var(--ae-text-sub);
+  letter-spacing: 0.02em;
 }
 
-/* ===== フィールド ===== */
-.ae-field{
-  margin-top: 14px;
-}
+/* ============================================
+   フィールド
+============================================ */
 
-.ae-label{
+.ae-field {
+  margin-top: 16px;
+}
+.ae-field:first-of-type { margin-top: 0; }
+
+.ae-label {
   display: block;
   font-size: 12px;
-  font-weight: 800;
-  color: rgba(30,41,59,0.70);
-  margin: 0 0 6px;
+  font-weight: 500;
+  color: var(--ae-text-sub);
+  margin: 0 0 8px;
+  letter-spacing: 0.04em;
 }
 
-.ae-input-wrap{
+.ae-input-wrap {
   position: relative;
 }
 
-.ae-input{
+.ae-input {
   width: 100%;
-  height: 48px;
-  border-radius: 14px;
-  border: 1px solid rgba(15,23,42,0.10);
-  background: rgba(248,250,252,0.95);
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--ae-border);
+  background: #fafafa;
   padding: 0 14px;
+
+  font-family: inherit;
   font-size: 15px;
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 500;
+  color: var(--ae-text);
+  letter-spacing: 0.02em;
+  font-feature-settings: "tnum" 1;
+
   outline: none;
   box-sizing: border-box;
-  transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.ae-input:focus{
-  border-color: rgba(99,102,241,0.55);
-  box-shadow: 0 0 0 4px rgba(99,102,241,0.14);
+.ae-input::placeholder {
+  color: var(--ae-text-muted);
+  font-weight: 400;
 }
 
-.ae-suffix{
+.ae-input:focus {
+  border-color: rgba(139, 30, 63, 0.35);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
+}
+
+/* サフィックス（円/個）が入るときはinputの右パディングを空ける */
+.ae-input-wrap .ae-input {
+  padding-right: 40px;
+}
+
+.ae-suffix {
   position: absolute;
-  right: 12px;
+  right: 14px;
   top: 50%;
   transform: translateY(-50%);
   font-size: 12px;
-  font-weight: 900;
-  color: rgba(30,41,59,0.55);
+  font-weight: 500;
+  color: var(--ae-text-muted);
   pointer-events: none;
+  letter-spacing: 0.02em;
 }
 
 /* 2列 */
-.ae-grid2{
+.ae-grid2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
+  margin-top: 16px;
 }
 
-@media (max-width: 420px){
-  .ae-grid2{
+.ae-grid2 .ae-field {
+  margin-top: 0;
+}
+
+@media (max-width: 480px) {
+  .ae-grid2 {
     grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .ae-grid2 .ae-field {
+    margin-top: 16px;
+  }
+  .ae-grid2 .ae-field:first-child {
+    margin-top: 16px;
   }
 }
 
-/* ===== 危険エリア（ID変更） ===== */
-.ae-danger{
-  margin-top: 16px;
-  border-top: 1px dashed rgba(15,23,42,0.12);
-  padding-top: 14px;
+/* ============================================
+   危険エリア（ID変更）
+============================================ */
+
+.ae-danger {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ae-border);
 }
 
-.ae-danger-toggle{
+.ae-danger-toggle {
   width: 100%;
-  border: 1px solid rgba(239,68,68,0.22);
-  background: rgba(239,68,68,0.06);
-  color: rgba(185,28,28,0.95);
-  border-radius: 14px;
-  padding: 12px 12px;
-  font-weight: 900;
+  border: 1px solid var(--ae-border);
+  background: transparent;
+  color: var(--ae-text-sub);
+  border-radius: 10px;
+  padding: 12px 14px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   cursor: pointer;
+  text-align: left;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
-.ae-danger-body{
-  margin-top: 10px;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.75);
-  border: 1px solid rgba(239,68,68,0.18);
+.ae-danger-toggle:hover {
+  border-color: rgba(192, 35, 35, 0.35);
+  color: var(--ae-danger);
+  background: var(--ae-danger-soft);
 }
 
-.ae-danger-text{
-  margin: 0 0 10px;
+.ae-danger-body {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--ae-danger-soft);
+  border: 1px solid rgba(192, 35, 35, 0.15);
+}
+
+.ae-danger-text {
+  margin: 0 0 14px;
   font-size: 12px;
-  font-weight: 800;
-  color: rgba(185,28,28,0.85);
+  font-weight: 500;
+  color: var(--ae-danger);
+  letter-spacing: 0.02em;
+  line-height: 1.6;
 }
 
-/* 固定ボタンに被らない余白 */
-.ae-bottom-space{
+.ae-danger-body .ae-field {
+  margin-top: 0;
+}
+
+.ae-danger-body .ae-input:focus {
+  border-color: rgba(192, 35, 35, 0.45);
+  box-shadow: 0 0 0 3px rgba(192, 35, 35, 0.08);
+}
+
+/* 下部余白 */
+.ae-bottom-space {
   height: 8px;
 }
 
-/* ===== 固定フッター ===== */
-.ae-footer{
+/* ============================================
+   固定フッター
+============================================ */
+
+.ae-footer {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
   bottom: 0;
-  width: min(520px, 100%);
-  padding: 10px 16px 16px;
-  background: linear-gradient(180deg, rgba(246,248,255,0.0), rgba(246,248,255,0.85) 30%, rgba(246,248,255,0.95));
-  backdrop-filter: blur(10px);
+  width: min(560px, 100%);
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-top: 1px solid var(--ae-border);
+
   box-sizing: border-box;
   z-index: 60;
 }
 
-.ae-save{
+.ae-save {
   width: 100%;
-  height: 52px;
+  padding: 14px;
   border: none;
-  border-radius: 999px;
+  border-radius: 12px;
   cursor: pointer;
-  font-size: 16px;
-  font-weight: 900;
+
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: #fff;
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
-  transition: transform .1s ease, box-shadow .15s ease, opacity .15s ease;
+
+  background: var(--ae-accent);
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.ae-save:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
+.ae-save:hover:not(:disabled) {
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
 }
+.ae-save:active:not(:disabled) { transform: scale(0.98); }
+.ae-save:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.ae-save:disabled{
-  opacity: 0.55;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.20);
+@media (max-width: 480px) {
+  .ae-page { padding: 84px 14px 100px; }
+  .ae-header { width: 100%; padding: 0 14px; }
+  .ae-card { padding: 20px; border-radius: 12px; }
+  .ae-footer { padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); width: 100%; }
 }

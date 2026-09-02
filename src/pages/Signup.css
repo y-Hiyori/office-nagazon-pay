@@ -1,217 +1,160 @@
-/* ================================
-   Signup（クリーン / Login・AuthSelectと統一）
-================================ */
+/* ============================================
+   Signup  ✨ Refined（Loginと同じシステム）
+============================================ */
 
-:root{
-  --ink: #0f172a;
-  --muted: #64748b;
-  --line: rgba(15, 23, 42, 0.10);
-
-  --card: rgba(255,255,255,0.92);
-  --shadow: 0 22px 60px rgba(15, 23, 42, 0.14);
-
-  --accent1: #2563eb;
-  --accent2: #3b82f6;
-}
-
-/* コンテナ */
-.signup-container{
-  width: min(420px, 100% - 32px);
-  margin: 88px auto 46px;
-  padding: 34px 24px 26px;
+.signup-container {
+  width: min(420px, 100% - 40px);
+  margin: 48px auto;
+  padding: 40px 28px 28px;
   box-sizing: border-box;
-
-  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94));
-  border: 1px solid rgba(15,23,42,0.08);
-  border-radius: 26px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-
+  background: var(--plist-surface, #ffffff);
+  border: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 28px rgba(15, 23, 42, 0.08);
   position: relative;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text","Helvetica Neue", sans-serif;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--plist-text, #1d1d1f);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.02em;
 }
 
-/* 戻るボタン（Loginと同じ） */
-.signup-back{
+.signup-back {
   position: absolute;
   top: 16px;
   left: 16px;
-
   display: inline-flex;
   align-items: center;
   gap: 6px;
-
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(15,23,42,0.10);
-
-  font-size: 14px;
-  font-weight: 900;
-  color: var(--ink);
-
-  background: rgba(255,255,255,0.92);
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--plist-text-sub, #6e6e73);
+  letter-spacing: 0.04em;
+  background: var(--plist-surface, #ffffff);
   cursor: pointer;
-
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.10);
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 2px 6px rgba(15, 23, 42, 0.04);
+  transition: transform 0.12s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-/* JSXが「← 戻る」でもOK（見た目は統一される） */
-.signup-back:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
-  background: rgba(255,255,255,0.98);
+.signup-back:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+  color: var(--plist-text, #1d1d1f);
+}
+.signup-back:active { transform: scale(0.97); }
+.signup-back:focus-visible {
+  outline: none;
+  border-color: rgba(139, 30, 63, 0.35);
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.15);
 }
 
-.signup-back:active{
-  transform: translateY(0);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
-}
-
-.signup-back:focus{ outline: none; }
-.signup-back:focus-visible{
-  outline: 3px solid rgba(59,130,246,0.28);
-  outline-offset: 3px;
-}
-
-/* タイトル */
-.signup-title{
+.signup-title {
   text-align: center;
   font-size: 22px;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  margin: 30px 0 18px;
-  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 20px 0 24px;
+  color: var(--plist-text, #1d1d1f);
 }
 
-/* 入力欄 */
-.signup-input{
+.signup-input {
   width: 100%;
   box-sizing: border-box;
-
-  padding: 14px 14px;
-  font-size: 16px;
-  font-weight: 800;
-  color: rgba(30,41,59,0.92);
-
-  border-radius: 14px;
-  border: 1px solid rgba(15,23,42,0.10);
-  background: rgba(255,255,255,0.92);
-
+  padding: 13px 14px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--plist-text, #1d1d1f);
+  letter-spacing: 0.02em;
+  border-radius: 10px;
+  border: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
+  background: #fafafa;
   outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   margin-bottom: 12px;
-
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
 }
 
-.signup-input::placeholder{
-  color: rgba(100,116,139,0.75);
-  font-weight: 800;
+.signup-input::placeholder {
+  color: var(--plist-text-muted, #a1a1a6);
+  font-weight: 400;
 }
 
-.signup-input:focus{
-  border-color: rgba(59,130,246,0.55);
-  background: rgba(255,255,255,0.98);
-  box-shadow:
-    0 12px 26px rgba(15, 23, 42, 0.10),
-    0 0 0 4px rgba(59,130,246,0.18);
+.signup-input:focus {
+  border-color: rgba(139, 30, 63, 0.35);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
 }
 
-/* エラー表示（見やすいカード） */
-.signup-error{
-  margin: 10px 0 6px;
-  padding: 10px 12px;
-
-  border-radius: 14px;
-  border: 1px solid rgba(239, 68, 68, 0.22);
-  background: rgba(239, 68, 68, 0.08);
-
-  color: #b91c1c;
-  font-weight: 900;
-  font-size: 13px;
+.signup-error {
+  margin: 6px 0 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--plist-accent-soft, #f7ecef);
+  color: var(--plist-accent, #8b1e3f);
+  font-size: 12px;
+  font-weight: 600;
   text-align: center;
+  letter-spacing: 0.02em;
 }
 
-/* 登録ボタン（メイン） */
-.signup-button{
+.signup-button {
   width: 100%;
-  height: 54px;
-  margin-top: 6px;
-
+  padding: 14px;
+  margin-top: 8px;
   border: none;
-  border-radius: 999px;
-
-  font-size: 16px;
-  font-weight: 900;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: #ffffff;
   cursor: pointer;
-
-  background: linear-gradient(135deg, var(--accent2), var(--accent1));
-  box-shadow: 0 18px 30px rgba(37, 99, 235, 0.30);
-  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  background: var(--plist-accent, #8b1e3f);
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.signup-button:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 22px 40px rgba(37, 99, 235, 0.38);
-  opacity: 0.98;
+.signup-button:hover:not(:disabled) {
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
 }
+.signup-button:active:not(:disabled) { transform: scale(0.98); }
+.signup-button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.signup-button:active{
-  transform: translateY(0);
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.26);
-  opacity: 0.92;
-}
-
-.signup-button:focus{ outline: none; }
-.signup-button:focus-visible{
-  outline: 3px solid rgba(59,130,246,0.28);
-  outline-offset: 3px;
-}
-
-/* ログインへ（サブ） */
-.signup-link{
+.signup-link {
   width: 100%;
-  height: 52px;
-  margin-top: 12px;
-
-  border-radius: 999px;
-  border: 1px solid rgba(15,23,42,0.12);
-
-  font-size: 15px;
-  font-weight: 900;
+  padding: 13px;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--plist-text, #1d1d1f);
   cursor: pointer;
-
-  background: rgba(255,255,255,0.96);
-  color: var(--ink);
-  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.10);
-  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  background: var(--plist-surface, #ffffff);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
 }
 
-.signup-link:hover{
-  transform: translateY(-1px);
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+.signup-link:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: #fff;
 }
+.signup-link:active { transform: scale(0.98); }
 
-.signup-link:active{
-  transform: translateY(0);
-  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.10);
-  opacity: 0.92;
-}
-
-/* スマホ */
-@media (max-width: 420px){
-  .signup-container{
-    margin: 78px auto 36px;
-    padding: 30px 18px 22px;
-  }
-  .signup-button{
-    height: 50px;
-    font-size: 15px;
-  }
-  .signup-link{
-    height: 48px;
-    font-size: 14px;
+@media (max-width: 480px) {
+  .signup-container {
+    margin: 32px auto;
+    padding: 36px 20px 24px;
   }
 }

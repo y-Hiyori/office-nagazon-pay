@@ -22,9 +22,22 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
+  overflow-y: auto;
 
   /* ページの背景も薄グレーにしておく（カードが映えるように） */
   background-color: #f3f4f6;

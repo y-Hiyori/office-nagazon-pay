@@ -48,7 +48,7 @@ function ProductDetail() {
 
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, price, stock, created_at, is_visible")
+        .select("*")
         .eq("id", productId)
         .maybeSingle();
 
@@ -66,6 +66,7 @@ function ProductDetail() {
         id: data.id,
         name: data.name,
         price: data.price,
+        original_price: (data as any).original_price ?? (data as any).originalPrice ?? null,
         stock: Number((data as any).stock ?? 0),
         imageData: img,
         created_at: (data as any).created_at ?? null,
@@ -102,12 +103,17 @@ function ProductDetail() {
   const isNew = isNewRaw && canPurchase;
 
   const priceNum = Number(product?.price ?? 0) || 0;
+  const originalPriceNum =
+    Number((product as any)?.original_price ?? (product as any)?.originalPrice ?? 0) || 0;
+  const isSale = originalPriceNum > priceNum;
+  const discountYen = isSale ? originalPriceNum - priceNum : 0;
+  const discountRate = isSale ? Math.round((discountYen / originalPriceNum) * 100) : 0;
   const subtotal = priceNum * quantity;
 
   const titleBadge = useMemo(() => {
     if (!product) return null;
-    if (isHidden) return { text: "現在購入できません", kind: "blocked" as const };
-    if (isSoldOut) return { text: "売り切れ", kind: "soldout" as const };
+    if (isHidden) return { text: "販売停止中", kind: "blocked" as const };
+    if (isSoldOut) return { text: "SOLD OUT", kind: "soldout" as const };
     if (isNew) return { text: "NEW", kind: "new" as const };
     return null;
   }, [product, isHidden, isSoldOut, isNew]);
@@ -193,6 +199,76 @@ function ProductDetail() {
     );
   }
 
+  /* ---------------- 購入カードの中身（PC/SPで共有） ---------------- */
+  const SummaryCardContent = (
+    <>
+      <div className="pdetail-titleRow">
+        <div className="pdetail-titleMeta">
+          {isSale ? (
+            <span className="pdetail-chip sale">
+              通常価格 ¥{formatYen(originalPriceNum)}
+            </span>
+          ) : null}
+          {titleBadge && (
+            <span className={`pdetail-inlineBadge ${titleBadge.kind}`}>
+              {titleBadge.text}
+            </span>
+          )}
+        </div>
+
+        <h1 className="pdetail-name">{product.name}</h1>
+      </div>
+
+      {isSale ? (
+        <div className="pdetail-pricePanel">
+          <div className="pdetail-priceMainRow">
+            <div className="pdetail-price">¥{formatYen(priceNum)}</div>
+            <div className="pdetail-discountValue">
+              ¥{formatYen(discountYen)} OFF ({discountRate}%)
+            </div>
+          </div>
+          <div className="pdetail-priceCompare">
+            ¥{formatYen(originalPriceNum)} → ¥{formatYen(priceNum)}
+          </div>
+        </div>
+      ) : (
+        <div className="pdetail-price">¥{formatYen(priceNum)}</div>
+      )}
+
+      <div className="pdetail-qtyRow">
+        <div className="pdetail-qtyLabel">数量</div>
+        <div className="pdetail-qtyControls">
+          <button
+            className="pdetail-qtyBtn"
+            onClick={() => handleChangeQty(-1)}
+            disabled={quantity <= 1 || !canPurchase}
+            aria-label="数量を減らす"
+            type="button"
+          >
+            −
+          </button>
+
+          <div className="pdetail-qtyValue">{quantity}</div>
+
+          <button
+            className="pdetail-qtyBtn"
+            onClick={() => handleChangeQty(1)}
+            disabled={quantity >= stockNum || !canPurchase}
+            aria-label="数量を増やす"
+            type="button"
+          >
+            ＋
+          </button>
+        </div>
+      </div>
+
+      <div className="pdetail-subtotalRow">
+        <span>合計</span>
+        <span className="pdetail-subtotal">¥{formatYen(subtotal)}</span>
+      </div>
+    </>
+  );
+
   return (
     <div className="pdetail-wrap">
       <SiteHeader />
@@ -200,111 +276,59 @@ function ProductDetail() {
       <main className="pdetail-main">
         <div className="pdetail-layoutTop">
           <section className="pdetail-left">
-            <div className="pdetail-mediaCard">
+            <div className={`pdetail-mediaCard ${isSoldOut ? "is-soldout" : ""}`}>
+              {/* 画像上の左上バッジ（SALEだけ。SOLDは中央大表示に変えたので不要） */}
+              <div className="pdetail-badges">
+                {!isSoldOut && isSale ? (
+                  <span className="pdetail-badge sale">SALE {discountRate}%OFF</span>
+                ) : null}
+              </div>
+
               {product.imageData ? (
                 <img src={product.imageData} alt={product.name} className="pdetail-image" />
               ) : (
-                <div className="pdetail-noimg">No Image</div>
+                <div className="pdetail-noimg">NO IMAGE</div>
               )}
+
+              {isSoldOut ? <div className="pdetail-soldLabel">SOLD OUT</div> : null}
             </div>
 
+            {/* スマホ：画像の下に購入カード */}
             <div className="pdetail-summaryCard only-mobile">
-              <div className="pdetail-titleRow">
-                <h1 className="pdetail-name">
-                  {product.name}
-                  {titleBadge && (
-                    <span className={`pdetail-inlineBadge ${titleBadge.kind}`}>
-                      {titleBadge.text}
-                    </span>
-                  )}
-                </h1>
-              </div>
-
-              <div className="pdetail-price">{formatYen(priceNum)}円</div>
-
-              <div className="pdetail-qtyRow">
-                <div className="pdetail-qtyLabel">数量</div>
-                <div className="pdetail-qtyControls">
-                  <button
-                    className="pdetail-qtyBtn"
-                    onClick={() => handleChangeQty(-1)}
-                    disabled={quantity <= 1 || !canPurchase}
-                    aria-label="数量を減らす"
-                    type="button"
-                  >
-                    －
-                  </button>
-
-                  <div className="pdetail-qtyValue">{quantity}</div>
-
-                  <button
-                    className="pdetail-qtyBtn"
-                    onClick={() => handleChangeQty(1)}
-                    disabled={quantity >= stockNum || !canPurchase}
-                    aria-label="数量を増やす"
-                    type="button"
-                  >
-                    ＋
-                  </button>
-                </div>
-              </div>
-
-              {!canPurchase && <div className="pdetail-note">※ 現在この商品は購入できません。</div>}
+              {SummaryCardContent}
+              {!canPurchase && (
+                <div className="pdetail-note">※ 現在この商品は購入できません。</div>
+              )}
             </div>
           </section>
 
           <aside className="pdetail-right">
+            {/* PC：右カラムに購入カード（ボタン付き） */}
             <div className="pdetail-summaryCard only-desktop">
-              <div className="pdetail-titleRow">
-                <h1 className="pdetail-name">
-                  {product.name}
-                  {titleBadge && (
-                    <span className={`pdetail-inlineBadge ${titleBadge.kind}`}>
-                      {titleBadge.text}
-                    </span>
-                  )}
-                </h1>
-              </div>
-
-              <div className="pdetail-price">{formatYen(priceNum)}円</div>
-
-              <div className="pdetail-qtyRow">
-                <div className="pdetail-qtyLabel">数量</div>
-                <div className="pdetail-qtyControls">
-                  <button
-                    className="pdetail-qtyBtn"
-                    onClick={() => handleChangeQty(-1)}
-                    disabled={quantity <= 1 || !canPurchase}
-                    aria-label="数量を減らす"
-                    type="button"
-                  >
-                    －
-                  </button>
-
-                  <div className="pdetail-qtyValue">{quantity}</div>
-
-                  <button
-                    className="pdetail-qtyBtn"
-                    onClick={() => handleChangeQty(1)}
-                    disabled={quantity >= stockNum || !canPurchase}
-                    aria-label="数量を増やす"
-                    type="button"
-                  >
-                    ＋
-                  </button>
-                </div>
-              </div>
+              {SummaryCardContent}
 
               <div className="pdetail-actions">
-                <button className="pdetail-btn primary" onClick={handleBuyNow} disabled={!canPurchase} type="button">
+                <button
+                  className="pdetail-btn primary"
+                  onClick={handleBuyNow}
+                  disabled={!canPurchase}
+                  type="button"
+                >
                   すぐに購入
                 </button>
-                <button className="pdetail-btn secondary" onClick={handleAddToCart} disabled={!canPurchase} type="button">
+                <button
+                  className="pdetail-btn secondary"
+                  onClick={handleAddToCart}
+                  disabled={!canPurchase}
+                  type="button"
+                >
                   カートに入れる
                 </button>
               </div>
 
-              {!canPurchase && <div className="pdetail-note">※ 現在この商品は購入できません。</div>}
+              {!canPurchase && (
+                <div className="pdetail-note">※ 現在この商品は購入できません。</div>
+              )}
             </div>
           </aside>
         </div>
@@ -315,25 +339,40 @@ function ProductDetail() {
           </div>
 
           {detailImage ? (
-            <img src={detailImage} alt={`${product.name} の説明画像`} className="pdetail-descImage" />
+            <img
+              src={detailImage}
+              alt={`${product.name} の説明画像`}
+              className="pdetail-descImage"
+            />
           ) : (
             <div className="pdetail-descNone">この商品の説明はありません。</div>
           )}
         </section>
       </main>
 
+      {/* スマホ下固定バー */}
       <div className="pdetail-bottomFixed only-mobile">
         <div className="pdetail-bottomInner">
           <div className="pdetail-bottomTotalRow">
             <div className="pdetail-bottomLabel">合計</div>
-            <div className="pdetail-bottomValue">{formatYen(subtotal)}円</div>
+            <div className="pdetail-bottomValue">¥{formatYen(subtotal)}</div>
           </div>
 
           <div className="pdetail-bottomBtns">
-            <button className="pdetail-bottomBtn primary" onClick={handleBuyNow} disabled={!canPurchase} type="button">
+            <button
+              className="pdetail-bottomBtn primary"
+              onClick={handleBuyNow}
+              disabled={!canPurchase}
+              type="button"
+            >
               購入
             </button>
-            <button className="pdetail-bottomBtn secondary" onClick={handleAddToCart} disabled={!canPurchase} type="button">
+            <button
+              className="pdetail-bottomBtn secondary"
+              onClick={handleAddToCart}
+              disabled={!canPurchase}
+              type="button"
+            >
               カート
             </button>
           </div>

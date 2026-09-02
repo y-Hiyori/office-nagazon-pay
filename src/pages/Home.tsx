@@ -117,7 +117,7 @@ export default function Home() {
 
   useEffect(() => {
     const load = async () => {
-      // お知らせ（最新10件）
+      // お知らせ
       setNoticeLoading(true);
       try {
         const { data, error } = await supabase
@@ -137,7 +137,7 @@ export default function Home() {
         setNoticeLoading(false);
       }
 
-      // 商品追加情報（最新10件・表示ONのみ）
+      // 商品追加情報
       setNewLoading(true);
       try {
         const { data, error } = await supabase
@@ -209,7 +209,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ✅ ① ヒーロー直下：クイック4ボタン（PC=横1列 / スマホ=2列） */}
+        {/* ✅ ① ヒーロー直下：クイック4ボタン */}
         <section className="home-quick">
           <div
             className="home-quick-grid"
@@ -250,11 +250,11 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ✅ ② SNSロゴ表示（画像） */}
+        {/* ✅ ② SNSロゴ（ミニマル） */}
         <section className="home-social">
           <div className="home-social-card">
             <div className="home-social-head">
-              <div className="home-social-title">公式SNSもチェック！</div>
+              <div className="home-social-title">公式SNSもチェック</div>
               <div className="home-social-sub">最新情報はこちら</div>
             </div>
 
@@ -278,7 +278,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ✅ ③ お知らせ / ランキング / 商品追加情報（ランキングはお知らせの次） */}
+        {/* ✅ ③ お知らせ / ランキング / 商品追加情報 */}
         <section className="home-panels">
           {/* お知らせ */}
           <div className="home-panel">
@@ -308,14 +308,16 @@ export default function Home() {
                         {(n.body || "").trim() || "—"}
                       </div>
                     </div>
-                    <div className="home-arrow">›</div>
+                    <span className="home-arrow" aria-hidden="true">
+                      ›
+                    </span>
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* ✅ ランキング（お知らせの次） */}
+          {/* ランキング */}
           <div className="home-panel">
             <RankingPanel />
           </div>
@@ -342,13 +344,15 @@ export default function Home() {
                     <div className="home-date">{fmtDate(p.created_at)}</div>
                     <div className="home-text">
                       <div className="home-item-title">
-                        {p.name || "（商品名なし）"} 発売開始！
+                        {p.name || "（商品名なし）"} 発売開始
                       </div>
                       <div className="home-item-sub">
                         タップして商品ページへ
                       </div>
                     </div>
-                    <div className="home-arrow">›</div>
+                    <span className="home-arrow" aria-hidden="true">
+                      ›
+                    </span>
                   </button>
                 ))}
               </div>

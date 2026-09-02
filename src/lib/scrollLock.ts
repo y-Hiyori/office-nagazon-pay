@@ -8,7 +8,12 @@ const locks = new Set<string>();
 
 function apply() {
   if (typeof document === "undefined") return;
-  document.body.style.overflow = locks.size > 0 ? "hidden" : "";
+
+  const locked = locks.size > 0;
+
+  document.documentElement.style.overflowY = locked ? "hidden" : "auto";
+  document.body.style.overflowY = locked ? "hidden" : "auto";
+  document.body.dataset.scrollLocked = locked ? "true" : "false";
 }
 
 export function lockScroll(key: string) {

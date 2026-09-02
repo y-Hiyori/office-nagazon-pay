@@ -1,26 +1,68 @@
-/* ================================
-   アカウント情報編集（洗練デザイン）
-================================ */
+/* ============================================
+   AccountEdit  ✨ Refined
+   Apple風プレミアム × 游ゴシック × ワインレッド
+============================================ */
 
-/* カードコンテナ */
-.acc-edit {
-  width: min(420px, 100% - 32px);
-  margin: 80px auto 40px;
-  padding: 32px 24px 30px;
-  box-sizing: border-box;
+.account-edit-wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--plist-bg, #fafafa);
+  color: var(--plist-text, #1d1d1f);
 
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
-
-  position: relative;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Helvetica Neue", sans-serif;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
 }
 
-/* 戻るボタン
-   JSX側は「← 戻る」のままでもOK（中身は隠す）
-*/
+.account-edit-wrap {
+  --ae-surface: var(--plist-surface, #ffffff);
+  --ae-border: var(--plist-border, rgba(15, 23, 42, 0.06));
+  --ae-text: var(--plist-text, #1d1d1f);
+  --ae-text-sub: var(--plist-text-sub, #6e6e73);
+  --ae-text-muted: var(--plist-text-muted, #a1a1a6);
+  --ae-accent: var(--plist-accent, #8b1e3f);
+  --ae-accent-soft: var(--plist-accent-soft, #f7ecef);
+
+  --ae-shadow-1:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.05);
+  --ae-shadow-2:
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(15, 23, 42, 0.09);
+}
+
+.account-edit-main {
+  flex: 1;
+  padding: 24px 20px 48px;
+  box-sizing: border-box;
+}
+
+.account-edit-shell {
+  width: min(480px, 100%);
+  margin: 0 auto;
+}
+
+/* ============================================
+   カード
+============================================ */
+
+.account-edit-card {
+  position: relative;
+  background: var(--ae-surface);
+  border: 1px solid var(--ae-border);
+  border-radius: 14px;
+  padding: 56px 32px 32px;
+  box-shadow: var(--ae-shadow-1);
+  box-sizing: border-box;
+}
+
+/* 戻るボタン */
 .acc-edit-back {
   position: absolute;
   top: 16px;
@@ -30,106 +72,265 @@
   align-items: center;
   gap: 6px;
 
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--ae-border);
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ae-text-sub);
+  letter-spacing: 0.04em;
+
+  background: var(--ae-surface);
   cursor: pointer;
+  box-shadow: var(--ae-shadow-1);
 
-  /* 元テキストは隠す */
-  color: transparent;
-  font-size: 0;
-
-  background: #f3f4f6;
-  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-/* 見せる用のテキストをCSSで描画 */
-.acc-edit-back::before {
-  content: "← 戻る";
-  color: #111827;
-  font-size: 14px;
+  transition:
+    background 0.15s ease,
+    transform 0.12s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .acc-edit-back:hover {
-  background: #e5e7eb;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
+  border-color: rgba(15, 23, 42, 0.14);
+  color: var(--ae-text);
+}
+.acc-edit-back:active { transform: scale(0.97); }
+
+/* ============================================
+   ヘッド（eyebrow / title / lead）
+============================================ */
+
+.account-edit-head {
+  text-align: center;
+  margin-bottom: 28px;
 }
 
-.acc-edit-back:active {
-  box-shadow: none;
-  transform: translateY(0);
+.account-edit-eyebrow {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ae-accent);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
-/* タイトル */
 .acc-edit-title {
   text-align: center;
   font-size: 22px;
   font-weight: 700;
-  margin: 26px 0 26px;
-  color: #111827;
+  margin: 0 0 12px;
+  color: var(--ae-text);
+  letter-spacing: 0.04em;
 }
 
-/* ラベル */
+.account-edit-lead {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ae-text-sub);
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================
+   フィールド
+============================================ */
+
+.account-edit-fields {
+  display: flex;
+  flex-direction: column;
+}
+
 .acc-label {
   display: block;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--ae-text-sub);
   margin-bottom: 6px;
-  margin-top: 10px;
+  margin-top: 16px;
+  letter-spacing: 0.04em;
 }
 
-/* 入力欄 */
+.acc-label:first-child { margin-top: 0; }
+
 .acc-input {
   width: 100%;
   box-sizing: border-box;
+  padding: 13px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--ae-border);
+  background: #fafafa;
 
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-
+  font-family: inherit;
   font-size: 15px;
-  color: #111827;
+  font-weight: 500;
+  color: var(--ae-text);
+  letter-spacing: 0.02em;
 
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease,
-    background 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.acc-input::placeholder {
+  color: var(--ae-text-muted);
+  font-weight: 400;
 }
 
 .acc-input:focus {
-  border-color: #4f46e5;
-  background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+  border-color: rgba(139, 30, 63, 0.35);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
 }
 
-/* 保存ボタン（メインアクション） */
+/* ============================================
+   注意書き（note）
+============================================ */
+
+.account-edit-note {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: #fafafa;
+  border: 1px solid var(--ae-border);
+  border-radius: 10px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.account-edit-note__item {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ae-text-sub);
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+  padding-left: 14px;
+  position: relative;
+}
+
+.account-edit-note__item::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ae-text-muted);
+}
+
+.account-edit-note__item code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  background: rgba(15, 23, 42, 0.05);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--ae-text);
+}
+
+/* ============================================
+   保存ボタン
+============================================ */
+
 .acc-edit-save {
   width: 100%;
   padding: 14px;
-  margin-top: 22px;
+  margin-top: 24px;
 
   border: none;
-  border-radius: 999px;
+  border-radius: 12px;
 
-  font-size: 16px;
-  font-weight: 700;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: #ffffff;
   cursor: pointer;
 
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  box-shadow: 0 18px 30px rgba(79, 70, 229, 0.35);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+  background: var(--ae-accent);
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.acc-edit-save:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 22px 40px rgba(79, 70, 229, 0.45);
-  opacity: 0.97;
+.acc-edit-save:hover:not(:disabled) {
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
+}
+.acc-edit-save:active:not(:disabled) { transform: scale(0.98); }
+
+.acc-edit-save:disabled {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--ae-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
-.acc-edit-save:active {
-  transform: translateY(0);
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.28);
+/* ============================================
+   状態表示（loading / error）
+============================================ */
+
+.account-edit-state {
+  padding: 28px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ae-text-sub);
+  letter-spacing: 0.02em;
+}
+
+.account-edit-error {
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--ae-accent-soft);
+  color: var(--ae-accent);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+}
+
+/* ============================================
+   旧マークアップ互換（.acc-edit 単体使用）
+============================================ */
+
+.acc-edit {
+  width: min(480px, 100% - 40px);
+  margin: 40px auto 48px;
+  padding: 56px 32px 32px;
+  box-sizing: border-box;
+
+  background: var(--ae-surface);
+  border: 1px solid var(--ae-border);
+  border-radius: 14px;
+  box-shadow: var(--ae-shadow-1);
+  position: relative;
+
+  font-family: inherit;
+  color: var(--ae-text);
+  letter-spacing: 0.02em;
+}
+
+/* ============================================
+   モバイル
+============================================ */
+
+@media (max-width: 480px) {
+  .account-edit-main { padding: 20px 14px 40px; }
+  .account-edit-card {
+    padding: 52px 20px 24px;
+    border-radius: 12px;
+  }
+  .acc-edit-title { font-size: 20px; }
+  .acc-edit {
+    width: calc(100% - 28px);
+    padding: 52px 20px 24px;
+  }
 }
