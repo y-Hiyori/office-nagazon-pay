@@ -33,15 +33,9 @@
   --ae-shadow-1:
     0 1px 2px rgba(15, 23, 42, 0.04),
     0 4px 12px rgba(15, 23, 42, 0.05);
-  --ae-shadow-2:
-    0 2px 4px rgba(15, 23, 42, 0.05),
-    0 12px 28px rgba(15, 23, 42, 0.09);
 }
 
-/* ============================================
-   ヘッダー
-============================================ */
-
+/* ヘッダー */
 .ae-header {
   position: fixed;
   top: 0;
@@ -70,35 +64,22 @@
   background: var(--ae-surface);
   color: var(--ae-text);
   border-radius: 10px;
-
   display: inline-flex;
   align-items: center;
   justify-content: center;
-
-  font-family:
-    -apple-system, BlinkMacSystemFont,
-    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 18px;
   font-weight: 400;
   line-height: 1;
   cursor: pointer;
-
   box-shadow: var(--ae-shadow-1);
   transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
   flex-shrink: 0;
 }
-
-.ae-back:hover {
-  border-color: rgba(15, 23, 42, 0.14);
-  color: var(--ae-text);
-}
+.ae-back:hover { border-color: rgba(15, 23, 42, 0.14); }
 .ae-back:active { transform: scale(0.96); }
 
-.ae-header-title {
-  min-width: 0;
-  flex: 1;
-}
-
+.ae-header-title { min-width: 0; flex: 1; }
 .ae-header-title h2 {
   margin: 0;
   font-size: 16px;
@@ -109,27 +90,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .ae-header-title p {
   margin: 2px 0 0;
   font-size: 11px;
   color: var(--ae-text-muted);
   letter-spacing: 0.06em;
-  font-family:
-    -apple-system, BlinkMacSystemFont,
-    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   font-feature-settings: "tnum" 1;
 }
+.ae-header-title p strong { font-weight: 600; color: var(--ae-text-sub); }
 
-.ae-header-title p strong {
-  font-weight: 600;
-  color: var(--ae-text-sub);
-}
-
-/* ============================================
-   カード
-============================================ */
-
+/* カード */
 .ae-card {
   width: min(560px, 100%);
   margin: 0 auto;
@@ -146,7 +117,6 @@
   margin-bottom: 16px;
   border-bottom: 1px solid var(--ae-border);
 }
-
 .ae-section-title h3 {
   margin: 0;
   font-size: 15px;
@@ -154,22 +124,15 @@
   color: var(--ae-text);
   letter-spacing: 0.04em;
 }
-
 .ae-section-title p {
   margin: 6px 0 0;
   font-size: 12px;
-  font-weight: 400;
   color: var(--ae-text-sub);
   letter-spacing: 0.02em;
 }
 
-/* ============================================
-   フィールド
-============================================ */
-
-.ae-field {
-  margin-top: 16px;
-}
+/* フィールド */
+.ae-field { margin-top: 16px; }
 .ae-field:first-of-type { margin-top: 0; }
 
 .ae-label {
@@ -181,9 +144,7 @@
   letter-spacing: 0.04em;
 }
 
-.ae-input-wrap {
-  position: relative;
-}
+.ae-input-wrap { position: relative; }
 
 .ae-input {
   width: 100%;
@@ -192,34 +153,24 @@
   border: 1px solid var(--ae-border);
   background: #fafafa;
   padding: 0 14px;
-
   font-family: inherit;
   font-size: 15px;
   font-weight: 500;
   color: var(--ae-text);
   letter-spacing: 0.02em;
   font-feature-settings: "tnum" 1;
-
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
-
-.ae-input::placeholder {
-  color: var(--ae-text-muted);
-  font-weight: 400;
-}
-
+.ae-input::placeholder { color: var(--ae-text-muted); font-weight: 400; }
 .ae-input:focus {
   border-color: rgba(139, 30, 63, 0.35);
   background: #fff;
   box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
 }
 
-/* サフィックス（円/個）が入るときはinputの右パディングを空ける */
-.ae-input-wrap .ae-input {
-  padding-right: 40px;
-}
+.ae-input-wrap .ae-input { padding-right: 40px; }
 
 .ae-suffix {
   position: absolute;
@@ -233,29 +184,142 @@
   letter-spacing: 0.02em;
 }
 
-/* 2列 */
 .ae-grid2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
   margin-top: 16px;
 }
-
-.ae-grid2 .ae-field {
-  margin-top: 0;
-}
+.ae-grid2 .ae-field { margin-top: 0; }
 
 @media (max-width: 480px) {
-  .ae-grid2 {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-  .ae-grid2 .ae-field {
-    margin-top: 16px;
-  }
-  .ae-grid2 .ae-field:first-child {
-    margin-top: 16px;
-  }
+  .ae-grid2 { grid-template-columns: 1fr; gap: 0; }
+  .ae-grid2 .ae-field { margin-top: 16px; }
+  .ae-grid2 .ae-field:first-child { margin-top: 16px; }
+}
+
+/* ============================================
+   SALE設定
+============================================ */
+
+.ae-sale {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ae-border);
+}
+
+.ae-sale-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ae-sale-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ae-text);
+  letter-spacing: 0.04em;
+}
+
+.ae-sale-desc {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ae-text-sub);
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+}
+
+.ae-sale-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  background: var(--ae-accent);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(139, 30, 63, 0.22);
+}
+
+/* プレビュー */
+.ae-sale-preview {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--ae-accent-soft);
+  border: 1px solid rgba(139, 30, 63, 0.15);
+}
+
+.ae-sale-preview-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+.ae-sale-preview-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ae-text-sub);
+  letter-spacing: 0.04em;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, sans-serif;
+}
+
+.ae-sale-preview-old {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ae-text-muted);
+  text-decoration: line-through;
+  letter-spacing: 0.02em;
+}
+
+.ae-sale-preview-new {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ae-accent);
+  letter-spacing: -0.01em;
+}
+
+.ae-sale-preview-total {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(139, 30, 63, 0.15);
+}
+
+.ae-sale-preview-save {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ae-accent);
+  letter-spacing: 0.04em;
+}
+
+.ae-sale-warn {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(192, 35, 35, 0.06);
+  border: 1px solid rgba(192, 35, 35, 0.15);
+  color: var(--ae-danger);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
 }
 
 /* ============================================
@@ -275,14 +339,12 @@
   color: var(--ae-text-sub);
   border-radius: 10px;
   padding: 12px 14px;
-
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.02em;
   cursor: pointer;
   text-align: left;
-
   display: flex;
   align-items: center;
   gap: 8px;
@@ -312,24 +374,16 @@
   line-height: 1.6;
 }
 
-.ae-danger-body .ae-field {
-  margin-top: 0;
-}
+.ae-danger-body .ae-field { margin-top: 0; }
 
 .ae-danger-body .ae-input:focus {
   border-color: rgba(192, 35, 35, 0.45);
   box-shadow: 0 0 0 3px rgba(192, 35, 35, 0.08);
 }
 
-/* 下部余白 */
-.ae-bottom-space {
-  height: 8px;
-}
+.ae-bottom-space { height: 8px; }
 
-/* ============================================
-   固定フッター
-============================================ */
-
+/* 固定フッター */
 .ae-footer {
   position: fixed;
   left: 50%;
@@ -337,12 +391,10 @@
   bottom: 0;
   width: min(560px, 100%);
   padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
-
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: saturate(180%) blur(14px);
   -webkit-backdrop-filter: saturate(180%) blur(14px);
   border-top: 1px solid var(--ae-border);
-
   box-sizing: border-box;
   z-index: 60;
 }
@@ -353,18 +405,15 @@
   border: none;
   border-radius: 12px;
   cursor: pointer;
-
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: #fff;
-
   background: var(--ae-accent);
   box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
   transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
-
 .ae-save:hover:not(:disabled) {
   background: #75182f;
   box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);

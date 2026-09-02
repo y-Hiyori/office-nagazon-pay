@@ -1,152 +1,185 @@
-/* ===============================
-   商品追加ページ（洗練デザイン版）
-   =============================== */
+/* ============================================
+   商品追加  ✨ Refined
+============================================ */
 
-/* ページ全体（余裕があればルートに className="add-page" でもOK） */
 .add-page {
   min-height: 100vh;
-  padding: 80px 16px 24px;
+  padding: 32px 20px 48px;
   box-sizing: border-box;
-  background: radial-gradient(circle at top, #eef2ff 0, #f9fafb 45%, #ffffff 100%);
+  background: var(--plist-bg, #fafafa);
   display: flex;
   justify-content: center;
   align-items: flex-start;
+
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--plist-text, #1d1d1f);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
 }
 
-/* 中央のカードコンテナ */
 .add-container {
-  width: min(480px, 100% - 32px);
+  width: min(500px, 100%);
   margin: 0 auto;
-  padding: 20px 20px 24px;
+  padding: 28px;
   box-sizing: border-box;
 
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+  background: var(--plist-surface, #ffffff);
+  border: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 28px rgba(15, 23, 42, 0.08);
 
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  animation: add-fade-in 0.2s ease;
+  animation: add-fade-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* ヘッダー（戻る / タイトル / 追加ボタン） */
 .add-header {
-  position: relative;          /* 追加：中のボタンをここ基準で絶対配置 */
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;     /* 追加：タイトルを中央に */
-  margin-bottom: 20px;
+  justify-content: center;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
+  min-height: 40px;
 }
 
-/* 戻るボタン（左端に固定） */
 .add-header .back-button {
-  position: absolute;          /* 追加 */
-  left: 0;                     /* 追加：カードの左端 */
-  background: #f3f4f6;
-  border: none;
+  position: absolute;
+  left: 0;
+  background: var(--plist-surface, #ffffff);
+  border: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--plist-text-sub, #6e6e73);
+  letter-spacing: 0.04em;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #111827;
-  transition: background 0.18s ease, transform 0.1s ease;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 2px 6px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
 }
-
 .add-header .back-button:hover {
-  background: #e5e7eb;
-  transform: translateY(-1px);
+  border-color: rgba(15, 23, 42, 0.14);
+  color: var(--plist-text, #1d1d1f);
 }
+.add-header .back-button:active { transform: scale(0.97); }
 
-/* 右上の「追加」ボタン（送信ボタン・右端に固定） */
 .add-submit-button {
-  position: absolute;          /* 追加 */
-  right: 0;                    /* 追加：カードの右端 */
-
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  position: absolute;
+  right: 0;
+  background: var(--plist-accent, #8b1e3f);
   color: #fff;
   border: none;
-  padding: 9px 16px;
-  border-radius: 999px;
-  font-size: 15px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.06em;
   cursor: pointer;
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.35);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+  box-shadow: 0 4px 12px rgba(139, 30, 63, 0.22);
+  transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
   white-space: nowrap;
 }
-
 .add-submit-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 30px rgba(79, 70, 229, 0.45);
-  opacity: 0.98;
+  background: #75182f;
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.28);
 }
-
-.add-submit-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
-}
-
+.add-submit-button:active:not(:disabled) { transform: scale(0.97); }
 .add-submit-button:disabled {
-  background: linear-gradient(135deg, #9ca3ff, #a5b4fc);
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--plist-text-muted, #a1a1a6);
   box-shadow: none;
-  cursor: default;
-  opacity: 0.9;
+  cursor: not-allowed;
 }
 
-/* ラベル（もし使ってたら） */
 .add-label {
-  font-size: 14px;
+  display: block;
+  font-size: 12px;
   font-weight: 500;
-  color: #4b5563;
-  margin: 10px 2px 4px;
+  color: var(--plist-text-sub, #6e6e73);
+  margin: 14px 0 6px;
+  letter-spacing: 0.04em;
 }
+.add-label:first-child { margin-top: 0; }
 
-/* 入力フィールド共通（テキスト・数値・ファイル） */
 .add-container input[type="text"],
 .add-container input[type="number"],
 .add-container input[type="file"] {
   width: 100%;
   box-sizing: border-box;
-
   padding: 13px 14px;
-  margin-bottom: 16px;
-
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
+  background: #fafafa;
+  font-family: inherit;
   font-size: 15px;
-  color: #111827;
-
+  font-weight: 500;
+  color: var(--plist-text, #1d1d1f);
+  letter-spacing: 0.02em;
   outline: none;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-/* フォーカス時の光り方 */
+.add-container input[type="text"]::placeholder,
+.add-container input[type="number"]::placeholder {
+  color: var(--plist-text-muted, #a1a1a6);
+  font-weight: 400;
+}
+
 .add-container input[type="text"]:focus,
 .add-container input[type="number"]:focus,
 .add-container input[type="file"]:focus {
-  border-color: #4f46e5;
-  background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.24);
+  border-color: rgba(139, 30, 63, 0.35);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
 }
 
-/* ファイル入力はちょっとだけコンパクトに */
 .add-container input[type="file"] {
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: 11px 12px;
+  font-size: 13px;
+  cursor: pointer;
 }
 
-/* ふわっと登場アニメーション */
+.add-container input[type="file"]::file-selector-button {
+  padding: 6px 12px;
+  margin-right: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--plist-border, rgba(15, 23, 42, 0.06));
+  background: var(--plist-surface, #ffffff);
+  color: var(--plist-text, #1d1d1f);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.add-container input[type="file"]::file-selector-button:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+}
+
 @keyframes add-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .add-page { padding: 20px 14px 40px; }
+  .add-container { padding: 22px 20px; border-radius: 12px; }
+  .add-submit-button { padding: 8px 14px; font-size: 12px; }
+  .add-header .back-button { padding: 7px 12px; font-size: 12px; }
 }
