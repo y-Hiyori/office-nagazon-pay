@@ -356,14 +356,14 @@ app.post("/api/confirm-paypay-payment", async (req, res) => {
 
     // 注文の特定：orderId+token がある場合はそれで、無ければ merchantPaymentId で解決（PayPay戻り時はこちら）
     let order;
-    if (orderId && token) {
+    if (orderId) {
       const { data: o, error: oErr } = await sb
         .from("orders")
         .select("id,status,paypay_merchant_payment_id,paypay_return_token,points_used")
         .eq("id", orderId)
         .single();
       if (oErr || !o) return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
-      if (String(o.paypay_return_token || "") !== token) {
+      if (token && String(o.paypay_return_token || "") !== token) {
         return res.status(403).json({ ok: false, status: "BAD_TOKEN" });
       }
       order = o;
