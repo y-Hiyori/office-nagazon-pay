@@ -52,24 +52,29 @@ serve(async (req: Request) => {
     };
 
     const token = typeof body.token === "string" ? body.token.trim() : "";
-        const total = yen(body.total);
+    const total = yen(body.total);
     const subtotal = yen(body.subtotal);
+    const discountYen = yen(body.discountYen);
     const coupon = body.coupon ? String(body.coupon).trim().toUpperCase() : "";
-
     const buyer = body.buyer || {};
     const items = Array.isArray(body.items) ? body.items : [];
 
     const bName = String(buyer.name || "").trim();
     const bEmail = String(buyer.email || "").trim();
+    const bPhone = String(buyer.phone || "").trim();
+    const bPostal = String(buyer.postalCode || "").trim().replace(/[-－\s]/g, "");
+    const bAddress = String(buyer.address || "").trim();
+    const bBuilding = String(buyer.building || "").trim();
 
     if (!token) return json({ ok: false, error: "token is required" });
+    // 購入者情報は本名・メールのみ必須（電話・住所は任意項目）
     if (!bName || !bEmail) {
-      return json({ ok: false, error: "buyer name and email are required" });
+      return json({ ok: false, error: "buyer info is incomplete" });
     }
     if (items.length === 0) return json({ ok: false, error: "items is empty" });
     // この関数は0円注文専用（PayPayルートは server.cjs 側で処理）
     if (total !== 0) return json({ ok: false, error: "only 0yen orders are allowed here" });
-    if (subtotal <= 0) return json({ ok: false, error: "subtotal must be positive" });
+    if (subtotal < 0) return json({ ok: false, error: "subtotal must be non-negative" });
 
     // クーポンの厳密な再チェック（0円になる根拠をサーバー側でも検証）
     let discount = 0;
@@ -103,15 +108,14 @@ serve(async (req: Request) => {
       if (c.max_discount_yen != null) discount = Math.min(discount, yen(c.max_discount_yen));
       discount = Math.min(discount, subtotal);
     }
-    // クーポン無しで0円は不可（ゲストはポイントを使えないため）
-    if (discount <= 0 || subtotal - discount !== 0) {
+    // 0円になる根拠は①割引でちょうど0円 or ②商品自体が無料（subtotal=0・クーポン不要）
+    if (subtotal - discount !== 0) {
       return json({ ok: false, error: "order cannot be 0yen with this discount" });
     }
 
     const orderId = crypto.randomUUID();
 
     // ① orders 作成（user_id = NULL でゲスト注文、即 paid）
-    //    email / name は既存のカラムに保存（マイグレーションは user_id の NOT NULL 解除のみ）
     const { error: oErr } = await sb.from("orders").insert({
       id: orderId,
       user_id: null,
@@ -126,6 +130,10 @@ serve(async (req: Request) => {
       paypay_return_token: token,
       email: bEmail,
       name: bName,
+      phone: bPhone,
+      postal_code: bPostal,
+      address: bAddress,
+      building: bBuilding || null,
     });
     if (oErr) return json({ ok: false, error: "order insert failed", detail: oErr.message });
 
@@ -161,4 +169,3 @@ serve(async (req: Request) => {
     return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);
   }
 });
-
