@@ -436,6 +436,14 @@ function Checkout() {
 
           const guestOrderId = String(guestResult.orderId || "");
 
+          // ✅ ゲスト購入（0円）でも、アカウント購入と同じく購入者本人へ購入完了メールを送る
+          //   注文には guest-checkout が email / name を保存済みなので、既存APIがそのまま使える
+          await fetch("/api/send-buyer-order-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: guestOrderId, token: token0yen }),
+          }).catch((err) => console.error("send-buyer-order-email (guest) failed:", err));
+
           // ✅ ゲスト購入 → お問い合わせで使っている /api/send-contact-email をそのまま拝借して通知
           //   （EmailJS テンプレは新規作成せず、contact ページと同じテンプレが使われる）
           try {
