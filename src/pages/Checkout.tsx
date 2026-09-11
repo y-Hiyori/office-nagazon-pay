@@ -603,6 +603,14 @@ function Checkout() {
       }
 
       redirecting = true;
+      try { localStorage.setItem(
+            "nagazonpay_pending_order",
+            JSON.stringify({
+              orderId: data?.orderId || "",
+              token: data?.token || "",
+              merchantPaymentId: data?.merchantPaymentId || "",
+            })
+          ); } catch { /* ignore */ }
       window.location.href = paypayUrl;
     } catch (e) {
       console.error(e);
