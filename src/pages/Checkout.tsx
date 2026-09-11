@@ -7,6 +7,9 @@ import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
 import "./Checkout.css";
 
+// ✅ 追加：アプリ内ダイアログ
+import { appDialog } from "../lib/appDialog";
+
 type StoredItem = {
   productId: string | number;
   name: string;
@@ -18,6 +21,30 @@ type StoredItem = {
 // ✅ 予約なし：balance と available だけ
 type Wallet = { balance: number; available: number };
 
+// ✅ 注文者情報（ゲスト購入用）
+type GuestInfo = {
+  name: string;
+  email: string;
+};
+type GuestErrors = Partial<Record<keyof GuestInfo, string>>;
+
+const GUEST_INFO_KEY = "nagazon_guest_info_v1";
+const isEmailLike = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+function loadGuestInfo(): GuestInfo {
+  try {
+    const raw = localStorage.getItem(GUEST_INFO_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      return {
+        name: String(p?.name ?? ""),
+        email: String(p?.email ?? ""),
+      };
+    }
+  } catch {}
+  return { name: "", email: "" };
+}
+
 function Checkout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,6 +55,10 @@ function Checkout() {
 
   // ✅ 在庫再確認中フラグ
   const [isCheckingStock, setIsCheckingStock] = useState(false);
+
+  // ✅ NAGAZON PAY ID（Supabase設定でON/OFF）
+  const [storeAuthRequired, setStoreAuthRequired] = useState<boolean>(true);
+  const [storeAuthLoading, setStoreAuthLoading] = useState<boolean>(true);
 
   const [showStoreAuth, setShowStoreAuth] = useState(false);
   const [storeCode, setStoreCode] = useState("");
@@ -41,6 +72,15 @@ function Checkout() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [pointsToUse, setPointsToUse] = useState(0);
   const [pointsMsg, setPointsMsg] = useState("");
+
+  // ✅ 注文者情報（ログイン中は自動入力・ゲストは保存値）
+  const [guestInfo, setGuestInfo] = useState<GuestInfo>(loadGuestInfo());
+  const [guestErrors, setGuestErrors] = useState<GuestErrors>({});
+  const [authUser, setAuthUser] = useState<{ id: string; email?: string } | null>(null);
+
+  // ✅ 注文者情報の表示モード: "view"（確認表示）⇔ "edit"（入力画面を開く）
+  //    参考サイト（shop_payment）と同じく、最初から入力画面は出さない
+  const [infoMode, setInfoMode] = useState<"view" | "edit">("view");
 
   const formatPrice = (value: number | string) => Number(value || 0).toLocaleString("ja-JP");
 
@@ -74,18 +114,63 @@ function Checkout() {
     [subtotal, discountYen, pointsDiscountYen]
   );
 
-  // ✅ ログインチェック + ポイント取得（予約なしRPC）
+  // ✅ 設定取得（NAGAZON PAY IDのON/OFF）
+  // 推奨RPC:
+  //   public.store_auth_is_required() returns boolean
+  //   public.store_auth_verify(p_code text) returns boolean
+  useEffect(() => {
+    (async () => {
+      setStoreAuthLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("store_auth_is_required");
+        if (error) {
+          console.error("store_auth_is_required error:", error);
+          setStoreAuthRequired(true); // 取れない時は安全側(ON)に倒す
+        } else {
+          setStoreAuthRequired(Boolean(data));
+        }
+      } catch (e) {
+        console.error(e);
+        setStoreAuthRequired(true);
+      } finally {
+        setStoreAuthLoading(false);
+      }
+    })();
+  }, []);
+
+  // ✅ ログインチェック + ポイント取得 + 注文者情報の自動入力
   useEffect(() => {
     (async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      setAuthUser(user as { id: string; email?: string } | null);
 
       if (!user) {
-        alert("ログインしてください");
-        navigate("/login");
+        // ✅ ゲスト：端末に保存済みの入力値を復元（あれば）
+        const saved = loadGuestInfo();
+        setGuestInfo((prev) => ({
+          ...prev,
+          name: prev.name || saved.name,
+          email: prev.email || saved.email,
+        }));
+        setWallet(null);
         return;
       }
+
+      // ✅ アカウント登録済み：プロフィールから取得して反映（自動入力）
+      //    ※ プロフィールの値を正として反映（修正後の値を勝手に潰さない）
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name, email")
+        .eq("id", user.id)
+        .maybeSingle();
+      const autoName = profile?.name || user.user_metadata?.full_name || user.user_metadata?.name || "";
+      const autoEmail = profile?.email || user.email || "";
+      setGuestInfo((prev) => ({
+        name: prev.name || autoName || "",
+        email: prev.email || autoEmail || "",
+      }));
 
       const { data: w, error: wErr } = await supabase.rpc("points_get_my_wallet");
       if (wErr) {
@@ -99,6 +184,7 @@ function Checkout() {
       const available = Number(row?.available ?? balance);
       setWallet({ balance, available });
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   // ✅ 入力値を上限で強制丸め
@@ -204,7 +290,11 @@ function Checkout() {
 
     if (ids.length === 0) return { ok: false as const, ngNames: ["（商品不明）"] };
 
-    const { data, error } = await supabase.from("products").select("id,name,stock,is_visible").in("id", ids);
+    const { data, error } = await supabase
+      .from("products")
+      .select("id,name,stock,is_visible")
+      .in("id", ids);
+
     if (error) {
       console.error("stock recheck error:", error);
       throw error;
@@ -232,76 +322,65 @@ function Checkout() {
     return { ok: ngNames.length === 0, ngNames };
   };
 
-  const handleClickConfirmButton = async () => {
-    if (isProcessing || isCheckingStock) return;
+  // ✅ 注文者情報の入力チェック（必須：本名・メールアドレス）
+  const validateGuestInfo = (v: GuestInfo): GuestErrors => {
+    const e: GuestErrors = {};
+    if (!v.name.trim()) e.name = "本名（氏名）を入力してください。";
+    if (!v.email.trim()) e.email = "メールアドレスを入力してください。";
+    else if (!isEmailLike(v.email)) e.email = "メールアドレスの形式が正しくありません。";
+    return e;
+  };
 
-    if (!buyNow && cart.cart.length === 0) {
-      alert("カートが空です");
-      return;
-    }
-    if (!method) {
-      alert("支払い方法を選択してください");
-      return;
-    }
+  const setGuestField = (key: keyof GuestInfo) => (e: any) => {
+    const v = e.target.value;
+    setGuestInfo((prev) => ({ ...prev, [key]: v }));
+    setGuestErrors((prev) => ({ ...prev, [key]: undefined }));
+  };
 
-    setIsCheckingStock(true);
+  const scrollToGuestError = () => {
+    window.setTimeout(() => {
+      const first = document.querySelector(".co-field.is-error") || document.querySelector(".co-field");
+      first?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  };
+
+  // ✅ ゲストの入力は端末に保存（次回購入で再入力不要に）
+  useEffect(() => {
+    if (authUser?.id) return;
     try {
-      const result = await recheckStockBeforeConfirm();
-      if (!result.ok) {
-        alert(
-          `商品の確保ができません。\n在庫不足または非表示：\n・${result.ngNames.join("\n・")}\n\nカートをリセットしてホームに戻ります。`
-        );
-        if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
-        navigate("/", { replace: true });
-        return;
-      }
-      setShowStoreAuth(true);
-    } catch (e) {
-      console.error(e);
-      alert("在庫確認に失敗しました。時間をおいてお試しください。");
-    } finally {
-      setIsCheckingStock(false);
-    }
-  };
+      localStorage.setItem(GUEST_INFO_KEY, JSON.stringify(guestInfo));
+    } catch {}
+  }, [guestInfo, authUser?.id]);
 
-  const handleStoreAuthCancel = () => {
-    setShowStoreAuth(false);
-    setStoreCode("");
-  };
-
-  const handleStoreAuthConfirm = async () => {
-    const correctCode = "20220114";
-    if (storeCode !== correctCode) {
-      alert("NAGAZON PAY ID が正しくありません。");
-      return;
-    }
-
-    setShowStoreAuth(false);
-    setStoreCode("");
-
+  // ✅ 決済処理本体（ID入力がOFFのときもここへ）
+  const startPaymentFlow = async () => {
     let redirecting = false;
 
     try {
       setIsProcessing(true);
 
       const {
-        data: { user },
+        data: { user: authData },
       } = await supabase.auth.getUser();
+      const user = authData ?? null;
 
-      if (!user) {
-        alert("ログインしてください");
-        navigate("/login");
+      // ✅ 注文者情報の必須チェック（未入力なら警告→編集画面へ）
+      const gErr = validateGuestInfo(guestInfo);
+      setGuestErrors(gErr);
+      if (Object.keys(gErr).length > 0) {
+        await appDialog.alert({
+          title: "入力が必要です",
+          message:
+            "注文者情報を入力してください。\n氏名・メールアドレスを「修正」ボタンから入力してください。",
+        });
+        setInfoMode("edit");
+        scrollToGuestError();
         return;
       }
 
-      // 購入者名
-      let buyerName = "(名前未設定)";
-      try {
-        const { data: profile } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();
-        if (profile?.name) buyerName = profile.name;
-      } catch {}
-
-      const buyerEmail = user.email ?? "";
+      // ✅ 購入者名・メールはフォームの値を優先（ログイン中は自動入力済み）
+      const buyerName = guestInfo.name.trim() || "(名前未設定)";
+      const buyerEmail = guestInfo.email.trim() || (user?.email ?? "");
 
       const itemsForStorage: StoredItem[] = items.map((item: any) => ({
         productId: item.product.id,
@@ -319,6 +398,61 @@ function Checkout() {
           (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
         const paymentMethod = pointsUsed > 0 ? "points" : "coupon";
+
+        // ✅ ゲスト（アカウント未登録）：匿名ユーザーは RLS で orders に書けないため
+        //   Supabase Edge Function（service role）で注文作成・在庫減算・paid反映まで行う
+        if (!user) {
+          const { data: guestResult, error: guestErr } = await supabase.functions.invoke(
+            "guest-checkout",
+            {
+              body: {
+                token: token0yen,
+                total: 0,
+                subtotal,
+                discountYen,
+                coupon: appliedCoupon,
+                buyer: {
+                  name: guestInfo.name.trim(),
+                  email: guestInfo.email.trim(),
+                },
+                items: itemsForStorage.map((it) => ({
+                  productId: it.productId,
+                  name: it.name,
+                  price: it.price,
+                  quantity: it.quantity,
+                })),
+              },
+            }
+          );
+
+          if (guestErr || !guestResult?.ok) {
+            console.error("guest-checkout error:", guestErr, guestResult);
+            await appDialog.alert({
+              title: "エラー",
+              message: String(guestResult?.error || guestErr?.message || "注文の作成に失敗しました"),
+            });
+            return;
+          }
+
+          const guestOrderId = String(guestResult.orderId || "");
+
+          // ✅ ゲスト購入（0円）でも、アカウント購入と同じく購入者本人へ購入完了メールを送る
+          //   注文には guest-checkout が email / name を保存済みなので、既存API（send-buyer-order-email）がそのまま使える
+          await fetch("/api/send-buyer-order-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: guestOrderId, token: token0yen }),
+          }).catch((err) => console.error("send-buyer-order-email (guest) failed:", err));
+
+          if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
+          navigate(
+            `/purchase-complete/${guestOrderId}?orderId=${encodeURIComponent(
+              guestOrderId
+            )}&token=${encodeURIComponent(token0yen)}`,
+            { replace: true }
+          );
+          return;
+        }
 
         const { data: orderRow, error: orderErr } = await supabase
           .from("orders")
@@ -340,7 +474,10 @@ function Checkout() {
 
         if (orderErr || !orderRow) {
           console.error(orderErr);
-          alert("注文の作成に失敗しました");
+          await appDialog.alert({
+            title: "エラー",
+            message: "注文の作成に失敗しました",
+          });
           return;
         }
 
@@ -355,7 +492,10 @@ function Checkout() {
         const { error: itemsErr } = await supabase.from("order_items").insert(orderItemsPayload);
         if (itemsErr) {
           console.error(itemsErr);
-          alert("注文商品の保存に失敗しました");
+          await appDialog.alert({
+            title: "エラー",
+            message: "注文商品の保存に失敗しました",
+          });
           return;
         }
 
@@ -367,7 +507,10 @@ function Checkout() {
           });
           if (useErr) {
             console.error("points_use_for_order error:", useErr);
-            alert("ポイント使用に失敗しました（残高不足など）");
+            await appDialog.alert({
+              title: "ポイント使用に失敗しました",
+              message: "ポイント使用に失敗しました（残高不足など）",
+            });
             return;
           }
         }
@@ -380,12 +523,20 @@ function Checkout() {
           });
           if (error) {
             console.error("decrement_stock error:", error);
-            alert((error.message ?? "").includes("在庫不足") ? `在庫が足りません：${it.name}` : "在庫更新に失敗しました");
+            await appDialog.alert({
+              title: "在庫更新エラー",
+              message: (error.message ?? "").includes("在庫不足")
+                ? `在庫が足りません：${it.name}`
+                : "在庫更新に失敗しました",
+            });
             return;
           }
         }
 
-        await supabase.from("orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", orderRow.id);
+        await supabase
+          .from("orders")
+          .update({ status: "paid", paid_at: new Date().toISOString() })
+          .eq("id", orderRow.id);
 
         if (buyerEmail) {
           await fetch("/api/send-buyer-order-email", {
@@ -402,7 +553,10 @@ function Checkout() {
 
       // ========= PayPay購入 =========
       if (method !== "paypay") {
-        alert("支払い方法を選択してください");
+        await appDialog.alert({
+          title: "支払い方法",
+          message: "支払い方法を選択してください",
+        });
         return;
       }
 
@@ -416,7 +570,7 @@ function Checkout() {
         body: JSON.stringify({
           orderId: orderIdForPayPay,
           total: payableTotal,
-          userId: user.id,
+          userId: user?.id ?? null,
           subtotal,
           discountYen,
           coupon: appliedCoupon,
@@ -452,9 +606,134 @@ function Checkout() {
       window.location.href = paypayUrl;
     } catch (e) {
       console.error(e);
-      alert("決済の開始に失敗しました。時間をおいてお試しください。");
+      await appDialog.alert({
+        title: "決済エラー",
+        message: "決済の開始に失敗しました。時間をおいてお試しください。",
+      });
     } finally {
       if (!redirecting) setIsProcessing(false);
+    }
+  };
+
+  const handleClickConfirmButton = async () => {
+    if (isProcessing || isCheckingStock) return;
+
+    if (!buyNow && cart.cart.length === 0) {
+      await appDialog.alert({
+        title: "カート",
+        message: "カートが空です",
+      });
+      return;
+    }
+    if (!method) {
+      await appDialog.alert({
+        title: "支払い方法",
+        message: "支払い方法を選択してください",
+      });
+      return;
+    }
+
+    // ✅ 注文者情報チェック（未入力なら警告→編集画面へ）
+    const vErr = validateGuestInfo(guestInfo);
+    setGuestErrors(vErr);
+    if (Object.keys(vErr).length > 0) {
+      await appDialog.alert({
+        title: "入力が必要です",
+        message:
+          "注文者情報を入力してください。\n氏名・メールアドレスを「修正」ボタンから入力してください。",
+      });
+      setInfoMode("edit");
+      scrollToGuestError();
+      return;
+    }
+
+    setIsCheckingStock(true);
+    try {
+      const result = await recheckStockBeforeConfirm();
+      if (!result.ok) {
+        await appDialog.alert({
+          title: "在庫が確保できません",
+          message:
+            `商品の確保ができません。\n在庫不足または非表示：\n` +
+            `・${result.ngNames.join("\n・")}\n\n` +
+            `カートをリセットしてホームに戻ります。`,
+        });
+
+        if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
+        navigate("/", { replace: true });
+        return;
+      }
+
+      // ✅ 設定ロード中は安全側で止める
+      if (storeAuthLoading) {
+        await appDialog.alert({
+          title: "読み込み中",
+          message: "設定を読み込み中です。少し待ってからもう一度お試しください。",
+        });
+        return;
+      }
+
+      // ✅ ONならモーダル、OFFならそのまま決済へ
+      if (storeAuthRequired) setShowStoreAuth(true);
+      else await startPaymentFlow();
+    } catch (e) {
+      console.error(e);
+      await appDialog.alert({
+        title: "在庫確認エラー",
+        message: "在庫確認に失敗しました。時間をおいてお試しください。",
+      });
+    } finally {
+      setIsCheckingStock(false);
+    }
+  };
+
+  const handleStoreAuthCancel = () => {
+    setShowStoreAuth(false);
+    setStoreCode("");
+  };
+
+  const handleStoreAuthConfirm = async () => {
+    try {
+      const code = storeCode;
+
+      if (!code.trim()) {
+        await appDialog.alert({
+          title: "入力してください",
+          message: "NAGAZON PAY ID を入力してください。",
+        });
+        return;
+      }
+
+      // ✅ Supabase RPCで検証（ハッシュはフロントに出さない）
+      const { data: ok, error } = await supabase.rpc("store_auth_verify", { p_code: code });
+
+      if (error) {
+        console.error("store_auth_verify error:", error);
+        await appDialog.alert({
+          title: "認証エラー",
+          message: "認証に失敗しました。時間をおいてお試しください。",
+        });
+        return;
+      }
+
+      if (!ok) {
+        await appDialog.alert({
+          title: "認証失敗",
+          message: "NAGAZON PAY ID が正しくありません。",
+        });
+        return;
+      }
+
+      // ✅ 認証OK → モーダル閉じて決済へ
+      setShowStoreAuth(false);
+      setStoreCode("");
+      await startPaymentFlow();
+    } catch (e) {
+      console.error(e);
+      await appDialog.alert({
+        title: "認証エラー",
+        message: "認証に失敗しました。時間をおいてお試しください。",
+      });
     }
   };
 
@@ -492,6 +771,120 @@ function Checkout() {
               </div>
             </section>
 
+            {/* ✅ 注文者情報（ゲスト購入対応・ログイン中は自動入力） */}
+                        {/* ✅ 注文者情報：アカウント時は自動入力して表示、ゲスト時も確認表示から「修正」で入力（参考サイトと同じUI） */}
+            <section className="co-section">
+              <h3 className="co-section-title">注文者情報</h3>
+              <div className="co-card">
+                <div className="guest-info-note">
+                  {authUser?.id
+                    ? "アカウント情報を自動入力しました。変更する場合は「修正」ボタンから変更できます。"
+                    : "アカウント未登録のまま購入できます。ご連絡のためご入力ください。"}
+                </div>
+
+                {/* ----- 確認表示モード（最初からこれを出す） ----- */}
+                {infoMode === "view" ? (
+                  <div className="buyer-view">
+                    <div className="buyer-view-row">
+                      <span className="buyer-view-label">氏名</span>
+                      <span className="buyer-view-value">
+                        {guestInfo.name.trim() || <em className="buyer-view-empty">未入力</em>}
+                      </span>
+                    </div>
+                    <div className="buyer-view-row">
+                      <span className="buyer-view-label">メールアドレス</span>
+                      <span className="buyer-view-value">
+                        {guestInfo.email.trim() || <em className="buyer-view-empty">未入力</em>}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="buyer-edit-btn"
+                      onClick={() => {
+                        setGuestErrors({});
+                        setInfoMode("edit");
+                      }}
+                    >
+                      修正
+                    </button>
+                    {guestErrors.name || guestErrors.email ? (
+                      <div className="co-help is-error" style={{ marginTop: 10 }}>
+                        注文者情報が未入力です。「修正」から入力してください。
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  /* ----- 編集モード（修正ボタン直後のみ・入力項目は名前とメールの2つ） ----- */
+                  <div className="co-fields">
+                    <div className={`co-field ${guestErrors.name ? "is-error" : ""}`}>
+                      <label>
+                        本名（氏名） <span className="contact-req">必須</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="co-input"
+                        value={guestInfo.name}
+                        onChange={setGuestField("name")}
+                        placeholder="山田 太郎"
+                        autoComplete="name"
+                      />
+                      {guestErrors.name && <div className="co-help is-error">{guestErrors.name}</div>}
+                    </div>
+
+                    <div className={`co-field ${guestErrors.email ? "is-error" : ""}`}>
+                      <label>
+                        メールアドレス <span className="contact-req">必須</span>
+                      </label>
+                      <input
+                        type="email"
+                        className="co-input"
+                        value={guestInfo.email}
+                        onChange={setGuestField("email")}
+                        placeholder="example@example.com"
+                        autoComplete="email"
+                        inputMode="email"
+                      />
+                      {guestErrors.email ? (
+                        <div className="co-help is-error">{guestErrors.email}</div>
+                      ) : (
+                        <div className="co-help">購入完了メールをこちらへお送りします。</div>
+                      )}
+                    </div>
+
+                    <div className="buyer-edit-actions">
+                      <button
+                        type="button"
+                        className="buyer-save-btn"
+                        onClick={() => {
+                          const e = validateGuestInfo(guestInfo);
+                          setGuestErrors(e);
+                          if (Object.keys(e).length > 0) {
+                            appDialog.alert({
+                              title: "入力エラー",
+                              message: "氏名・メールアドレスを正しく入力してください。",
+                            });
+                            return;
+                          }
+                          setInfoMode("view"); // 保存して確認表示に戻す
+                        }}
+                      >
+                        保存
+                      </button>
+                      <button
+                        type="button"
+                        className="buyer-cancel-btn"
+                        onClick={() => {
+                          setInfoMode("view");
+                        }}
+                      >
+                        戻る
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
             {/* クーポン */}
             <section className="co-section">
               <h3 className="co-section-title">クーポンコード</h3>
@@ -526,6 +919,11 @@ function Checkout() {
             <section className="co-section">
               <h3 className="co-section-title">ポイント</h3>
               <div className="co-card">
+                {!authUser?.id && (
+                  <div style={{ fontSize: 13, opacity: 0.8, fontWeight: 800, marginBottom: 8 }}>
+                    ※ アカウントにログインするとポイントを利用できます。ゲスト購入ではポイントは使えません。
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <div style={{ fontSize: 13, opacity: 0.8, fontWeight: 800 }}>
                     利用可能：{Number(wallet?.available ?? 0).toLocaleString("ja-JP")} pt
@@ -538,6 +936,7 @@ function Checkout() {
                 <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
                   <input
                     className="coupon-input"
+                    disabled={!authUser?.id}
                     inputMode="numeric"
                     value={String(pointsToUse)}
                     onChange={(e) => {
