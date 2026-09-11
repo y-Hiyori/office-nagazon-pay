@@ -437,35 +437,12 @@ function Checkout() {
           const guestOrderId = String(guestResult.orderId || "");
 
           // ✅ ゲスト購入（0円）でも、アカウント購入と同じく購入者本人へ購入完了メールを送る
-          //   注文には guest-checkout が email / name を保存済みなので、既存APIがそのまま使える
+          //   注文には guest-checkout が email / name を保存済みなので、既存API（send-buyer-order-email）がそのまま使える
           await fetch("/api/send-buyer-order-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ orderId: guestOrderId, token: token0yen }),
           }).catch((err) => console.error("send-buyer-order-email (guest) failed:", err));
-
-          // ✅ ゲスト購入 → お問い合わせで使っている /api/send-contact-email をそのまま拝借して通知
-          //   （EmailJS テンプレは新規作成せず、contact ページと同じテンプレが使われる）
-          try {
-            const itemsText = itemsForStorage
-              .map((it) => `${it.name} ×${it.quantity}（単価: ${it.price.toLocaleString("ja-JP")}円）`)
-              .join("\n");
-            await fetch("/api/send-contact-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contact_name: guestInfo.name.trim(),
-                contact_email: guestInfo.email.trim(),
-                contact_subject: `【ゲスト注文】${guestInfo.name.trim()} 様 より購入（注文ID: ${guestOrderId}）`,
-                contact_message:
-                  `${itemsText}\n\n合計：${payableTotal.toLocaleString("ja-JP")}円\n\n※アカウント未登録のゲストからの注文です。`,
-                contact_order_id: guestOrderId,
-                hp: "",
-              }),
-            });
-          } catch (err) {
-            console.error("send-contact-email (guest order) failed:", err);
-          }
 
           if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
           navigate(
