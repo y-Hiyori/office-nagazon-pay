@@ -107,7 +107,8 @@ export default function PayPayReturn() {
   return (
     <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
-        <div style={{ fontSize: 16, marginBottom: 10 }}>{msg}</div>
+        <div className="pc-spinner" aria-label="loading" />
+        <div style={{ fontSize: 16, marginTop: 14, opacity: 0.8 }}>{msg}</div>
       </div>
     </main>
   );
