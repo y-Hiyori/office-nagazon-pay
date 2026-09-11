@@ -1,0 +1,164 @@
+// supabase/functions/guest-checkout/index.ts
+// ゲスト（アカウント未登録）の「0円購入（クーポン適用）」を service role で完結させる
+// 匿名ユーザーは RLS で orders / order_items に書き込めないため、この関数が注文作成・在庫減算・paid反映を担う
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+}
+
+function getClient() {
+  const supabaseUrl = Deno.env.get("PROJECT_URL") || Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("PROJECT_URL / SERVICE_ROLE_KEY is missing");
+  }
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+}
+
+function yen(v: unknown): number {
+  const n = Number(v || 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.floor(n));
+}
+
+serve(async (req: Request) => {
+  try {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+    if (req.method !== "POST") return json({ ok: false, error: "Method Not Allowed" }, 405);
+
+    const sb = getClient();
+
+    const body = (await req.json().catch(() => ({}))) as {
+      token?: unknown;
+      total?: unknown;
+      subtotal?: unknown;
+      discountYen?: unknown;
+      coupon?: unknown;
+      buyer?: Record<string, unknown>;
+      items?: Record<string, unknown>[];
+    };
+
+    const token = typeof body.token === "string" ? body.token.trim() : "";
+        const total = yen(body.total);
+    const subtotal = yen(body.subtotal);
+    const coupon = body.coupon ? String(body.coupon).trim().toUpperCase() : "";
+
+    const buyer = body.buyer || {};
+    const items = Array.isArray(body.items) ? body.items : [];
+
+    const bName = String(buyer.name || "").trim();
+    const bEmail = String(buyer.email || "").trim();
+
+    if (!token) return json({ ok: false, error: "token is required" });
+    if (!bName || !bEmail) {
+      return json({ ok: false, error: "buyer name and email are required" });
+    }
+    if (items.length === 0) return json({ ok: false, error: "items is empty" });
+    // この関数は0円注文専用（PayPayルートは server.cjs 側で処理）
+    if (total !== 0) return json({ ok: false, error: "only 0yen orders are allowed here" });
+    if (subtotal <= 0) return json({ ok: false, error: "subtotal must be positive" });
+
+    // クーポンの厳密な再チェック（0円になる根拠をサーバー側でも検証）
+    let discount = 0;
+    if (coupon) {
+      const nowIso = new Date().toISOString();
+      const { data: c, error: cErr } = await sb
+        .from("coupons")
+        .select(
+          "code, discount_type, discount_value, max_discount_yen, min_subtotal, is_active, starts_at, ends_at, usage_limit, used_count"
+        )
+        .eq("code", coupon)
+        .maybeSingle();
+
+      if (cErr) throw cErr;
+      if (!c) return json({ ok: false, error: "coupon not found" });
+      if (!c.is_active) return json({ ok: false, error: "coupon is inactive" });
+      if (c.starts_at && nowIso < c.starts_at) return json({ ok: false, error: "coupon not started" });
+      if (c.ends_at && nowIso > c.ends_at) return json({ ok: false, error: "coupon expired" });
+      if (c.min_subtotal != null && subtotal < Number(c.min_subtotal)) {
+        return json({ ok: false, error: "min subtotal not met" });
+      }
+      if (c.usage_limit != null && Number(c.used_count || 0) >= Number(c.usage_limit)) {
+        return json({ ok: false, error: "coupon limit reached" });
+      }
+
+      const v = yen(c.discount_value);
+      discount =
+        String(c.discount_type || "yen") === "percent"
+          ? Math.floor((subtotal * v) / 100)
+          : v;
+      if (c.max_discount_yen != null) discount = Math.min(discount, yen(c.max_discount_yen));
+      discount = Math.min(discount, subtotal);
+    }
+    // クーポン無しで0円は不可（ゲストはポイントを使えないため）
+    if (discount <= 0 || subtotal - discount !== 0) {
+      return json({ ok: false, error: "order cannot be 0yen with this discount" });
+    }
+
+    const orderId = crypto.randomUUID();
+
+    // ① orders 作成（user_id = NULL でゲスト注文、即 paid）
+    //    email / name は既存のカラムに保存（マイグレーションは user_id の NOT NULL 解除のみ）
+    const { error: oErr } = await sb.from("orders").insert({
+      id: orderId,
+      user_id: null,
+      total: 0,
+      payment_method: "coupon",
+      subtotal,
+      discount_amount: discount,
+      coupon_code: coupon || null,
+      points_used: 0,
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      paypay_return_token: token,
+      email: bEmail,
+      name: bName,
+    });
+    if (oErr) return json({ ok: false, error: "order insert failed", detail: oErr.message });
+
+    // ② order_items
+    const itemPayload = items.map((it) => ({
+      order_id: orderId,
+      product_id: Number(it.productId),
+      product_name: String(it.name || ""),
+      price: yen(it.price),
+      quantity: Math.max(1, Math.floor(Number(it.quantity || 0))),
+    }));
+    const { error: iErr } = await sb.from("order_items").insert(itemPayload);
+    if (iErr) {
+      await sb.from("orders").delete().eq("id", orderId);
+      return json({ ok: false, error: "order_items insert failed", detail: iErr.message });
+    }
+
+    // ③ 在庫減算（在庫不足の場合は注文ごと取り消し）
+    for (const it of itemPayload) {
+      const { error: sErr } = await sb.rpc("decrement_stock", {
+        p_product_id: it.product_id,
+        p_qty: it.quantity,
+      });
+      if (sErr) {
+        await sb.from("order_items").delete().eq("order_id", orderId);
+        await sb.from("orders").delete().eq("id", orderId);
+        return json({ ok: false, error: "stock insufficient", detail: sErr.message });
+      }
+    }
+
+    return json({ ok: true, orderId, token });
+  } catch (e: unknown) {
+    return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);
+  }
+});
+

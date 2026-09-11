@@ -120,13 +120,11 @@ const router = createBrowserRouter([
       { path: "auth/callback", element: <AuthCallback /> },
 
       // ---- User protected（ログイン必須）
+      // ✅ [ゲスト購入対応] checkout は Public（ログイン不要）に変更
+      //    ログイン中は Checkout.tsx 側で自動入力される。account/orders は従来どおり要ログイン
       {
         path: "checkout",
-        element: (
-          <UserRoute>
-            <Checkout />
-          </UserRoute>
-        ),
+        element: <Checkout />,
       },
       {
         path: "account",
