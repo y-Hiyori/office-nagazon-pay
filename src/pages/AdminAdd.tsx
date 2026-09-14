@@ -16,6 +16,10 @@ function AdminAdd() {
   const [memberPrice, setMemberPrice] = useState("");
   const [earnPoints, setEarnPoints] = useState("");
   const [isShipping, setIsShipping] = useState(false);
+  // ✅ 発送目安（任意）: 最短〜最長＋単位（営業日/日）
+  const [shippingLeadMin, setShippingLeadMin] = useState("");
+  const [shippingLeadMax, setShippingLeadMax] = useState("");
+  const [shippingLeadUnit, setShippingLeadUnit] = useState<"business_days" | "days">("business_days");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAdd = async () => {
@@ -81,6 +85,28 @@ function AdminAdd() {
       return;
     }
 
+    // ✅ 発送目安の入力チェック（任意・0以上の整数・最短≦最長）
+    const leadMinRaw = shippingLeadMin.trim();
+    const leadMaxRaw = shippingLeadMax.trim();
+    const leadMinNum = leadMinRaw === "" ? null : Math.floor(Number(leadMinRaw));
+    const leadMaxNum = leadMaxRaw === "" ? null : Math.floor(Number(leadMaxRaw));
+
+    if (leadMinRaw !== "" && (leadMinNum == null || Number.isNaN(leadMinNum) || leadMinNum < 0)) {
+      await appDialog.alert({ title: "入力エラー", message: "発送目安（最短）は0以上の整数で入力してください" });
+      setIsSubmitting(false);
+      return;
+    }
+    if (leadMaxRaw !== "" && (leadMaxNum == null || Number.isNaN(leadMaxNum) || leadMaxNum < 0)) {
+      await appDialog.alert({ title: "入力エラー", message: "発送目安（最長）は0以上の整数で入力してください" });
+      setIsSubmitting(false);
+      return;
+    }
+    if (leadMinNum != null && leadMaxNum != null && leadMinNum > leadMaxNum) {
+      await appDialog.alert({ title: "入力エラー", message: "発送目安は「最短 ≦ 最長」になるよう入力してください" });
+      setIsSubmitting(false);
+      return;
+    }
+
     const payload: Record<string, unknown> = {
       id: idNum,
       name,
@@ -89,6 +115,9 @@ function AdminAdd() {
       member_price: Number.isFinite(memberPriceNum) ? memberPriceNum : null,
       earn_points: earnNum,
       is_shipping: isShipping,
+      shipping_lead_min: leadMinNum,
+      shipping_lead_max: leadMaxNum,
+      shipping_lead_unit: shippingLeadUnit,
     };
 
     if (originalPriceNum != null) payload.original_price = originalPriceNum;
@@ -184,6 +213,40 @@ function AdminAdd() {
         />
         <span>発送商品（購入時に配送先の住所・電話番号が必要）</span>
       </label>
+
+      {isShipping && (
+        <div className="add-shipping-lead">
+          <div className="add-lead-title">発送目安（任意）</div>
+          <div className="add-lead-sub">「何日から何日まで」または「何営業日以内」で設定できます</div>
+          <div className="add-lead-row">
+            <input
+              type="number"
+              min={0}
+              placeholder="最短（例: 3）"
+              value={shippingLeadMin}
+              onChange={(e) => setShippingLeadMin(e.target.value)}
+            />
+            <span className="add-lead-sep">〜</span>
+            <input
+              type="number"
+              min={0}
+              placeholder="最長（例: 5）"
+              value={shippingLeadMax}
+              onChange={(e) => setShippingLeadMax(e.target.value)}
+            />
+            <select
+              value={shippingLeadUnit}
+              onChange={(e) => setShippingLeadUnit(e.target.value as "business_days" | "days")}
+            >
+              <option value="business_days">営業日</option>
+              <option value="days">日</option>
+            </select>
+          </div>
+          <div className="add-lead-help">
+            例:「最短3 〜 最長5・営業日」→ 「ご注文から3〜5営業日以内に発送」と商品詳細に表示されます
+          </div>
+        </div>
+      )}
     </div>
   );
 }

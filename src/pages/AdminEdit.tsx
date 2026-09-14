@@ -25,6 +25,10 @@ export default function AdminEdit() {
   const [memberPrice, setMemberPrice] = useState("");
   const [earnPoints, setEarnPoints] = useState("");
   const [isShipping, setIsShipping] = useState(false);
+  // ✅ 発送目安（任意）
+  const [shippingLeadMin, setShippingLeadMin] = useState("");
+  const [shippingLeadMax, setShippingLeadMax] = useState("");
+  const [shippingLeadUnit, setShippingLeadUnit] = useState<"business_days" | "days">("business_days");
 
   const [isSaving, setIsSaving] = useState(false);
   const [openIdEdit, setOpenIdEdit] = useState(false);
@@ -41,7 +45,7 @@ export default function AdminEdit() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping")
+      .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping, shipping_lead_min, shipping_lead_max, shipping_lead_unit")
       .eq("id", urlId)
       .maybeSingle();
 
@@ -77,6 +81,12 @@ export default function AdminEdit() {
     const dbEarn = Number((data as any).earn_points ?? 0);
     setEarnPoints(dbEarn > 0 ? String(dbEarn) : "");
     setIsShipping(!!(data as any).is_shipping);
+    const dbLeadMin = (data as any).shipping_lead_min;
+    const dbLeadMax = (data as any).shipping_lead_max;
+    setShippingLeadMin(dbLeadMin != null && Number(dbLeadMin) > 0 ? String(dbLeadMin) : "");
+    setShippingLeadMax(dbLeadMax != null && Number(dbLeadMax) > 0 ? String(dbLeadMax) : "");
+    const dbUnit = (data as any).shipping_lead_unit;
+    setShippingLeadUnit(dbUnit === "days" ? "days" : "business_days");
     setLoading(false);
   };
 
@@ -165,6 +175,28 @@ export default function AdminEdit() {
       return;
     }
 
+    // ✅ 発送目安の入力チェック（任意・0以上の整数・最短≦最長）
+    const leadMinRaw = shippingLeadMin.trim();
+    const leadMaxRaw = shippingLeadMax.trim();
+    const leadMinNum = leadMinRaw === "" ? null : Math.floor(Number(leadMinRaw));
+    const leadMaxNum = leadMaxRaw === "" ? null : Math.floor(Number(leadMaxRaw));
+
+    if (leadMinRaw !== "" && (leadMinNum == null || Number.isNaN(leadMinNum) || leadMinNum < 0)) {
+      await appDialog.alert({ title: "入力エラー", message: "発送目安（最短）は0以上の整数で入力してください" });
+      setIsSaving(false);
+      return;
+    }
+    if (leadMaxRaw !== "" && (leadMaxNum == null || Number.isNaN(leadMaxNum) || leadMaxNum < 0)) {
+      await appDialog.alert({ title: "入力エラー", message: "発送目安（最長）は0以上の整数で入力してください" });
+      setIsSaving(false);
+      return;
+    }
+    if (leadMinNum != null && leadMaxNum != null && leadMinNum > leadMaxNum) {
+      await appDialog.alert({ title: "入力エラー", message: "発送目安は「最短 ≦ 最長」になるよう入力してください" });
+      setIsSaving(false);
+      return;
+    }
+
     const priceToSave = saleNum > 0 ? saleNum : normalNum;
     const originalToSave = saleNum > 0 ? normalNum : null;
 
@@ -179,6 +211,9 @@ export default function AdminEdit() {
         member_price: memberPrice.trim() === "" ? null : Math.floor(Number(memberPrice)),
         earn_points: Math.max(0, Math.floor(Number(earnPoints || 0) || 0)),
         is_shipping: isShipping,
+        shipping_lead_min: leadMinNum,
+        shipping_lead_max: leadMaxNum,
+        shipping_lead_unit: shippingLeadUnit,
       })
       .eq("id", urlId);
 
@@ -299,6 +334,42 @@ export default function AdminEdit() {
             <div className="ae-help">
               オフ（未チェック）は「その場受け取り」として販売します
             </div>
+
+            {isShipping && (
+              <div className="ae-field">
+                <label className="ae-label">発送目安（任意）</label>
+                <div className="ae-ship-lead-row">
+                  <input
+                    className="ae-input"
+                    type="number"
+                    min={0}
+                    placeholder="最短"
+                    value={shippingLeadMin}
+                    onChange={(e) => setShippingLeadMin(e.target.value)}
+                  />
+                  <span className="ae-ship-lead-sep">〜</span>
+                  <input
+                    className="ae-input"
+                    type="number"
+                    min={0}
+                    placeholder="最長"
+                    value={shippingLeadMax}
+                    onChange={(e) => setShippingLeadMax(e.target.value)}
+                  />
+                  <select
+                    className="ae-input ae-ship-unit"
+                    value={shippingLeadUnit}
+                    onChange={(e) => setShippingLeadUnit(e.target.value as "business_days" | "days")}
+                  >
+                    <option value="business_days">営業日</option>
+                    <option value="days">日</option>
+                  </select>
+                </div>
+                <div className="ae-help">
+                  例:「最短3〜最長5・営業日」→ 「ご注文から3〜5営業日以内に発送」と商品詳細に表示
+                </div>
+              </div>
+            )}
           </div>
           </div>
         </div>

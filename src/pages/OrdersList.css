@@ -349,3 +349,6 @@
   .order-item { padding: 16px; }
   .orders-title { font-size: 18px; }
 }
+/* ✅ 発送ステータス（購入履歴） */
+.order-badge-preparing{background:#fff3cd;color:#7a5a00;border-color:#e6c56a;}
+.order-badge-shipped{background:#d9f2e3;color:#1c6a3a;border-color:#a8d9bb;}

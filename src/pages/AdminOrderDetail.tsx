@@ -26,6 +26,11 @@ type OrderRow = {
   points_discount_amount?: number | null;
   points_discount?: number | null;
   points_value?: number | null;
+
+  // ✅ 発送ステータス（管理者切替用）
+  fulfillment_type?: string | null;
+  shipping_status?: string | null;
+  paypay_return_token?: string | null;
 };
 
 type OrderItemRow = {
@@ -45,6 +50,7 @@ export default function AdminOrderDetail() {
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [shipBusy, setShipBusy] = useState(false);
 
   const formatPrice = (value: any) => (Number(value) || 0).toLocaleString("ja-JP");
 
@@ -217,6 +223,47 @@ export default function AdminOrderDetail() {
     };
   }, [order, items]);
 
+  // ✅ 発送ステータスの切替（発送準備中 ⇔ 発送完了）
+  const handleToggleShipping = async () => {
+    if (shipBusy || !order) return;
+    setShipBusy(true);
+    try {
+      const nextAction = order.shipping_status === "shipped" ? "preparing" : "shipped";
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || "";
+      const token = String((order as any).paypay_return_token || "admin");
+
+      const r = await fetch("/api/update-shipping-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, token, accessToken, action: nextAction }),
+      });
+      const j = await r.json().catch(() => null);
+
+      if (!r.ok || !j?.ok) {
+        alert(`発送ステータスの更新に失敗しました\n(${j?.status || r.status || "ERROR"})`);
+        return;
+      }
+
+      setOrder({ ...order, shipping_status: j.shippingStatus });
+
+      if (nextAction === "shipped") {
+        const mailNote =
+          j.email === "SENT"
+            ? "購入者へ発送完了メールを送信しました。"
+            : "※ 発送完了メールは EmailJS テンプレ（EMAILJS_SHIPPED_TEMPLATE_ID）未設定のため送信されませんでした。ステータスは更新済みです。";
+        alert(`発送完了にしました。\n${mailNote}`);
+      } else {
+        alert("発送準備中に戻しました。");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("発送ステータスの更新に失敗しました。");
+    } finally {
+      setShipBusy(false);
+    }
+  };
+
   return (
     <>
       <AdminHeader />
@@ -310,6 +357,38 @@ export default function AdminOrderDetail() {
   </div>
 </div>
               </div>
+
+              {order.fulfillment_type === "shipping" && (
+                <div
+                  className={`admin-ship-box ${
+                    order.shipping_status === "shipped" ? "is-shipped" : "is-preparing"
+                  }`}
+                >
+                  <div className="admin-ship-head">
+                    <span className="admin-ship-label">発送ステータス</span>
+                    <span className="admin-ship-badge">
+                      {order.shipping_status === "shipped" ? "発送完了" : "発送準備中"}
+                    </span>
+                  </div>
+                  <p className="admin-ship-desc">
+                    {order.shipping_status === "shipped"
+                      ? "購入者には発送完了メールが送信済みです。"
+                      : "発送作業が完了したら「発送完了にする」を押してください。購入者へ発送完了メールが送信されます。"}
+                  </p>
+                  <button
+                    type="button"
+                    className="admin-ship-btn"
+                    onClick={handleToggleShipping}
+                    disabled={shipBusy}
+                  >
+                    {shipBusy
+                      ? "更新中..."
+                      : order.shipping_status === "shipped"
+                        ? "発送準備中に戻す"
+                        : "発送完了にする"}
+                  </button>
+                </div>
+              )}
 
               <h3 className="admin-items-title">購入した商品</h3>
 

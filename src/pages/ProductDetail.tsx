@@ -118,6 +118,18 @@ function ProductDetail() {
   const discountRate = isSale ? Math.round((discountYen / originalPriceNum) * 100) : 0;
   const subtotal = priceNum * quantity;
 
+  // ✅ 発送目安テキスト（商品詳細に表示）
+  const shipLeadText = useMemo(() => {
+    if (!product?.is_shipping) return null;
+    const min = Number(product?.shipping_lead_min ?? 0);
+    const max = Number(product?.shipping_lead_max ?? 0);
+    const unit = product?.shipping_lead_unit === "days" ? "日" : "営業日";
+    if (min <= 0 && max <= 0) return null;
+    if (min > 0 && max >= min && max !== min) return `ご注文から${min}〜${max}${unit}以内に発送`;
+    const n = max > 0 ? max : min;
+    return `ご注文から${n}${unit}以内に発送`;
+  }, [product]);
+
   const titleBadge = useMemo(() => {
     if (!product) return null;
     if (isHidden) return { text: "販売停止中", kind: "blocked" as const };
@@ -320,7 +332,10 @@ function ProductDetail() {
       </div>
 
       {product?.is_shipping ? (
-        <div className="pdetail-shipNote">本商品は「発送」でお届けします。購入時に配送先の入力が必要です。</div>
+        <div className="pdetail-shipNote pdetail-shipNoteBox">
+          <div className="pdetail-shipNoteMain">本商品は「発送」でお届けします。購入時に配送先の入力が必要です。</div>
+          {shipLeadText ? <div className="pdetail-shipLead">発送目安：{shipLeadText}</div> : null}
+        </div>
       ) : null}
     </>
   );

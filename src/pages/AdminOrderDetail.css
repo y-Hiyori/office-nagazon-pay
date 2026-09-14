@@ -182,4 +182,14 @@
   color: rgba(100,116,139,0.9);
   font-size: 13px;
   font-weight: 800;
-}
+}/* ✅ 発送ステータス（管理者） */
+.admin-ship-box{margin:14px 0;padding:14px;border-radius:12px;background:#fff8e6;border:1px solid #ecd9a4;}
+.admin-ship-box.is-shipped{background:#e8f8ee;border-color:#b6e0c4;}
+.admin-ship-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.admin-ship-label{font-weight:800;font-size:14px;color:#7a5a00;}
+.admin-ship-badge{font-weight:800;font-size:13px;padding:4px 12px;border-radius:999px;background:#ffe28a;color:#6a4a00;}
+.admin-ship-box.is-shipped .admin-ship-badge{background:#bfe8cf;color:#1c6a3a;}
+.admin-ship-desc{font-size:12.5px;color:#8a7a4a;margin:8px 0 0;line-height:1.7;}
+.admin-ship-btn{margin-top:12px;padding:11px 18px;border:none;border-radius:10px;background:#0e7ec0;color:#fff;font-weight:800;font-size:14px;cursor:pointer;}
+.admin-ship-btn:disabled{opacity:.6;}
+.admin-ship-box.is-shipped .admin-ship-btn{background:#8a8a8a;}

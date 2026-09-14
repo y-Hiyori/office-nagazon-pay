@@ -235,3 +235,10 @@
   .order-item-box { padding: 16px; }
   .detail-title { font-size: 18px; }
 }
+/* ✅ 配送状況（注文詳細） */
+.order-ship-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff8e6;border:1px solid #ecd9a4;}
+.order-ship-status.is-shipped{background:#e8f8ee;border-color:#b6e0c4;}
+.order-ship-label{font-size:12px;color:#8a7a4a;font-weight:700;}
+.order-ship-value{font-weight:800;font-size:13px;color:#7a5a00;}
+.order-ship-status.is-shipped .order-ship-value{color:#1c6a3a;}
+.order-ship-note{flex-basis:100%;font-size:11.5px;color:#9a8a5a;margin:4px 0 0;}

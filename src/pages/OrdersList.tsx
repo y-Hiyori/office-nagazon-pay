@@ -19,6 +19,10 @@ type OrderRow = {
 
   // ✅ ポイント使用（ordersにある想定）
   points_used?: number | null;
+
+  // ✅ 発送ステータス（ordersにある想定・SQL適用後）
+  fulfillment_type?: string | null;
+  shipping_status?: string | null;
 };
 
 type OrderItemRow = {
@@ -260,6 +264,17 @@ function OrdersList() {
                       <div style={{ display: "flex", gap: 8 }}>
                         {hasCoupon && <span className="order-badge">クーポン適用</span>}
                         {hasPoints && <span className="order-badge order-badge-points">ポイント使用</span>}
+                        {o.fulfillment_type === "shipping" && (
+                          <span
+                            className={`order-badge ${
+                              o.shipping_status === "shipped"
+                                ? "order-badge-shipped"
+                                : "order-badge-preparing"
+                            }`}
+                          >
+                            {o.shipping_status === "shipped" ? "発送完了" : "発送準備中"}
+                          </span>
+                        )}
                       </div>
                     </div>
 

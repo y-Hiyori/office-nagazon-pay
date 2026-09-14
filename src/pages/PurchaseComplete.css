@@ -143,3 +143,8 @@
   .complete-page h2 { font-size: 20px; }
   .complete-box { padding: 24px 20px; }
 }
+/* ✅ 発送商品のお知らせ（決済完了画面） */
+.complete-ship-notice{margin-top:12px;padding:12px 14px;border-radius:10px;background:#eef7ff;border:1px solid #b8d8f0;color:#1c4e7c;text-align:left;font-size:13px;line-height:1.7;}
+.complete-ship-notice p{margin:2px 0;}
+.complete-ship-notice p:first-child{font-weight:800;}
+.complete-ship-notice.is-shipped{background:#e8f8ee;border-color:#b6e0c4;color:#1c6a3a;}

@@ -13,6 +13,10 @@ type OrderRow = {
   total?: number | null;
   created_at?: string | null;
   subtotal?: number | null;
+
+  // ✅ 発送ステータス
+  fulfillment_type?: string | null;
+  shipping_status?: string | null;
 };
 
 type OrderItemRow = {
@@ -181,6 +185,23 @@ function OrderDetail() {
               <p>
                 <strong>支払合計：</strong> {formatPrice(summary.total)}円
               </p>
+
+              {/* ✅ 発送商品の配送状況 */}
+              {order?.fulfillment_type === "shipping" && (
+                <div
+                  className={`order-ship-status ${
+                    order.shipping_status === "shipped" ? "is-shipped" : "is-preparing"
+                  }`}
+                >
+                  <span className="order-ship-label">配送状況</span>
+                  <span className="order-ship-value">
+                    {order.shipping_status === "shipped" ? "発送完了" : "発送準備中"}
+                  </span>
+                  {order.shipping_status !== "shipped" && (
+                    <p className="order-ship-note">商品が発送され次第、メールでお知らせいたします。</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <h3 className="items-title">購入した商品</h3>

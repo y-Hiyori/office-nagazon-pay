@@ -19,6 +19,8 @@ export default function PurchaseComplete() {
 
   const [view, setView] = useState<ViewState>(paidOnArrival ? "paid" : "pending");
   const [earnedPt, setEarnedPt] = useState(0);
+  // ✅ 発送商品のお知らせ（決済完了画面に表示）
+  const [orderInfo, setOrderInfo] = useState<{ fulfillmentType: string; shippingStatus: string } | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
   // ✅ 初回チェックが終わるまで「確認中画面」に固定する
@@ -46,6 +48,14 @@ export default function PurchaseComplete() {
       setEarnedPt(j.points_earned);
     }
 
+    // ✅ 発送注文かどうか（決済完了画面のお知らせ用）
+    if (j.fulfillment_type || j.shipping_status) {
+      setOrderInfo({
+        fulfillmentType: String(j.fulfillment_type || "pickup"),
+        shippingStatus: String(j.shipping_status || ""),
+      });
+    }
+
     if (st === "paid") {
       setView("paid");
       return { ok: true as const, status: "paid" as const };
@@ -69,7 +79,7 @@ export default function PurchaseComplete() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("id,status,paid_at")
+      .select("id,status,paid_at,fulfillment_type,shipping_status")
       .eq("id", orderId)
       .eq("user_id", u.user.id)
       .maybeSingle();
@@ -78,6 +88,11 @@ export default function PurchaseComplete() {
       if (!paidOnArrival) setView("pending");
       return;
     }
+
+    setOrderInfo({
+      fulfillmentType: String((data as any).fulfillment_type || "pickup"),
+      shippingStatus: String((data as any).shipping_status || ""),
+    });
 
     const st = String(data.status || "").toLowerCase();
     if (st === "paid") setView("paid");
@@ -181,7 +196,22 @@ export default function PurchaseComplete() {
       {view === "paid" && (
         <div className="complete-box">
           <p>お支払いが完了しました。</p>
-          <p>商品をお取りください。</p>
+          {orderInfo?.fulfillmentType === "shipping" ? (
+            orderInfo.shippingStatus === "shipped" ? (
+              <div className="complete-ship-notice is-shipped">
+                <p>📦 商品の発送が完了しました。</p>
+                <p>お届けまで今しばらくお待ちください。</p>
+              </div>
+            ) : (
+              <div className="complete-ship-notice">
+                <p>📦 発送商品について</p>
+                <p>商品が発送され次第、メールでお知らせいたします。</p>
+                <p>発送完了まで今しばらくお待ちください。</p>
+              </div>
+            )
+          ) : (
+            <p>商品をお取りください。</p>
+          )}
           {earnedPt > 0 ? (
             <p className="complete-points">＋{earnedPt.toLocaleString("ja-JP")} pt 獲得！</p>
           ) : null}

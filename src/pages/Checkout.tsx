@@ -455,6 +455,7 @@ function Checkout() {
                 subtotal,
                 discountYen,
                 coupon: appliedCoupon,
+                fulfillmentType,
                 buyer: {
                   name: guestInfo.name.trim(),
                   email: guestInfo.email.trim(),
@@ -530,6 +531,7 @@ function Checkout() {
             address: guestInfo.address.trim() || null,
             building: guestInfo.building.trim() || null,
             fulfillment_type: fulfillmentType,
+            shipping_status: fulfillmentType === "shipping" ? "preparing" : null,
           })
           .select("id")
           .single();

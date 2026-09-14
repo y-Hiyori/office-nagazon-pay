@@ -17,7 +17,7 @@ app.get("/api/order-status", async (req, res) => {
 
     const { data: order, error } = await supabaseAdmin
       .from("orders")
-      .select("id,status,paid_at,paypay_return_token,payment_method,total")
+      .select("id,status,paid_at,paypay_return_token,payment_method,total,fulfillment_type,shipping_status")
       .eq("id", orderId)
       .single();
 
@@ -35,6 +35,8 @@ app.get("/api/order-status", async (req, res) => {
       paidAt: order.paid_at,
       paymentMethod: order.payment_method,
       total: order.total,
+      fulfillment_type: order.fulfillment_type || "pickup",
+      shipping_status: order.shipping_status || null,
     });
   } catch (e) {
     console.error(e);

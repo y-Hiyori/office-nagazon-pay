@@ -1094,3 +1094,7 @@
   background: #f0fdf4;
   color: #15803d;
 }
+/* ✅ 発送目安（商品詳細） */
+.pdetail-shipNoteBox{background:#eef7ff;border:1px solid #b8d8f0;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#1c4e7c;margin-top:10px;}
+.pdetail-shipNoteMain{font-weight:700;}
+.pdetail-shipLead{margin-top:6px;font-weight:800;color:#0d6fb8;}

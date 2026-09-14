@@ -730,3 +730,8 @@
   background: #f0fdf4;
   color: #15803d;
 }
+/* ✅ 発送目安（商品編集） */
+.ae-ship-lead-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.ae-ship-lead-row .ae-input{flex:1;min-width:80px;}
+.ae-ship-lead-sep{font-weight:800;color:#8a6a1a;}
+.ae-ship-unit{flex:none!important;min-width:110px;}

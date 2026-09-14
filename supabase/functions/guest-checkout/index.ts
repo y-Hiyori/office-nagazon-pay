@@ -47,6 +47,7 @@ serve(async (req: Request) => {
       subtotal?: unknown;
       discountYen?: unknown;
       coupon?: unknown;
+      fulfillmentType?: unknown;
       buyer?: Record<string, unknown>;
       items?: Record<string, unknown>[];
     };
@@ -65,6 +66,9 @@ serve(async (req: Request) => {
     const bPostal = String(buyer.postalCode || "").trim().replace(/[-－\s]/g, "");
     const bAddress = String(buyer.address || "").trim();
     const bBuilding = String(buyer.building || "").trim();
+
+    const fulfillmentType =
+      String(body.fulfillmentType || "").toLowerCase() === "shipping" ? "shipping" : "pickup";
 
     if (!token) return json({ ok: false, error: "token is required" });
     // 購入者情報は本名・メールのみ必須（電話・住所は任意項目）
@@ -134,6 +138,8 @@ serve(async (req: Request) => {
       postal_code: bPostal,
       address: bAddress,
       building: bBuilding || null,
+      fulfillment_type: fulfillmentType,
+      shipping_status: fulfillmentType === "shipping" ? "preparing" : null,
     });
     if (oErr) return json({ ok: false, error: "order insert failed", detail: oErr.message });
 

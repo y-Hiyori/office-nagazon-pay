@@ -486,3 +486,12 @@
   background: #f0fdf4;
   color: #15803d;
 }
+/* ✅ 発送目安（商品追加） */
+.add-shipping-lead{background:#fff8e6;border:1px solid #f0d9a8;border-radius:10px;padding:12px 14px;margin:14px 0;}
+.add-lead-title{font-weight:800;font-size:14px;margin-bottom:4px;color:#7a5a12;}
+.add-lead-sub{font-size:12px;color:#8a7a4a;margin-bottom:10px;}
+.add-lead-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.add-lead-row input{flex:1;min-width:90px;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:14px;}
+.add-lead-sep{font-weight:800;color:#7a5a12;}
+.add-lead-row select{padding:10px;border:1px solid #ccc;border-radius:8px;font-size:14px;background:#fff;}
+.add-lead-help{font-size:11px;color:#9a8a5a;margin-top:8px;}
