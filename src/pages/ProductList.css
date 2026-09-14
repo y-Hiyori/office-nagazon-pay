@@ -865,7 +865,6 @@
   background: #f0fdf4;
   color: #15803d;
 }
-
-/* ✅ 発送目安（商品一覧カード） */
-.plist-ship-lead{margin:6px 10px 0;font-size:11.5px;font-weight:700;color:#0d6fb8;background:#eef7ff;border:1px solid #cfe4f5;border-radius:8px;padding:4px 8px;display:inline-flex;align-items:center;gap:4px;line-height:1.4;}
-.plist-card:hover .plist-ship-lead{border-color:#a8cfe9;}
+/* ✅ スマホでバッジ（SALE/NEW/発送）が隠れないよう折り返し対応 */
+.plist-badges{flex-wrap:wrap;gap:4px;max-width:calc(100% - 6px);}
+.plist-badges .sale-label,.plist-badges .new-label,.plist-badges .shipping-label{white-space:nowrap;line-height:1.1;}

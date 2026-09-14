@@ -20,9 +20,6 @@ type ProductRow = {
   stock: number;
   imageData: string | null;
   isShipping: boolean;
-  shippingLeadMin: number | null;
-  shippingLeadMax: number | null;
-  shippingLeadUnit: string | null;
   createdAt: string | null;
   isNew: boolean;
   isVisible: boolean;
@@ -86,12 +83,6 @@ function ProductList() {
           stock: Number(p.stock ?? 0),
           imageData: p.imageData ?? findProductImage(Number(p.id)) ?? null,
           isShipping: !!(p as any).is_shipping,
-          shippingLeadMin:
-            (p as any).shipping_lead_min != null ? Number((p as any).shipping_lead_min) : null,
-          shippingLeadMax:
-            (p as any).shipping_lead_max != null ? Number((p as any).shipping_lead_max) : null,
-          shippingLeadUnit:
-            (p as any).shipping_lead_unit === "days" ? "days" : "business_days",
           createdAt,
           isNew,
           isVisible,
@@ -122,18 +113,6 @@ function ProductList() {
 
     loadProducts();
   }, []);
-
-  // ✅ 発送目安テキスト（商品一覧カードに表示）
-  const shipLeadOf = (p: ProductRow): string | null => {
-    if (!p.isShipping) return null;
-    const min = Number(p.shippingLeadMin ?? 0);
-    const max = Number(p.shippingLeadMax ?? 0);
-    const unit = p.shippingLeadUnit === "days" ? "日" : "営業日";
-    if (min <= 0 && max <= 0) return null;
-    if (min > 0 && max >= min && max !== min) return `発送目安：${min}〜${max}${unit}以内`;
-    const n = max > 0 ? max : min;
-    return `発送目安：${n}${unit}以内`;
-  };
 
   // ✅ 検索で絞り込み
   const filtered = useMemo(() => {
@@ -243,10 +222,6 @@ function ProductList() {
                   {soldOut ? <div className="sold-label">SOLD OUT</div> : null}
 
                   <div className="plist-name">{p.name}</div>
-
-                  {shipLeadOf(p) ? (
-                    <div className="plist-ship-lead">📦 {shipLeadOf(p)}</div>
-                  ) : null}
 
                   <div className="plist-price-wrap">
   {isSale && originalPrice ? (
