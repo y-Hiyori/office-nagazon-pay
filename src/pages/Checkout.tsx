@@ -448,7 +448,7 @@ function Checkout() {
           navigate(
             `/purchase-complete/${guestOrderId}?orderId=${encodeURIComponent(
               guestOrderId
-            )}&token=${encodeURIComponent(token0yen)}`,
+            )}&token=${encodeURIComponent(token0yen)}&paid=1`,
             { replace: true }
           );
           return;
@@ -554,7 +554,10 @@ function Checkout() {
         }
 
         if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
-        navigate(`/purchase-complete/${orderRow.id}`, { replace: true });
+        navigate(
+          `/purchase-complete/${orderRow.id}?orderId=${encodeURIComponent(orderRow.id)}&token=${encodeURIComponent(token0yen)}&paid=1`,
+          { replace: true }
+        );
         return;
       }
 

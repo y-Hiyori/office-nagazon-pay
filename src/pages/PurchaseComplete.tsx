@@ -1,3 +1,4 @@
+// src/pages/PurchaseComplete.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -13,15 +14,17 @@ export default function PurchaseComplete() {
   const q = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const orderId = q.get("orderId") || id || "";
   const token = q.get("token") || "";
+  // PayPayReturn / 0円購入フローが「すでに決済確定済み」で飛ばしてきた場合
+  const paidOnArrival = q.get("paid") === "1";
 
-  const [view, setView] = useState<ViewState>("pending");
+  const [view, setView] = useState<ViewState>(paidOnArrival ? "paid" : "pending");
   const [earnedPt, setEarnedPt] = useState(0);
   const [isConfirming, setIsConfirming] = useState(false);
 
   // ✅ 初回チェックが終わるまで「確認中画面」に固定する
-  const [booting, setBooting] = useState(true);
+  const [booting, setBooting] = useState(paidOnArrival ? false : true);
 
-  // ✅ “一瞬だけボタン出る”対策：一定時間たってもpendingなら出す
+  // ✅ 一定時間たっても pending なら「再確認」ボタンを出す
   const [showManual, setShowManual] = useState(false);
   const startRef = useRef<number>(Date.now());
 
@@ -32,7 +35,8 @@ export default function PurchaseComplete() {
     const j = await r.json().catch(() => null);
 
     if (!r.ok || !j?.ok) {
-      setView("pending");
+      // 決済は確定済みなら pending に落とさない（到達済み情報を優先）
+      if (!paidOnArrival) setView("pending");
       return { ok: false as const, status: "ERROR" as const };
     }
 
@@ -52,14 +56,14 @@ export default function PurchaseComplete() {
       return { ok: true as const, status: "failed" as const };
     }
 
-    setView("pending");
+    if (!paidOnArrival) setView("pending");
     return { ok: true as const, status: "pending" as const };
   };
 
   const refreshBySupabase = async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u?.user) {
-      setView("pending");
+      if (!paidOnArrival) setView("pending");
       return;
     }
 
@@ -71,14 +75,14 @@ export default function PurchaseComplete() {
       .maybeSingle();
 
     if (error || !data) {
-      setView("pending");
+      if (!paidOnArrival) setView("pending");
       return;
     }
 
     const st = String(data.status || "").toLowerCase();
     if (st === "paid") setView("paid");
     else if (st === "canceled" || st === "failed") setView("failed");
-    else setView("pending");
+    else if (!paidOnArrival) setView("pending");
   };
 
   const confirmNow = async () => {
@@ -108,7 +112,7 @@ export default function PurchaseComplete() {
     let timer: number | null = null;
     startRef.current = Date.now();
 
-    // ✅ 5秒以上 pending なら「再確認」ボタン出す（チラ見え防止）
+    // ✅ 5秒以上 pending なら「再確認」ボタン出す
     const manualTimer = window.setTimeout(() => {
       if (!stopped) setShowManual(true);
     }, 5000);
@@ -117,6 +121,13 @@ export default function PurchaseComplete() {
       if (stopped) return;
 
       try {
+        // 到達時点で決済確定済みの場合は、獲得ポイント表示のため1回だけ問い合わせ
+        if (paidOnArrival) {
+          await refreshByApi();
+          if (!stopped) setBooting(false);
+          return;
+        }
+
         if (token) {
           const r = await refreshByApi();
           if (!stopped) setBooting(false);
@@ -149,7 +160,7 @@ export default function PurchaseComplete() {
       if (timer) window.clearTimeout(timer);
       window.clearTimeout(manualTimer);
     };
-  }, [orderId, token]);
+  }, [orderId, token, paidOnArrival]);
 
   // ✅ 初回チェック終わるまで「確認中」だけ
   if (booting) {
@@ -198,9 +209,12 @@ export default function PurchaseComplete() {
         </button>
       )}
 
-      <button className="home-btn" onClick={() => navigate("/", { replace: true })} type="button">
-        トップへ戻る
-      </button>
+      {/* ✅ 決済の確認が取れるまでは「トップへ戻る」を出さない（誤って戻るのを防止） */}
+      {view !== "pending" && (
+        <button className="home-btn" onClick={() => navigate("/", { replace: true })} type="button">
+          トップへ戻る
+        </button>
+      )}
     </div>
   );
 }

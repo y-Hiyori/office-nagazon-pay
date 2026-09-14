@@ -71,7 +71,7 @@ export default function PayPayReturn() {
         if (r.ok && isPaid(j)) {
           try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
           const resolvedId = String(j?.orderDbId || orderId || "");
-          navigate(`/purchase-complete/${resolvedId}?orderId=${encodeURIComponent(resolvedId)}&token=${encodeURIComponent(token)}`, {
+          navigate(`/purchase-complete/${resolvedId}?orderId=${encodeURIComponent(resolvedId)}&token=${encodeURIComponent(token)}&paid=1`, {
             replace: true,
           });
           return;
