@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminUserDetail.css";
 
@@ -39,7 +40,7 @@ export default function AdminUserDetail() {
         .single();
 
       if (profErr || !prof) {
-        alert("ユーザーが見つかりません");
+        await appDialog.alert({ message: "ユーザーが見つかりません" });
         navigate("/admin-users");
         return;
       }
@@ -71,12 +72,12 @@ export default function AdminUserDetail() {
   // ✅ 管理者がこのユーザーへ「パスワード再設定メール」を送る（アプリだけで完結）
 const handleSendResetMail = async () => {
   if (!profile?.email) {
-    alert("このユーザーはメールアドレスが未設定です");
+    await appDialog.alert({ message: "このユーザーはメールアドレスが未設定です" });
     return;
   }
 
   // ✅ 追加：送信前の確認
-  const ok = confirm(`${profile.email} にパスワード再設定メールを送ります。よろしいですか？`);
+  const ok = await appDialog.confirm({ message: `${profile.email} にパスワード再設定メールを送ります。よろしいですか？` });
   if (!ok) return;
 
   setSending(true);
@@ -90,11 +91,11 @@ const handleSendResetMail = async () => {
     });
 
     if (error) {
-      alert("送信に失敗しました: " + error.message);
+      await appDialog.alert({ message: "送信に失敗しました: " + error.message });
       return;
     }
 
-    alert("パスワード再設定メールを送信しました。");
+    await appDialog.alert({ message: "パスワード再設定メールを送信しました。" });
   } finally {
     setSending(false);
   }
@@ -103,7 +104,7 @@ const handleSendResetMail = async () => {
   const handleDeleteUser = async () => {
     if (!id) return;
 
-    const ok = confirm("このユーザーを完全に削除しますか？（元に戻せません）");
+    const ok = await appDialog.confirm({ message: "このユーザーを完全に削除しますか？（元に戻せません）" });
     if (!ok) return;
 
     const { error } = await supabase.rpc("delete_user_by_admin", {
@@ -111,11 +112,11 @@ const handleSendResetMail = async () => {
     });
 
     if (error) {
-      alert("削除に失敗しました: " + error.message);
+      await appDialog.alert({ message: "削除に失敗しました: " + error.message });
       return;
     }
 
-    alert("ユーザーを削除しました");
+    await appDialog.alert({ message: "ユーザーを削除しました" });
     navigate("/admin-users");
   };
 

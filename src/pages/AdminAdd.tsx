@@ -85,26 +85,28 @@ function AdminAdd() {
       return;
     }
 
-    // ✅ 発送目安の入力チェック（任意・0以上の整数・最短≦最長）
+    // ✅ 発送目安の入力チェック（発送商品では必須・0以上の整数・最短≦最長）
     const leadMinRaw = shippingLeadMin.trim();
     const leadMaxRaw = shippingLeadMax.trim();
     const leadMinNum = leadMinRaw === "" ? null : Math.floor(Number(leadMinRaw));
     const leadMaxNum = leadMaxRaw === "" ? null : Math.floor(Number(leadMaxRaw));
 
-    if (leadMinRaw !== "" && (leadMinNum == null || Number.isNaN(leadMinNum) || leadMinNum < 0)) {
-      await appDialog.alert({ title: "入力エラー", message: "発送目安（最短）は0以上の整数で入力してください" });
-      setIsSubmitting(false);
-      return;
-    }
-    if (leadMaxRaw !== "" && (leadMaxNum == null || Number.isNaN(leadMaxNum) || leadMaxNum < 0)) {
-      await appDialog.alert({ title: "入力エラー", message: "発送目安（最長）は0以上の整数で入力してください" });
-      setIsSubmitting(false);
-      return;
-    }
-    if (leadMinNum != null && leadMaxNum != null && leadMinNum > leadMaxNum) {
-      await appDialog.alert({ title: "入力エラー", message: "発送目安は「最短 ≦ 最長」になるよう入力してください" });
-      setIsSubmitting(false);
-      return;
+    if (isShipping) {
+      if (leadMinRaw === "" || leadMinNum == null || Number.isNaN(leadMinNum) || leadMinNum < 0) {
+        await appDialog.alert({ title: "入力エラー", message: "発送商品では発送目安（最短）の入力が必要です（0以上の整数）" });
+        setIsSubmitting(false);
+        return;
+      }
+      if (leadMaxRaw === "" || leadMaxNum == null || Number.isNaN(leadMaxNum) || leadMaxNum < 0) {
+        await appDialog.alert({ title: "入力エラー", message: "発送商品では発送目安（最長）の入力が必要です（0以上の整数）" });
+        setIsSubmitting(false);
+        return;
+      }
+      if (leadMinNum > leadMaxNum) {
+        await appDialog.alert({ title: "入力エラー", message: "発送目安は「最短 ≦ 最長」になるよう入力してください" });
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     const payload: Record<string, unknown> = {
@@ -115,9 +117,9 @@ function AdminAdd() {
       member_price: Number.isFinite(memberPriceNum) ? memberPriceNum : null,
       earn_points: earnNum,
       is_shipping: isShipping,
-      shipping_lead_min: leadMinNum,
-      shipping_lead_max: leadMaxNum,
-      shipping_lead_unit: shippingLeadUnit,
+      shipping_lead_min: isShipping ? leadMinNum : null,
+      shipping_lead_max: isShipping ? leadMaxNum : null,
+      shipping_lead_unit: isShipping ? shippingLeadUnit : "business_days",
     };
 
     if (originalPriceNum != null) payload.original_price = originalPriceNum;
@@ -216,8 +218,8 @@ function AdminAdd() {
 
       {isShipping && (
         <div className="add-shipping-lead">
-          <div className="add-lead-title">発送目安（任意）</div>
-          <div className="add-lead-sub">「何日から何日まで」または「何営業日以内」で設定できます</div>
+          <div className="add-lead-title">発送目安<span className="add-lead-req">必須</span></div>
+          <div className="add-lead-sub">発送商品にする場合は必ず入力してください。最短〜最長（例: 最短3 〜 最長5）に「営業日」か「日」を選びます</div>
           <div className="add-lead-row">
             <input
               type="number"

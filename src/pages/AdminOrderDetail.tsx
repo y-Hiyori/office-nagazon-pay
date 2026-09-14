@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
+import { appDialog } from "../lib/appDialog";
 import "./AdminOrderDetail.css";
 import { findProductImage } from "../data/products";
 
@@ -99,7 +100,7 @@ export default function AdminOrderDetail() {
         .single();
 
       if (meErr || !me?.is_admin) {
-        alert("このページは管理者専用です。");
+        await appDialog.alert({ message: "このページは管理者専用です。" });
         navigate("/");
         return;
       }
@@ -241,20 +242,20 @@ export default function AdminOrderDetail() {
       const j = await r.json().catch(() => null);
 
       if (!r.ok || !j?.ok) {
-        alert(`発送ステータスの更新に失敗しました\n(${j?.status || r.status || "ERROR"})`);
+        await appDialog.alert({ message: `発送ステータスの更新に失敗しました\n(${j?.status || r.status || "ERROR"})` });
         return;
       }
 
       setOrder({ ...order, shipping_status: j.shippingStatus });
 
       if (nextAction === "shipped") {
-        alert("発送完了にしました。\n購入者への発送完了メールはお手元からお送りください。");
+        await appDialog.alert({ message: "発送完了にしました。\n購入者への発送完了メールはお手元からお送りください。" });
       } else {
-        alert("発送準備中に戻しました。");
+        await appDialog.alert({ message: "発送準備中に戻しました。" });
       }
     } catch (e) {
       console.error(e);
-      alert("発送ステータスの更新に失敗しました。");
+      await appDialog.alert({ message: "発送ステータスの更新に失敗しました。" });
     } finally {
       setShipBusy(false);
     }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminCouponEdit.css";
 
@@ -58,7 +59,7 @@ export default function AdminCouponEdit({ mode }: Props) {
 
       if (error || !data) {
         console.error(error);
-        alert("読み込みに失敗しました");
+        await appDialog.alert({ message: "読み込みに失敗しました" });
         nav("/admin-coupons");
         return;
       }
@@ -94,7 +95,7 @@ export default function AdminCouponEdit({ mode }: Props) {
   const save = async () => {
     const errMsg = validate();
     if (errMsg) {
-      alert(errMsg);
+      await appDialog.alert({ message: errMsg });
       return;
     }
 
@@ -117,11 +118,11 @@ export default function AdminCouponEdit({ mode }: Props) {
       const { error } = await supabase.from("coupons").insert(payload);
       if (error) {
         console.error(error);
-        alert("作成に失敗しました（同じcodeが既にあるかも）");
+        await appDialog.alert({ message: "作成に失敗しました（同じcodeが既にあるかも）" });
         setSaving(false);
         return;
       }
-      alert("作成しました");
+      await appDialog.alert({ message: "作成しました" });
       nav("/admin-coupons");
       return;
     }
@@ -129,12 +130,12 @@ export default function AdminCouponEdit({ mode }: Props) {
     const { error } = await supabase.from("coupons").update(payload).eq("code", editCode);
     if (error) {
       console.error(error);
-      alert("更新に失敗しました");
+      await appDialog.alert({ message: "更新に失敗しました" });
       setSaving(false);
       return;
     }
 
-    alert("更新しました");
+    await appDialog.alert({ message: "更新しました" });
     nav("/admin-coupons");
   };
 

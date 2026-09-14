@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminNotices.css";
 
@@ -66,7 +67,7 @@ export default function AdminNotices() {
   };
 
   const removeRow = async (id: string) => {
-    if (!confirm("このお知らせを削除しますか？")) return;
+    if (!(await appDialog.confirm({ message: "このお知らせを削除しますか？" }))) return;
     const { error } = await supabase.from("home_notices").delete().eq("id", id);
     if (error) return console.error(error);
     setRows((p) => p.filter((r) => r.id !== id));

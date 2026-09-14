@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminHomeSlides.css";
 
@@ -33,7 +34,7 @@ export default function AdminHomeSlideEdit({ mode }: { mode: "new" | "edit" }) {
 
       if (error || !data) {
         console.error(error);
-        alert("読み込みに失敗しました");
+        await appDialog.alert({ message: "読み込みに失敗しました" });
         setLoading(false);
         return;
       }
@@ -64,7 +65,7 @@ export default function AdminHomeSlideEdit({ mode }: { mode: "new" | "edit" }) {
     };
 
     if (!payload.image_url) {
-      alert("画像URLは必須です（とりあえずURLでOK）");
+      await appDialog.alert({ message: "画像URLは必須です（とりあえずURLでOK）" });
       setSaving(false);
       return;
     }
@@ -73,13 +74,13 @@ export default function AdminHomeSlideEdit({ mode }: { mode: "new" | "edit" }) {
       const { error } = await supabase.from("home_slides").insert(payload);
       if (error) {
         console.error(error);
-        alert("保存に失敗しました");
+        await appDialog.alert({ message: "保存に失敗しました" });
         setSaving(false);
         return;
       }
     } else {
       if (!id) {
-        alert("IDが見つかりません");
+        await appDialog.alert({ message: "IDが見つかりません" });
         setSaving(false);
         return;
       }
@@ -87,7 +88,7 @@ export default function AdminHomeSlideEdit({ mode }: { mode: "new" | "edit" }) {
       const { error } = await supabase.from("home_slides").update(payload).eq("id", id);
       if (error) {
         console.error(error);
-        alert("保存に失敗しました");
+        await appDialog.alert({ message: "保存に失敗しました" });
         setSaving(false);
         return;
       }

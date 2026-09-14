@@ -735,3 +735,6 @@
 .ae-ship-lead-row .ae-input{flex:1;min-width:80px;}
 .ae-ship-lead-sep{font-weight:800;color:#8a6a1a;}
 .ae-ship-unit{flex:none!important;min-width:110px;}
+
+/* ✅ 発送目安（必須）バッジ */
+.ae-required{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:#e2453c;color:#fff;font-size:11px;font-weight:800;vertical-align:2px;}

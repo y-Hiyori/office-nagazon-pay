@@ -175,26 +175,28 @@ export default function AdminEdit() {
       return;
     }
 
-    // ✅ 発送目安の入力チェック（任意・0以上の整数・最短≦最長）
+    // ✅ 発送目安の入力チェック（発送商品では必須・0以上の整数・最短≦最長）
     const leadMinRaw = shippingLeadMin.trim();
     const leadMaxRaw = shippingLeadMax.trim();
     const leadMinNum = leadMinRaw === "" ? null : Math.floor(Number(leadMinRaw));
     const leadMaxNum = leadMaxRaw === "" ? null : Math.floor(Number(leadMaxRaw));
 
-    if (leadMinRaw !== "" && (leadMinNum == null || Number.isNaN(leadMinNum) || leadMinNum < 0)) {
-      await appDialog.alert({ title: "入力エラー", message: "発送目安（最短）は0以上の整数で入力してください" });
-      setIsSaving(false);
-      return;
-    }
-    if (leadMaxRaw !== "" && (leadMaxNum == null || Number.isNaN(leadMaxNum) || leadMaxNum < 0)) {
-      await appDialog.alert({ title: "入力エラー", message: "発送目安（最長）は0以上の整数で入力してください" });
-      setIsSaving(false);
-      return;
-    }
-    if (leadMinNum != null && leadMaxNum != null && leadMinNum > leadMaxNum) {
-      await appDialog.alert({ title: "入力エラー", message: "発送目安は「最短 ≦ 最長」になるよう入力してください" });
-      setIsSaving(false);
-      return;
+    if (isShipping) {
+      if (leadMinRaw === "" || leadMinNum == null || Number.isNaN(leadMinNum) || leadMinNum < 0) {
+        await appDialog.alert({ title: "入力エラー", message: "発送商品では発送目安（最短）の入力が必要です（0以上の整数）" });
+        setIsSaving(false);
+        return;
+      }
+      if (leadMaxRaw === "" || leadMaxNum == null || Number.isNaN(leadMaxNum) || leadMaxNum < 0) {
+        await appDialog.alert({ title: "入力エラー", message: "発送商品では発送目安（最長）の入力が必要です（0以上の整数）" });
+        setIsSaving(false);
+        return;
+      }
+      if (leadMinNum > leadMaxNum) {
+        await appDialog.alert({ title: "入力エラー", message: "発送目安は「最短 ≦ 最長」になるよう入力してください" });
+        setIsSaving(false);
+        return;
+      }
     }
 
     const priceToSave = saleNum > 0 ? saleNum : normalNum;
@@ -211,9 +213,9 @@ export default function AdminEdit() {
         member_price: memberPrice.trim() === "" ? null : Math.floor(Number(memberPrice)),
         earn_points: Math.max(0, Math.floor(Number(earnPoints || 0) || 0)),
         is_shipping: isShipping,
-        shipping_lead_min: leadMinNum,
-        shipping_lead_max: leadMaxNum,
-        shipping_lead_unit: shippingLeadUnit,
+        shipping_lead_min: isShipping ? leadMinNum : null,
+        shipping_lead_max: isShipping ? leadMaxNum : null,
+        shipping_lead_unit: isShipping ? shippingLeadUnit : "business_days",
       })
       .eq("id", urlId);
 
@@ -337,7 +339,7 @@ export default function AdminEdit() {
 
             {isShipping && (
               <div className="ae-field">
-                <label className="ae-label">発送目安（任意）</label>
+                <label className="ae-label">発送目安<span className="ae-required">必須</span></label>
                 <div className="ae-ship-lead-row">
                   <input
                     className="ae-input"
@@ -366,7 +368,7 @@ export default function AdminEdit() {
                   </select>
                 </div>
                 <div className="ae-help">
-                  例:「最短3〜最長5・営業日」→ 「ご注文から3〜5営業日以内に発送」と商品詳細に表示
+                  発送商品では必須項目です。例:「最短3〜最長5・営業日」→ 「ご注文から3〜5営業日以内に発送」と商品詳細に表示
                 </div>
               </div>
             )}

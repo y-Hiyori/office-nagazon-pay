@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 
 type AdminRouteProps = {
   children: ReactNode;
@@ -22,7 +23,7 @@ function AdminRoute({ children }: AdminRouteProps) {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        alert("ログインしてください");
+        await appDialog.alert({ message: "ログインしてください" });
         navigate("/auth"); // 認証トップへ
         return;
       }
@@ -35,7 +36,7 @@ function AdminRoute({ children }: AdminRouteProps) {
         .single();
 
       if (profileError || !profile?.is_admin) {
-        alert("このページは管理者専用です");
+        await appDialog.alert({ message: "このページは管理者専用です" });
         navigate("/"); // 一般トップへ
         return;
       }

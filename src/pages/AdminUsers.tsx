@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminUsers.css";
 
@@ -22,7 +23,7 @@ function AdminUsers() {
 
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) {
-        alert("管理者としてログインしてください。");
+        await appDialog.alert({ message: "管理者としてログインしてください。" });
         navigate("/login");
         return;
       }
@@ -36,7 +37,7 @@ function AdminUsers() {
         .single();
 
       if (meError || !me?.is_admin) {
-        alert("このページは管理者専用です。");
+        await appDialog.alert({ message: "このページは管理者専用です。" });
         navigate("/");
         return;
       }

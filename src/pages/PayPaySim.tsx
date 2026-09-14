@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
+import { appDialog } from "../lib/appDialog";
 
 function PayPaySim() {
   const navigate = useNavigate();
 
-  const handleComplete = () => {
-    alert("（テスト）PayPayの支払いが完了しました！");
+  const handleComplete = async () => {
+    await appDialog.alert({ message: "（テスト）PayPayの支払いが完了しました！" });
     navigate("/"); // 完了後どこに戻すかはお好みで
   };
 

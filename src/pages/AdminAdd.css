@@ -495,3 +495,6 @@
 .add-lead-sep{font-weight:800;color:#7a5a12;}
 .add-lead-row select{padding:10px;border:1px solid #ccc;border-radius:8px;font-size:14px;background:#fff;}
 .add-lead-help{font-size:11px;color:#9a8a5a;margin-top:8px;}
+
+/* ✅ 発送目安（必須）バッジ */
+.add-lead-req{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:#e2453c;color:#fff;font-size:11px;font-weight:800;vertical-align:2px;}

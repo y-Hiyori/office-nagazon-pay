@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminHomeSlides.css";
 
@@ -55,7 +56,7 @@ export default function AdminHomeSlides() {
   };
 
   const removeRow = async (id: string) => {
-    if (!confirm("このスライドを削除しますか？")) return;
+    if (!(await appDialog.confirm({ message: "このスライドを削除しますか？" }))) return;
 
     const { error } = await supabase.from("home_slides").delete().eq("id", id);
     if (error) return console.error(error);

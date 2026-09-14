@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 import "./Login.css";
 
 function ResetPassword() {
@@ -40,7 +41,7 @@ function ResetPassword() {
       return;
     }
 
-    alert("パスワードを変更しました。新しいパスワードでログインしてください。");
+    await appDialog.alert({ message: "パスワードを変更しました。新しいパスワードでログインしてください。" });
     setIsUpdating(false);
     navigate("/login");
   };

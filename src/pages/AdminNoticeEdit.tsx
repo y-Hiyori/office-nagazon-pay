@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminNoticeEdit.css";
 
@@ -46,7 +47,7 @@ export default function AdminNoticeEdit({ mode }: { mode: "new" | "edit" }) {
   const save = async () => {
     const t = title.trim();
     if (!t) {
-      alert("タイトルは必須です");
+      await appDialog.alert({ message: "タイトルは必須です" });
       return;
     }
 
@@ -63,7 +64,7 @@ export default function AdminNoticeEdit({ mode }: { mode: "new" | "edit" }) {
       const { error } = await supabase.from("home_notices").insert(payload);
       if (error) {
         console.error(error);
-        alert("保存に失敗しました");
+        await appDialog.alert({ message: "保存に失敗しました" });
         setSaving(false);
         return;
       }
@@ -75,7 +76,7 @@ export default function AdminNoticeEdit({ mode }: { mode: "new" | "edit" }) {
 
       if (error) {
         console.error(error);
-        alert("保存に失敗しました");
+        await appDialog.alert({ message: "保存に失敗しました" });
         setSaving(false);
         return;
       }
