@@ -229,7 +229,7 @@ function ProductList() {
     {isMember && p.memberPrice ? (
       <span className="plist-memberTag">会員</span>
     ) : null}
-    <div className="plist-price">¥{formatPrice(shownPrice)}</div>
+    <div className={isMember && p.memberPrice ? "plist-price is-member" : "plist-price"}>¥{formatPrice(shownPrice)}</div>
     {isSale ? (
       <div className="plist-price-save">
         ¥{formatPrice(discountYen)} OFF

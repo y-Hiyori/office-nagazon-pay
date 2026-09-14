@@ -109,6 +109,7 @@ function ProductDetail() {
 
   const priceNum = effectivePrice(product, isMember);
   const memberPriceNum = isMember ? memberPriceOf(product) : null;
+  const earnPoints = Math.max(0, Math.floor(Number((product as any)?.earn_points ?? 0)));
   const originalPriceNum =
     Number((product as any)?.original_price ?? (product as any)?.originalPrice ?? 0) || 0;
   const isSale = originalPriceNum > priceNum;
@@ -228,30 +229,38 @@ function ProductDetail() {
       {isMember && memberPriceNum != null ? (
         <div className="pdetail-pricePanel">
           <div className="pdetail-priceMainRow">
-            <span className="pdetail-chip sale">会員価格</span>
-            <div className="pdetail-price">¥{formatYen(priceNum)}</div>
+            <span className="pdetail-chip member">会員価格</span>
+            <div className="pdetail-price is-member">¥{formatYen(priceNum)}</div>
           </div>
           <div className="pdetail-priceCompare">
             ¥{formatYen(Number(product?.price ?? 0))} → 会員 ¥{formatYen(priceNum)}
           </div>
         </div>
-      ) : null}
-
-      {isSale ? (
-        <div className="pdetail-pricePanel">
-          <div className="pdetail-priceMainRow">
-            <div className="pdetail-price">¥{formatYen(priceNum)}</div>
-            <div className="pdetail-discountValue">
-              ¥{formatYen(discountYen)} OFF ({discountRate}%)
-            </div>
-          </div>
-          <div className="pdetail-priceCompare">
-            ¥{formatYen(originalPriceNum)} → ¥{formatYen(priceNum)}
-          </div>
-        </div>
       ) : (
-        <div className="pdetail-price">¥{formatYen(priceNum)}</div>
+        <>
+          {isSale ? (
+            <div className="pdetail-pricePanel">
+              <div className="pdetail-priceMainRow">
+                <div className="pdetail-price">¥{formatYen(priceNum)}</div>
+                <div className="pdetail-discountValue">
+                  ¥{formatYen(discountYen)} OFF ({discountRate}%)
+                </div>
+              </div>
+              <div className="pdetail-priceCompare">
+                ¥{formatYen(originalPriceNum)} → ¥{formatYen(priceNum)}
+              </div>
+            </div>
+          ) : (
+            <div className="pdetail-price">¥{formatYen(priceNum)}</div>
+          )}
+        </>
       )}
+
+      {earnPoints > 0 ? (
+        <div className="pdetail-points">
+          購入すると <span className="pdetail-points-num">＋{earnPoints.toLocaleString("ja-JP")}pt</span>
+        </div>
+      ) : null}
 
       <div className="pdetail-qtyRow">
         <div className="pdetail-qtyLabel">数量</div>
