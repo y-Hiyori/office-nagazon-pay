@@ -257,9 +257,20 @@ function ProductDetail() {
       )}
 
       {earnPoints > 0 ? (
-        <div className="pdetail-points">
-          購入すると <span className="pdetail-points-num">＋{earnPoints.toLocaleString("ja-JP")}pt</span>
-        </div>
+        isMember ? (
+          <div className="pdetail-points">
+            購入すると <span className="pdetail-points-num">＋{earnPoints.toLocaleString("ja-JP")}pt</span>
+          </div>
+        ) : (
+          <div className="pdetail-points guest">
+            <span className="pdetail-points-msg">
+              アカウント登録して購入すると <span className="pdetail-points-num">＋{earnPoints.toLocaleString("ja-JP")}pt</span> もらえます
+            </span>
+            <button className="pdetail-points-link" onClick={() => navigate("/signup")} type="button">
+              会員登録はこちら
+            </button>
+          </div>
+        )
       ) : null}
 
       <div className="pdetail-qtyRow">
