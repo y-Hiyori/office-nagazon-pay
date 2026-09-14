@@ -3,6 +3,8 @@ export type Product = {
   id: number;             // Supabase products.id に合わせる
   name: string;
   price: number;
+  member_price?: number | null;
+  earn_points?: number;
   original_price?: number | null;
   originalPrice?: number | null;
   stock: number;

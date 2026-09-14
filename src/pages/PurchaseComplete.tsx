@@ -15,6 +15,7 @@ export default function PurchaseComplete() {
   const token = q.get("token") || "";
 
   const [view, setView] = useState<ViewState>("pending");
+  const [earnedPt, setEarnedPt] = useState(0);
   const [isConfirming, setIsConfirming] = useState(false);
 
   // ✅ 初回チェックが終わるまで「確認中画面」に固定する
@@ -36,6 +37,10 @@ export default function PurchaseComplete() {
     }
 
     const st = String(j.status || "").toLowerCase();
+
+    if (typeof j.points_earned === "number" && j.points_earned > 0) {
+      setEarnedPt(j.points_earned);
+    }
 
     if (st === "paid") {
       setView("paid");
@@ -166,6 +171,9 @@ export default function PurchaseComplete() {
         <div className="complete-box">
           <p>お支払いが完了しました。</p>
           <p>商品をお取りください。</p>
+          {earnedPt > 0 ? (
+            <p className="complete-points">＋{earnedPt.toLocaleString("ja-JP")} pt 獲得！</p>
+          ) : null}
         </div>
       )}
 

@@ -22,6 +22,8 @@ export default function AdminEdit() {
   const [salePrice, setSalePrice] = useState("");
 
   const [stock, setStock] = useState("");
+  const [memberPrice, setMemberPrice] = useState("");
+  const [earnPoints, setEarnPoints] = useState("");
 
   const [isSaving, setIsSaving] = useState(false);
   const [openIdEdit, setOpenIdEdit] = useState(false);
@@ -38,7 +40,7 @@ export default function AdminEdit() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, price, original_price, stock")
+      .select("id, name, price, original_price, stock, member_price, earn_points")
       .eq("id", urlId)
       .maybeSingle();
 
@@ -69,6 +71,10 @@ export default function AdminEdit() {
     }
 
     setStock(String(data.stock));
+    const dbMember = (data as any).member_price ?? null;
+    setMemberPrice(dbMember != null && Number(dbMember) > 0 ? String(dbMember) : "");
+    const dbEarn = Number((data as any).earn_points ?? 0);
+    setEarnPoints(dbEarn > 0 ? String(dbEarn) : "");
     setLoading(false);
   };
 
@@ -168,6 +174,8 @@ export default function AdminEdit() {
         price: priceToSave,
         original_price: originalToSave,
         stock: stockNum,
+        member_price: memberPrice.trim() === "" ? null : Math.floor(Number(memberPrice)),
+        earn_points: Math.max(0, Math.floor(Number(earnPoints || 0) || 0)),
       })
       .eq("id", urlId);
 
@@ -250,6 +258,30 @@ export default function AdminEdit() {
               />
               <span className="ae-suffix">個</span>
             </div>
+
+          <div className="ae-input-wrap">
+            <label>会員価格（ログイン時の価格・未入力なら通常価格）</label>
+            <input
+              className="ae-input"
+              type="number"
+              inputMode="numeric"
+              placeholder="会員価格"
+              value={memberPrice}
+              onChange={(e) => setMemberPrice(e.target.value)}
+            />
+          </div>
+
+          <div className="ae-input-wrap">
+            <label>購入時付与ポイント（pt）</label>
+            <input
+              className="ae-input"
+              type="number"
+              inputMode="numeric"
+              placeholder="例: 10"
+              value={earnPoints}
+              onChange={(e) => setEarnPoints(e.target.value)}
+            />
+          </div>
           </div>
         </div>
 

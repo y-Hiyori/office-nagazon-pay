@@ -538,6 +538,13 @@ function Checkout() {
           .update({ status: "paid", paid_at: new Date().toISOString() })
           .eq("id", orderRow.id);
 
+        // ✅ アカウント購入（0円）でも、商品に設定された付与ポイントを財布へ反映
+        try {
+          await supabase.rpc("points_award_for_order", { p_order_id: orderRow.id });
+        } catch (e) {
+          console.error("points_award_for_order error:", e);
+        }
+
         if (buyerEmail) {
           await fetch("/api/send-buyer-order-email", {
             method: "POST",

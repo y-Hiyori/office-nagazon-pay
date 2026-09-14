@@ -13,6 +13,8 @@ function AdminAdd() {
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [stock, setStock] = useState("");
+  const [memberPrice, setMemberPrice] = useState("");
+  const [earnPoints, setEarnPoints] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAdd = async () => {
@@ -69,11 +71,22 @@ function AdminAdd() {
       return;
     }
 
+    const memberPriceNum = memberPrice.trim() === "" ? null : Number(memberPrice);
+    const earnNum = Math.max(0, Math.floor(Number(earnPoints || 0) || 0));
+
+    if (memberPrice.trim() !== "" && (memberPriceNum == null || Number.isNaN(memberPriceNum))) {
+      await appDialog.alert({ title: "入力エラー", message: "会員価格は数値で入力してください" });
+      setIsSubmitting(false);
+      return;
+    }
+
     const payload: Record<string, unknown> = {
       id: idNum,
       name,
       price: priceNum,
       stock: stockNum,
+      member_price: Number.isFinite(memberPriceNum) ? memberPriceNum : null,
+      earn_points: earnNum,
     };
 
     if (originalPriceNum != null) payload.original_price = originalPriceNum;
@@ -145,6 +158,20 @@ function AdminAdd() {
         placeholder="在庫数"
         value={stock}
         onChange={(e) => setStock(e.target.value)}
+      />
+
+      <input
+        type="number"
+        placeholder="会員価格（ログイン時の価格・未入力なら通常価格）"
+        value={memberPrice}
+        onChange={(e) => setMemberPrice(e.target.value)}
+      />
+
+      <input
+        type="number"
+        placeholder="購入時付与ポイント（pt・購入後にアカウントへ付与）"
+        value={earnPoints}
+        onChange={(e) => setEarnPoints(e.target.value)}
       />
     </div>
   );

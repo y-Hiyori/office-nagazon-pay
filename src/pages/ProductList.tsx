@@ -1,6 +1,8 @@
 // src/pages/ProductList.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useIsMember } from "../lib/useIsMember";
+import { memberPriceOf } from "../lib/pricing";
 import { supabase } from "../lib/supabase";
 import "./ProductList.css";
 import { findProductImage } from "../data/products";
@@ -13,6 +15,7 @@ type ProductRow = {
   id: number;
   name: string;
   price: number;
+  memberPrice: number | null;
   originalPrice: number | null;
   stock: number;
   imageData: string | null;
@@ -23,6 +26,7 @@ type ProductRow = {
 
 function ProductList() {
   const navigate = useNavigate();
+  const isMember = useIsMember();
 
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +74,7 @@ function ProductList() {
           id: Number(p.id),
           name: String(p.name ?? ""),
           price: Number(p.price ?? 0),
+          memberPrice: memberPriceOf(p),
           originalPrice:
             Number.isFinite(originalPriceNum) && originalPriceNum > Number(p.price ?? 0)
               ? originalPriceNum
@@ -168,6 +173,7 @@ function ProductList() {
               const soldOut = (p.stock ?? 0) <= 0;
               const originalPrice = getOriginalPrice(p);
               const isSale = !!originalPrice;
+              const shownPrice = isMember && p.memberPrice ? p.memberPrice : p.price;
               const discountYen = isSale ? originalPrice! - p.price : 0;
               const discountRate = isSale
                 ? Math.round((discountYen / originalPrice!) * 100)
@@ -220,7 +226,10 @@ function ProductList() {
   ) : null}
 
   <div className="plist-price-row">
-    <div className="plist-price">¥{formatPrice(p.price)}</div>
+    {isMember && p.memberPrice ? (
+      <span className="plist-memberTag">会員</span>
+    ) : null}
+    <div className="plist-price">¥{formatPrice(shownPrice)}</div>
     {isSale ? (
       <div className="plist-price-save">
         ¥{formatPrice(discountYen)} OFF

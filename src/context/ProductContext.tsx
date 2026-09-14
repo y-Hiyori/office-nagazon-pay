@@ -71,6 +71,8 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
         name: p.name,
         price: p.price,
         stock: p.stock,
+        member_price: Number(p.member_price ?? 0) > 0 ? Number(p.member_price) : null,
+        earn_points: Math.max(0, Math.floor(Number(p.earn_points || 0))),
         imageData: p.imageData, // imageData カラム消してたらここも消す
       })
       .eq("id", p.id)

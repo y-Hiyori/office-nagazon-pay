@@ -4,6 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import "./ProductDetail.css";
 
 import { useCart } from "../context/CartContext";
+import { useIsMember } from "../lib/useIsMember";
+import { memberPriceOf, effectivePrice } from "../lib/pricing";
 import { supabase } from "../lib/supabase";
 import { findProductImage } from "../data/products";
 import type { Product } from "../types/Product";
@@ -32,6 +34,7 @@ function ProductDetail() {
   const [loading, setLoading] = useState(true);
 
   const [quantity, setQuantity] = useState(1);
+  const isMember = useIsMember();
   const [detailImage, setDetailImage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,6 +70,8 @@ function ProductDetail() {
         name: data.name,
         price: data.price,
         original_price: (data as any).original_price ?? (data as any).originalPrice ?? null,
+        member_price: (data as any).member_price ?? null,
+        earn_points: Number((data as any).earn_points ?? 0),
         stock: Number((data as any).stock ?? 0),
         imageData: img,
         created_at: (data as any).created_at ?? null,
@@ -102,7 +107,8 @@ function ProductDetail() {
 
   const isNew = isNewRaw && canPurchase;
 
-  const priceNum = Number(product?.price ?? 0) || 0;
+  const priceNum = effectivePrice(product, isMember);
+  const memberPriceNum = isMember ? memberPriceOf(product) : null;
   const originalPriceNum =
     Number((product as any)?.original_price ?? (product as any)?.originalPrice ?? 0) || 0;
   const isSale = originalPriceNum > priceNum;
@@ -155,7 +161,7 @@ function ProductDetail() {
 
     if (totalQty > stockNum) return showCannotPurchase();
 
-    cart.addToCart(product, quantity);
+    cart.addToCart({ ...product, price: priceNum }, quantity);
     await showAddedToCart(product.name, quantity);
   };
 
@@ -166,7 +172,7 @@ function ProductDetail() {
     if (isSoldOut) return showCannotPurchase();
 
     navigate("/checkout", {
-      state: { buyNow: { product, quantity } },
+      state: { buyNow: { product: { ...product, price: priceNum }, quantity } },
     });
   };
 
@@ -218,6 +224,18 @@ function ProductDetail() {
 
         <h1 className="pdetail-name">{product.name}</h1>
       </div>
+
+      {isMember && memberPriceNum != null ? (
+        <div className="pdetail-pricePanel">
+          <div className="pdetail-priceMainRow">
+            <span className="pdetail-chip sale">会員価格</span>
+            <div className="pdetail-price">¥{formatYen(priceNum)}</div>
+          </div>
+          <div className="pdetail-priceCompare">
+            ¥{formatYen(Number(product?.price ?? 0))} → 会員 ¥{formatYen(priceNum)}
+          </div>
+        </div>
+      ) : null}
 
       {isSale ? (
         <div className="pdetail-pricePanel">
