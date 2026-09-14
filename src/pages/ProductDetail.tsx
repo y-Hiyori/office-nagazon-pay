@@ -73,6 +73,12 @@ function ProductDetail() {
         member_price: (data as any).member_price ?? null,
         earn_points: Number((data as any).earn_points ?? 0),
         is_shipping: !!(data as any).is_shipping,
+        shipping_lead_min:
+          (data as any).shipping_lead_min != null ? Number((data as any).shipping_lead_min) : null,
+        shipping_lead_max:
+          (data as any).shipping_lead_max != null ? Number((data as any).shipping_lead_max) : null,
+        shipping_lead_unit:
+          (data as any).shipping_lead_unit === "days" ? "days" : "business_days",
         stock: Number((data as any).stock ?? 0),
         imageData: img,
         created_at: (data as any).created_at ?? null,
