@@ -15,6 +15,7 @@ function AdminAdd() {
   const [stock, setStock] = useState("");
   const [memberPrice, setMemberPrice] = useState("");
   const [earnPoints, setEarnPoints] = useState("");
+  const [isShipping, setIsShipping] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAdd = async () => {
@@ -87,6 +88,7 @@ function AdminAdd() {
       stock: stockNum,
       member_price: Number.isFinite(memberPriceNum) ? memberPriceNum : null,
       earn_points: earnNum,
+      is_shipping: isShipping,
     };
 
     if (originalPriceNum != null) payload.original_price = originalPriceNum;
@@ -173,6 +175,15 @@ function AdminAdd() {
         value={earnPoints}
         onChange={(e) => setEarnPoints(e.target.value)}
       />
+
+      <label className="add-shipping-toggle">
+        <input
+          type="checkbox"
+          checked={isShipping}
+          onChange={(e) => setIsShipping(e.target.checked)}
+        />
+        <span>発送商品（購入時に配送先の住所・電話番号が必要）</span>
+      </label>
     </div>
   );
 }

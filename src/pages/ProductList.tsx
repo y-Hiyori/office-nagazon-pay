@@ -19,6 +19,7 @@ type ProductRow = {
   originalPrice: number | null;
   stock: number;
   imageData: string | null;
+  isShipping: boolean;
   createdAt: string | null;
   isNew: boolean;
   isVisible: boolean;
@@ -81,6 +82,7 @@ function ProductList() {
               : null,
           stock: Number(p.stock ?? 0),
           imageData: p.imageData ?? findProductImage(Number(p.id)) ?? null,
+          isShipping: !!(p as any).is_shipping,
           createdAt,
           isNew,
           isVisible,
@@ -210,6 +212,9 @@ function ProductList() {
                     ) : null}
                     {!soldOut && p.isNew ? (
                       <div className="new-label">NEW</div>
+                    ) : null}
+                    {!soldOut && p.isShipping ? (
+                      <div className="shipping-label">発送</div>
                     ) : null}
                   </div>
 

@@ -24,6 +24,7 @@ export default function AdminEdit() {
   const [stock, setStock] = useState("");
   const [memberPrice, setMemberPrice] = useState("");
   const [earnPoints, setEarnPoints] = useState("");
+  const [isShipping, setIsShipping] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [openIdEdit, setOpenIdEdit] = useState(false);
@@ -40,7 +41,7 @@ export default function AdminEdit() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, price, original_price, stock, member_price, earn_points")
+      .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping")
       .eq("id", urlId)
       .maybeSingle();
 
@@ -75,6 +76,7 @@ export default function AdminEdit() {
     setMemberPrice(dbMember != null && Number(dbMember) > 0 ? String(dbMember) : "");
     const dbEarn = Number((data as any).earn_points ?? 0);
     setEarnPoints(dbEarn > 0 ? String(dbEarn) : "");
+    setIsShipping(!!(data as any).is_shipping);
     setLoading(false);
   };
 
@@ -176,6 +178,7 @@ export default function AdminEdit() {
         stock: stockNum,
         member_price: memberPrice.trim() === "" ? null : Math.floor(Number(memberPrice)),
         earn_points: Math.max(0, Math.floor(Number(earnPoints || 0) || 0)),
+        is_shipping: isShipping,
       })
       .eq("id", urlId);
 
@@ -281,6 +284,21 @@ export default function AdminEdit() {
               value={earnPoints}
               onChange={(e) => setEarnPoints(e.target.value)}
             />
+          </div>
+
+          <div className="ae-field">
+            <label className="ae-label">受渡方法</label>
+            <label className="ae-shipping-toggle">
+              <input
+                type="checkbox"
+                checked={isShipping}
+                onChange={(e) => setIsShipping(e.target.checked)}
+              />
+              <span>発送商品（購入時に配送先の住所・電話番号が必要）</span>
+            </label>
+            <div className="ae-help">
+              オフ（未チェック）は「その場受け取り」として販売します
+            </div>
           </div>
           </div>
         </div>

@@ -72,6 +72,7 @@ function ProductDetail() {
         original_price: (data as any).original_price ?? (data as any).originalPrice ?? null,
         member_price: (data as any).member_price ?? null,
         earn_points: Number((data as any).earn_points ?? 0),
+        is_shipping: !!(data as any).is_shipping,
         stock: Number((data as any).stock ?? 0),
         imageData: img,
         created_at: (data as any).created_at ?? null,
@@ -162,7 +163,17 @@ function ProductDetail() {
 
     if (totalQty > stockNum) return showCannotPurchase();
 
-    cart.addToCart({ ...product, price: priceNum }, quantity);
+    const result = cart.addToCart({ ...product, price: priceNum }, quantity);
+
+    if (result === "mixed") {
+      await appDialog.alert({
+        title: "カートに追加できません",
+        message:
+          "発送商品とその場受け取り商品は同時に購入できません。\nまずカートを空にしてから、どちらかにまとめて追加してください。",
+      });
+      return;
+    }
+
     await showAddedToCart(product.name, quantity);
   };
 
@@ -221,6 +232,9 @@ function ProductDetail() {
               {titleBadge.text}
             </span>
           )}
+          {product?.is_shipping ? (
+            <span className="pdetail-chip shipping">発送商品</span>
+          ) : null}
         </div>
 
         <h1 className="pdetail-name">{product.name}</h1>
@@ -304,8 +318,14 @@ function ProductDetail() {
         <span>合計</span>
         <span className="pdetail-subtotal">¥{formatYen(subtotal)}</span>
       </div>
+
+      {product?.is_shipping ? (
+        <div className="pdetail-shipNote">本商品は「発送」でお届けします。購入時に配送先の入力が必要です。</div>
+      ) : null}
     </>
   );
+
+
 
   return (
     <div className="pdetail-wrap">

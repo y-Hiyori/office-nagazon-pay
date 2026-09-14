@@ -10,4 +10,5 @@ export type Product = {
   stock: number;
   imageData: string | null; // 画像のパス（ローカル or null）
   created_at: string;       // Supabase の created_at
+  is_shipping?: boolean;    // true = 発送商品（配送が必要）
 };

@@ -16,15 +16,21 @@ type StoredItem = {
   price: number;
   quantity: number;
   stock: number;
+  isShipping?: boolean;
 };
 
 // ✅ 予約なし：balance と available だけ
 type Wallet = { balance: number; available: number };
 
 // ✅ 注文者情報（ゲスト購入用）
+//   発送商品の注文では 郵便番号・住所・建物・電話番号 も必須になる
 type GuestInfo = {
   name: string;
   email: string;
+  postalCode: string;
+  address: string;
+  building: string;
+  phone: string;
 };
 type GuestErrors = Partial<Record<keyof GuestInfo, string>>;
 
@@ -39,10 +45,14 @@ function loadGuestInfo(): GuestInfo {
       return {
         name: String(p?.name ?? ""),
         email: String(p?.email ?? ""),
+        postalCode: String(p?.postalCode ?? ""),
+        address: String(p?.address ?? ""),
+        building: String(p?.building ?? ""),
+        phone: String(p?.phone ?? ""),
       };
     }
   } catch {}
-  return { name: "", email: "" };
+  return { name: "", email: "", postalCode: "", address: "", building: "", phone: "" };
 }
 
 function Checkout() {
@@ -95,6 +105,22 @@ function Checkout() {
   const subtotal = buyNow
     ? (Number(buyNow.product.price) || 0) * buyNow.quantity
     : cart.getTotalPrice();
+
+  // ✅ 受渡方法：商品に1つでも発送商品が含まれれば「発送」
+  const fulfillmentType: "shipping" | "pickup" = (items as any[]).some(
+    (it) => it?.product?.is_shipping
+  )
+    ? "shipping"
+    : "pickup";
+  const needsShipping = fulfillmentType === "shipping";
+
+  // ✅ 発送商品とその場受け取り商品の混在はここでも抑止（保険）
+  const hasMixedFulfillment = useMemo(() => {
+    const types = new Set(
+      (items as any[]).map((it) => (it?.product?.is_shipping ? "shipping" : "pickup"))
+    );
+    return types.size > 1;
+  }, [items]);
 
   // ✅ ポイント上限（クーポン後の残額・保有ptの小さい方）
   const pointsMax = useMemo(() => {
@@ -168,6 +194,7 @@ function Checkout() {
       const autoName = profile?.name || user.user_metadata?.full_name || user.user_metadata?.name || "";
       const autoEmail = profile?.email || user.email || "";
       setGuestInfo((prev) => ({
+        ...prev,
         name: prev.name || autoName || "",
         email: prev.email || autoEmail || "",
       }));
@@ -325,9 +352,23 @@ function Checkout() {
   // ✅ 注文者情報の入力チェック（必須：本名・メールアドレス）
   const validateGuestInfo = (v: GuestInfo): GuestErrors => {
     const e: GuestErrors = {};
+
     if (!v.name.trim()) e.name = "本名（氏名）を入力してください。";
     if (!v.email.trim()) e.email = "メールアドレスを入力してください。";
     else if (!isEmailLike(v.email)) e.email = "メールアドレスの形式が正しくありません。";
+
+    // ✅ 発送商品の注文は配送先も必須
+    if (needsShipping) {
+      const postal = v.postalCode.trim();
+      if (!postal) e.postalCode = "郵便番号を入力してください。";
+      else if (!/^\d{3}-?\d{4}$/.test(postal)) e.postalCode = "郵便番号の形式が正しくありません（例: 100-0001）。";
+
+      if (!v.address.trim()) e.address = "住所を入力してください。";
+
+      const ph = v.phone.trim().replace(/[-－\s]/g, "");
+      if (!v.phone.trim()) e.phone = "電話番号を入力してください。";
+      else if (!/^0\d{9,11}$/.test(ph)) e.phone = "電話番号の形式が正しくありません（例: 090-1234-5678）。";
+    }
     return e;
   };
 
@@ -371,7 +412,9 @@ function Checkout() {
         await appDialog.alert({
           title: "入力が必要です",
           message:
-            "注文者情報を入力してください。\n氏名・メールアドレスを「修正」ボタンから入力してください。",
+            needsShipping
+              ? "注文者情報と配送先を入力してください。\n氏名・メール・郵便番号・住所・電話番号を「修正」ボタンから入力してください。"
+              : "注文者情報を入力してください。\n氏名・メールアドレスを「修正」ボタンから入力してください。",
         });
         setInfoMode("edit");
         scrollToGuestError();
@@ -388,6 +431,7 @@ function Checkout() {
         price: Number(item.product.price) || 0,
         quantity: item.quantity,
         stock: Number(item.product.stock ?? 0),
+        isShipping: !!item?.product?.is_shipping,
       }));
 
       const pointsUsed = Number(pointsDiscountYen || 0);
@@ -414,6 +458,10 @@ function Checkout() {
                 buyer: {
                   name: guestInfo.name.trim(),
                   email: guestInfo.email.trim(),
+                  phone: guestInfo.phone.trim(),
+                  postalCode: guestInfo.postalCode.trim(),
+                  address: guestInfo.address.trim(),
+                  building: guestInfo.building.trim(),
                 },
                 items: itemsForStorage.map((it) => ({
                   productId: it.productId,
@@ -444,6 +492,15 @@ function Checkout() {
             body: JSON.stringify({ orderId: guestOrderId, token: token0yen }),
           }).catch((err) => console.error("send-buyer-order-email (guest) failed:", err));
 
+          // ✅ 発送商品 → 管理者へ購入者情報メール（お問い合わせテンプレを再利用）
+          if (needsShipping) {
+            await fetch("/api/send-admin-shipping-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderId: guestOrderId, token: token0yen }),
+            }).catch((err) => console.error("send-admin-shipping-email (guest) failed:", err));
+          }
+
           if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
           navigate(
             `/purchase-complete/${guestOrderId}?orderId=${encodeURIComponent(
@@ -468,6 +525,11 @@ function Checkout() {
             paypay_return_token: token0yen,
             email: buyerEmail || null,
             name: buyerName || null,
+            phone: guestInfo.phone.trim() || null,
+            postal_code: guestInfo.postalCode.trim() || null,
+            address: guestInfo.address.trim() || null,
+            building: guestInfo.building.trim() || null,
+            fulfillment_type: fulfillmentType,
           })
           .select("id")
           .single();
@@ -553,6 +615,15 @@ function Checkout() {
           }).catch(() => {});
         }
 
+        // ✅ 発送商品 → 管理者へ購入者情報メール（お問い合わせテンプレを再利用）
+        if (needsShipping) {
+          await fetch("/api/send-admin-shipping-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: orderRow.id, token: token0yen }),
+          }).catch(() => {});
+        }
+
         if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
         navigate(
           `/purchase-complete/${orderRow.id}?orderId=${encodeURIComponent(orderRow.id)}&token=${encodeURIComponent(token0yen)}&paid=1`,
@@ -587,11 +658,17 @@ function Checkout() {
           pointsUsed,
           buyerEmail: buyerEmail || null,
           buyerName,
+          phone: guestInfo.phone.trim() || null,
+          postalCode: guestInfo.postalCode.trim() || null,
+          address: guestInfo.address.trim() || null,
+          building: guestInfo.building.trim() || null,
+          fulfillmentType,
           items: itemsForStorage.map((it) => ({
             productId: Number(it.productId),
             name: it.name,
             price: it.price,
             quantity: it.quantity,
+            isShipping: !!it?.isShipping,
           })),
         }),
       });
@@ -651,6 +728,16 @@ function Checkout() {
       return;
     }
 
+    // ✅ 発送商品とその場受け取り商品の混在は不可（保険）
+    if (hasMixedFulfillment) {
+      await appDialog.alert({
+        title: "購入できません",
+        message:
+          "発送商品とその場受け取り商品は同時に購入できません。\nカートを空にして、どちらかにまとめてください。",
+      });
+      return;
+    }
+
     // ✅ 注文者情報チェック（未入力なら警告→編集画面へ）
     const vErr = validateGuestInfo(guestInfo);
     setGuestErrors(vErr);
@@ -658,7 +745,9 @@ function Checkout() {
       await appDialog.alert({
         title: "入力が必要です",
         message:
-          "注文者情報を入力してください。\n氏名・メールアドレスを「修正」ボタンから入力してください。",
+          needsShipping
+            ? "注文者情報と配送先を入力してください。\n氏名・メール・郵便番号・住所・電話番号を「修正」ボタンから入力してください。"
+            : "注文者情報を入力してください。\n氏名・メールアドレスを「修正」ボタンから入力してください。",
       });
       setInfoMode("edit");
       scrollToGuestError();
@@ -765,6 +854,11 @@ function Checkout() {
             {/* 購入商品 */}
             <section className="co-section">
               <h3 className="co-section-title">購入商品</h3>
+              <div className={`co-fulfillBanner ${fulfillmentType}`}>
+                {fulfillmentType === "shipping"
+                  ? "📦 発送でお届けします（下で配送先を入力）"
+                  : "🏠 その場受け取りでお渡しします"}
+              </div>
               <div className="co-card">
                 {items.map((item: any) => (
                   <div className="co-item" key={item.id}>
@@ -774,7 +868,14 @@ function Checkout() {
                       alt={item.product.name}
                     />
                     <div className="co-item-info">
-                      <div className="co-item-name">{item.product.name}</div>
+                      <div className="co-item-name">
+                        {item.product.name}
+                        {item.product.is_shipping ? (
+                          <span className="co-item-tag shipping">発送</span>
+                        ) : (
+                          <span className="co-item-tag pickup">受け取り</span>
+                        )}
+                      </div>
                       <div className="co-item-sub">
                         {formatPrice(item.product.price)}円 × {item.quantity}
                       </div>
@@ -795,9 +896,11 @@ function Checkout() {
               <h3 className="co-section-title">注文者情報</h3>
               <div className="co-card">
                 <div className="guest-info-note">
-                  {authUser?.id
-                    ? "アカウント情報を自動入力しました。変更する場合は「修正」ボタンから変更できます。"
-                    : "アカウント未登録のまま購入できます。ご連絡のためご入力ください。"}
+                  {needsShipping
+                    ? "発送商品のため、配送先（郵便番号・住所・電話番号）の入力が必要です。"
+                    : authUser?.id
+                      ? "アカウント情報を自動入力しました。変更する場合は「修正」ボタンから変更できます。"
+                      : "アカウント未登録のまま購入できます。ご連絡のためご入力ください。"}
                 </div>
 
                 {/* ----- 確認表示モード（最初からこれを出す） ----- */}
@@ -815,6 +918,29 @@ function Checkout() {
                         {guestInfo.email.trim() || <em className="buyer-view-empty">未入力</em>}
                       </span>
                     </div>
+                    {needsShipping ? (
+                      <>
+                        <div className="buyer-view-row">
+                          <span className="buyer-view-label">郵便番号</span>
+                          <span className="buyer-view-value">
+                            {guestInfo.postalCode.trim() || <em className="buyer-view-empty">未入力</em>}
+                          </span>
+                        </div>
+                        <div className="buyer-view-row">
+                          <span className="buyer-view-label">住所</span>
+                          <span className="buyer-view-value">
+                            {guestInfo.address.trim() || <em className="buyer-view-empty">未入力</em>}
+                            {guestInfo.building.trim() ? " " + guestInfo.building.trim() : ""}
+                          </span>
+                        </div>
+                        <div className="buyer-view-row">
+                          <span className="buyer-view-label">電話番号</span>
+                          <span className="buyer-view-value">
+                            {guestInfo.phone.trim() || <em className="buyer-view-empty">未入力</em>}
+                          </span>
+                        </div>
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       className="buyer-edit-btn"
@@ -825,7 +951,7 @@ function Checkout() {
                     >
                       修正
                     </button>
-                    {guestErrors.name || guestErrors.email ? (
+                    {guestErrors.name || guestErrors.email || guestErrors.postalCode || guestErrors.address || guestErrors.phone ? (
                       <div className="co-help is-error" style={{ marginTop: 10 }}>
                         注文者情報が未入力です。「修正」から入力してください。
                       </div>
@@ -869,6 +995,77 @@ function Checkout() {
                       )}
                     </div>
 
+                    {needsShipping ? (
+                      <>
+                        <div className={`co-field ${guestErrors.postalCode ? "is-error" : ""}`}>
+                          <label>
+                            郵便番号 <span className="contact-req">必須</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="co-input"
+                            value={guestInfo.postalCode}
+                            onChange={setGuestField("postalCode")}
+                            placeholder="例: 100-0001"
+                            autoComplete="postal-code"
+                            inputMode="numeric"
+                          />
+                          {guestErrors.postalCode && (
+                            <div className="co-help is-error">{guestErrors.postalCode}</div>
+                          )}
+                        </div>
+
+                        <div className={`co-field ${guestErrors.address ? "is-error" : ""}`}>
+                          <label>
+                            住所 <span className="contact-req">必須</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="co-input"
+                            value={guestInfo.address}
+                            onChange={setGuestField("address")}
+                            placeholder="例: 東京都千代田区丸の内1-1-1"
+                            autoComplete="street-address"
+                          />
+                          {guestErrors.address && (
+                            <div className="co-help is-error">{guestErrors.address}</div>
+                          )}
+                        </div>
+
+                        <div className="co-field">
+                          <label>建物名・部屋番号（任意）</label>
+                          <input
+                            type="text"
+                            className="co-input"
+                            value={guestInfo.building}
+                            onChange={setGuestField("building")}
+                            placeholder="例: サンプルビル 3F"
+                            autoComplete="street-address"
+                          />
+                        </div>
+
+                        <div className={`co-field ${guestErrors.phone ? "is-error" : ""}`}>
+                          <label>
+                            電話番号 <span className="contact-req">必須</span>
+                          </label>
+                          <input
+                            type="tel"
+                            className="co-input"
+                            value={guestInfo.phone}
+                            onChange={setGuestField("phone")}
+                            placeholder="例: 090-1234-5678"
+                            autoComplete="tel"
+                            inputMode="tel"
+                          />
+                          {guestErrors.phone ? (
+                            <div className="co-help is-error">{guestErrors.phone}</div>
+                          ) : (
+                            <div className="co-help">配送の連絡に使用します。</div>
+                          )}
+                        </div>
+                      </>
+                    ) : null}
+
                     <div className="buyer-edit-actions">
                       <button
                         type="button"
@@ -879,7 +1076,9 @@ function Checkout() {
                           if (Object.keys(e).length > 0) {
                             appDialog.alert({
                               title: "入力エラー",
-                              message: "氏名・メールアドレスを正しく入力してください。",
+                              message: needsShipping
+                                ? "氏名・メール・郵便番号・住所・電話番号を正しく入力してください。"
+                                : "氏名・メールアドレスを正しく入力してください。",
                             });
                             return;
                           }

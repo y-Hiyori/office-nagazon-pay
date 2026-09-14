@@ -1,6 +1,7 @@
 // src/router.tsx
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
+import ScrollToTop from "./components/ScrollToTop";
 
 // ===== 一般ユーザー画面 =====
 import Home from "./pages/Home";
@@ -75,7 +76,12 @@ import PayPayReturn from "./pages/PayPayReturn";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: (
+      <>
+        <ScrollToTop />
+        <App />
+      </>
+    ),
     children: [
       // ---- Public（ログイン不要）
       { index: true, element: <Home /> },

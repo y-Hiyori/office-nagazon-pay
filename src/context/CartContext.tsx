@@ -8,13 +8,22 @@ export interface CartItem {
   quantity: number;
 }
 
+// ✅ 受渡方法: shipping = 発送 / pickup = その場受け取り
+export type Fulfillment = "shipping" | "pickup";
+export type AddToCartResult = "ok" | "mixed";
+
+export function fulfillmentOf(p: Product | undefined | null): Fulfillment {
+  return p && p.is_shipping ? "shipping" : "pickup";
+}
+
 interface CartContextValue {
   cart: CartItem[];
-  addToCart: (product: Product, qty: number) => void;
+  addToCart: (product: Product, qty: number) => AddToCartResult;
   removeFromCart: (id: number) => void;
   updateQuantity: (id: number, qty: number) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
+  fulfillment: Fulfillment; // カート全体の受渡方法（空なら pickup）
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -25,24 +34,35 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clampQty = (qty: number, stock: number) =>
     Math.min(Math.max(qty, 1), stock);
 
-  const addToCart = (product: Product, qty: number) => {
-    const stock = Number(product.stock) || 0;
+  // ✅ 発送商品とその場受け取り商品の混在は禁止
+  //   戻り値: "ok"（追加成功） / "mixed"（受渡方法が混在して追加不可）
+  const addToCart = (product: Product, qty: number): AddToCartResult => {
+    const addF = fulfillmentOf(product);
 
-    setCart((prev) => {
-      const exists = prev.find((i) => i.id === product.id);
+    // 同じ商品への数量追加は受渡方法を変えないので許可
+    const exists = cart.some((i) => i.id === product.id);
+    if (exists) {
+      setCart((prev) =>
+        prev.map((i) => {
+          if (i.id !== product.id) return i;
+          const stock = Number(i.product.stock) || 0;
+          return { ...i, quantity: clampQty(i.quantity + qty, stock) };
+        })
+      );
+      return "ok";
+    }
 
-      if (exists) {
-        const newQty = clampQty(exists.quantity + qty, stock);
-        return prev.map((i) =>
-          i.id === product.id ? { ...i, quantity: newQty } : i
-        );
-      }
+    // 既存カートと受渡方法が食い違う新商品は追加不可
+    const types = new Set(cart.map((i) => fulfillmentOf(i.product)));
+    if (types.size > 0 && !types.has(addF)) {
+      return "mixed";
+    }
 
-      return [
-        ...prev,
-        { id: product.id, product, quantity: clampQty(qty, stock) },
-      ];
-    });
+    setCart((prev) => [
+      ...prev,
+      { id: product.id, product, quantity: clampQty(qty, Number(product.stock) || 0) },
+    ]);
+    return "ok";
   };
 
   const updateQuantity = (id: number, qty: number) => {
@@ -66,6 +86,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       0
     );
 
+  const fulfillment: Fulfillment = cart.some((i) => fulfillmentOf(i.product) === "shipping")
+    ? "shipping"
+    : "pickup";
+
   return (
     <CartContext.Provider
       value={{
@@ -75,6 +99,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         updateQuantity,
         clearCart,
         getTotalPrice,
+        fulfillment,
       }}
     >
       {children}
