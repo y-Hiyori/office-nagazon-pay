@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     const { data: order, error: orderErr } = await sb
       .from("orders")
       .select(
-        "id,user_id,status,total,discount_amount,coupon_code,created_at,paypay_return_token,email,name,buyer_email_sent_at"
+        "id,user_id,status,total,discount_amount,coupon_code,created_at,paypay_return_token,email,name,fulfillment_type,buyer_email_sent_at"
       )
       .eq("id", orderId)
       .single();
@@ -125,6 +125,29 @@ export default async function handler(req, res) {
         buyer_email_sent_at: new Date().toISOString(),
       })
       .eq("id", orderId);
+
+    // ✅ 発送商品の注文は管理者へも購入者情報メール（お問い合わせテンプレを再利用）
+    //   購入者メールAPIは confirm（戻り画面）・sweep（自動確定）どちらからも必ず通るため、
+    //   これ一つで server.cjs の変更なしに全経路をカバーできる（admin_email_sent_at で二重送信防止）
+    try {
+      if (String(order.fulfillment_type || "pickup") === "shipping") {
+        const proto = (req.headers["x-forwarded-proto"] || "https").toString();
+        const host = (req.headers["x-forwarded-host"] || req.headers.host || "").toString();
+        const appBase =
+          (process.env.FRONTEND_ORIGIN || "").replace(/\/$/, "") || `${proto}://${host}`;
+        const adminRes = await fetch(`${appBase}/api/send-admin-shipping-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, token }),
+        });
+        const adminJson = await adminRes.json().catch(() => null);
+        if (!adminRes.ok || !adminJson?.ok) {
+          console.error("ADMIN_MAIL_CHAIN_FAILED:", adminRes.status, JSON.stringify(adminJson));
+        }
+      }
+    } catch (eChain) {
+      console.error("ADMIN_MAIL_CHAIN_ERROR:", eChain?.message || eChain);
+    }
 
     return res.json({ ok: true, status: "SENT" });
   } catch (e) {
