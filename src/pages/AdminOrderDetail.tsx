@@ -248,11 +248,7 @@ export default function AdminOrderDetail() {
       setOrder({ ...order, shipping_status: j.shippingStatus });
 
       if (nextAction === "shipped") {
-        const mailNote =
-          j.email === "SENT"
-            ? "購入者へ発送完了メールを送信しました。"
-            : "※ 発送完了メールは EmailJS テンプレ（EMAILJS_SHIPPED_TEMPLATE_ID）未設定のため送信されませんでした。ステータスは更新済みです。";
-        alert(`発送完了にしました。\n${mailNote}`);
+        alert("発送完了にしました。\n購入者への発送完了メールはお手元からお送りください。");
       } else {
         alert("発送準備中に戻しました。");
       }
@@ -372,8 +368,8 @@ export default function AdminOrderDetail() {
                   </div>
                   <p className="admin-ship-desc">
                     {order.shipping_status === "shipped"
-                      ? "購入者には発送完了メールが送信済みです。"
-                      : "発送作業が完了したら「発送完了にする」を押してください。購入者へ発送完了メールが送信されます。"}
+                      ? "発送は完了しています。購入者への発送完了メールはお手元からお送りください。"
+                      : "発送作業が完了したら「発送完了にする」を押してください。購入者への発送完了メールはお手元からお送りください。"}
                   </p>
                   <button
                     type="button"
