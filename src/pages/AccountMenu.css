@@ -373,20 +373,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 18px 0;
+  gap: 12px;
+  padding: 16px 18px 10px;
 }
 
 .ptx-title {
   margin: 0;
   font-size: 16px;
   font-weight: 800;
+  line-height: 1.2;
   color: var(--a-text);
   letter-spacing: 0.03em;
 }
 
 .ptx-close {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  margin-top: 0;
   border: none;
   border-radius: 50%;
   background: rgba(15, 23, 42, 0.06);
@@ -401,7 +409,7 @@
 }
 
 .ptx-sub {
-  padding: 8px 18px 0;
+  padding: 0 18px 0;
   font-size: 12px;
   color: var(--a-text-sub);
   letter-spacing: 0.02em;
