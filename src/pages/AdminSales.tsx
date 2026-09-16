@@ -1,27 +1,23 @@
 // src/pages/AdminSales.tsx
 // ✅ 安定化版：Supabase RPC「admin_sales_summary」でまとめて取得
-//   （フロント直接読み取りによる「売上はありません」誤表示を解消）
-// ✅ Excelはスタイル付き（4シート・利益表示・商品別チャート）を exportSalesXlsx で生成
+// ✅ 商品別に クーポン円/ポイント円 を按分集計
+// ✅ 期間比較（前日/前週/前月/前年）データを取得してExcelへ
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
-import { exportSalesXlsx } from "../lib/excelExport";
+import { exportSalesXlsx, type PrevData } from "../lib/excelExport";
 import "./AdminSales.css";
 
 type SalesItem = {
   product_name: string;
   quantity: number;
-
-  // ✅ 割引前（= order_items の 数量×単価 合計）
   subtotal_raw: number;
-
-  // ✅ 割引後（注文全体の割引を “この商品” に割合按分して反映）
   subtotal_after_discount: number;
-
-  // ✅ 件数（この商品が含まれる注文のうち）
-  coupon_orders_count: number; // クーポン使用
-  points_orders_count: number; // ポイント使用
+  coupon_orders_count: number;
+  points_orders_count: number;
+  couponYen: number;
+  pointsYen: number;
 };
 
 type RangeMode = "day" | "week" | "month" | "year";
@@ -151,6 +147,7 @@ export default function AdminSales() {
     couponOrderCount: 0,
     pointsOrderCount: 0,
   });
+  const [prev, setPrev] = useState<PrevData | null>(null);
   const [items, setItems] = useState<SalesItem[]>([]);
   const [orderRows, setOrderRows] = useState<OrderRow[]>([]);
   const [itemRows, setItemRows] = useState<OrderItemRow[]>([]);
@@ -330,6 +327,8 @@ export default function AdminSales() {
           subtotal_after_discount: number;
           couponOrders: Set<string>;
           pointsOrders: Set<string>;
+          couponYen: number;
+          pointsYen: number;
         }
       >();
 
@@ -349,6 +348,15 @@ export default function AdminSales() {
 
         const after = Math.max(0, rawSub - share);
 
+        // この商品に乗った クーポン円 / ポイント円（割引を比率で按分）
+        let couponYenShare = 0;
+        let pointsYenShare = 0;
+        if (orderSubtotal > 0 && rawSub > 0) {
+          const ratio = Math.min(1, Math.max(0, rawSub / orderSubtotal));
+          couponYenShare = Math.round(s.coupon * ratio);
+          pointsYenShare = Math.round(s.pts * ratio);
+        }
+
         if (!productAgg.has(productName)) {
           productAgg.set(productName, {
             quantity: 0,
@@ -356,6 +364,8 @@ export default function AdminSales() {
             subtotal_after_discount: 0,
             couponOrders: new Set<string>(),
             pointsOrders: new Set<string>(),
+            couponYen: 0,
+            pointsYen: 0,
           });
         }
 
@@ -363,6 +373,8 @@ export default function AdminSales() {
         p.quantity += qty;
         p.subtotal_raw += rawSub;
         p.subtotal_after_discount += after;
+        p.couponYen += couponYenShare;
+        p.pointsYen += pointsYenShare;
 
         if (isCouponUsed(o)) p.couponOrders.add(orderId);
         if (isPointsUsed(o)) p.pointsOrders.add(orderId);
@@ -376,6 +388,8 @@ export default function AdminSales() {
           subtotal_after_discount: Math.round(v.subtotal_after_discount),
           coupon_orders_count: v.couponOrders.size,
           points_orders_count: v.pointsOrders.size,
+          couponYen: Math.round(v.couponYen),
+          pointsYen: Math.round(v.pointsYen),
         }))
         .sort((a, b) => b.subtotal_after_discount - a.subtotal_after_discount);
 
@@ -406,6 +420,66 @@ export default function AdminSales() {
         couponOrderCount: cCnt,
         pointsOrderCount: pCnt,
       });
+
+      // ✅ 比較期間（前日/前週/前月/前年）も取得 → Excel の「期間比較」シート用
+      let prevStart: Date | null = null;
+      let prevEnd: Date | null = null;
+      let prevLabel = "";
+      try {
+        if (mode === "day") {
+          prevStart = new Date(start.getTime() - 86400000);
+          prevEnd = start;
+          prevLabel = "前日";
+        } else if (mode === "week") {
+          prevStart = new Date(start.getTime() - 7 * 86400000);
+          prevEnd = start;
+          prevLabel = "前週";
+        } else if (mode === "month") {
+          prevStart = new Date(start.getTime());
+          prevStart.setUTCMonth(prevStart.getUTCMonth() - 1);
+          prevEnd = start;
+          prevLabel = "前月";
+        } else {
+          prevStart = new Date(start.getTime());
+          prevStart.setUTCFullYear(prevStart.getUTCFullYear() - 1);
+          prevEnd = start;
+          prevLabel = "前年";
+        }
+
+        const prevRes = await supabase.rpc("admin_sales_summary", {
+          p_start: prevStart.toISOString(),
+          p_end: prevEnd.toISOString(),
+        });
+        if (!prevRes.error) {
+          const pd: any = Array.isArray(prevRes.data) ? prevRes.data?.[0] : prevRes.data;
+          const pOrders = (pd?.orders ?? []) as unknown as OrderRow[];
+          const pItems = (pd?.items ?? []) as unknown as OrderItemRow[];
+          const pSumByOrder = new Map<string, number>();
+          for (const it of pItems) {
+            if (!it.order_id) continue;
+            pSumByOrder.set(
+              it.order_id,
+              (pSumByOrder.get(it.order_id) || 0) + round0(it.price) * round0(it.quantity)
+            );
+          }
+          let pCash = 0;
+          let pGross = 0;
+          for (const o of pOrders) {
+            pCash += round0(o.total);
+            pGross += round0(o.subtotal) > 0 ? round0(o.subtotal) : (pSumByOrder.get(o.id) || 0);
+          }
+          if (pd?.orders !== undefined) {
+            setPrev({
+              label: prevLabel,
+              current: { cashSales: cash, orderCount: ordersArr.length, grossSubtotal: gross },
+              previous: { cashSales: pCash, orderCount: pOrders.length, grossSubtotal: pGross },
+            });
+          }
+        }
+      } catch (ePrev) {
+        console.error("prev period fetch error:", ePrev);
+        setPrev(null);
+      }
     } catch (e) {
       console.error(e);
       if (loadId === loadIdRef.current) setError("予期せぬエラーが発生しました");
@@ -497,6 +571,7 @@ export default function AdminSales() {
       await exportSalesXlsx(
         { label: currentRange.rangeLabel, nowJst },
         summary,
+        prev,
         items,
         orderData
       );
