@@ -378,3 +378,82 @@
     font-size: 20px;
   }
 }
+
+/* ===== 商品別売上比較グラフ ===== */
+.as-chart {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(209, 213, 219, 0.7);
+}
+
+.as-chart-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #374151;
+  text-align: center;
+}
+
+.as-chart-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.as-chart-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.as-chart-name {
+  width: 34%;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.as-chart-track {
+  flex: 1;
+  height: 18px;
+  background: #f3f4f6;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.as-chart-bar {
+  height: 100%;
+  background: #4f46e5;
+  border-radius: 999px;
+  min-width: 4px;
+}
+
+.as-chart-bar.top {
+  background: #f97316;
+}
+
+.as-chart-val {
+  width: 92px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 800;
+  color: #111827;
+  font-feature-settings: "tnum" 1;
+}
+
+@media (max-width: 480px) {
+  .as-chart-name {
+    width: 42%;
+  }
+  .as-chart-val {
+    width: 76px;
+    font-size: 11px;
+  }
+}

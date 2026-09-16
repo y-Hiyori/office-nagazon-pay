@@ -1,11 +1,12 @@
 // src/pages/AdminSales.tsx
 // ✅ 安定化版：Supabase RPC「admin_sales_summary」でまとめて取得
 //   （フロント直接読み取りによる「売上はありません」誤表示を解消）
+// ✅ Excelはスタイル付き（4シート・利益表示・商品別チャート）を exportSalesXlsx で生成
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
-import { exportXlsxSheets } from "../lib/excelExport";
+import { exportSalesXlsx } from "../lib/excelExport";
 import "./AdminSales.css";
 
 type SalesItem = {
@@ -51,7 +52,7 @@ type OrderItemRow = {
 };
 
 type Summary = {
-  cashSales: number; // 入金売上（お客様からの実際の入金）
+  cashSales: number; // 利益（入金売上）
   orderCount: number;
   grossSubtotal: number; // 商品売上（割引前）
   couponDiscount: number; // クーポン割引額
@@ -465,11 +466,7 @@ export default function AdminSales() {
       return;
     }
     try {
-      const labelSafe = (currentRange.rangeLabel || "期間").replace(/[\\/:*?"<>|～~]/g, "_");
-      // ✅ ファイル名の先頭を「OFFICE NAGAZON売上」に
-      const fileName = `OFFICE NAGAZON売上_${labelSafe}.xlsx`;
       const nowJst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-
       const itemsTextMap = buildItemsTextMap();
       const itemSumByOrder = new Map<string, number>();
       for (const it of itemRows) {
@@ -480,60 +477,29 @@ export default function AdminSales() {
         );
       }
 
-      const summaryRows: unknown[][] = [
-        ["売上状況レポート"],
-        ["対象期間", currentRange.rangeLabel],
-        ["出力日時", nowJst],
-        [],
-        ["入金売上（お客様からの実際の入金額）", summary.cashSales, "円"],
-        ["注文件数", summary.orderCount, "件"],
-        ["商品売上（割引前）", summary.grossSubtotal, "円"],
-        ["クーポン割引額", summary.couponDiscount, "円"],
-        ["ポイント充当額（売上に含めない）", summary.pointsTotal, "円"],
-        ["クーポン使用注文数", summary.couponOrderCount, "件"],
-        ["ポイント使用注文数", summary.pointsOrderCount, "件"],
-        [],
-        ["※ 入金売上 ＝ 商品売上 − クーポン割引 − ポイント充当"],
-        ["※ ポイント充当額は売上・利益に含めません"],
-      ];
+      const orderData = orderRows.map((o) => {
+        const s = splitDiscount(o, itemSumByOrder.get(o.id) || 0);
+        return {
+          id: o.id,
+          created_at: formatJst(o.created_at),
+          name: String(o.name || ""),
+          email: String(o.email || ""),
+          payment_method: paymentMethodLabel(o.payment_method),
+          itemsText: itemsTextMap.get(o.id) || "-",
+          subtotal: s.sub,
+          couponCode: String(o.coupon_code || ""),
+          coupon: s.coupon,
+          points: s.pts,
+          total: round0(o.total),
+        };
+      });
 
-      const productRows: unknown[][] = [
-        ["商品名", "個数", "売上（割引前・円）", "売上（割引後・円）", "クーポン使用（件）", "ポイント使用（件）"],
-        ...items.map((it) => [
-          it.product_name,
-          it.quantity,
-          it.subtotal_raw,
-          it.subtotal_after_discount,
-          it.coupon_orders_count,
-          it.points_orders_count,
-        ]),
-      ];
-
-      const orderRowsOut: unknown[][] = [
-        ["注文ID", "注文日時", "購入者名", "メール", "支払方法", "商品内訳", "小計（円）", "クーポンコード", "クーポン割引（円）", "ポイント充当（円）", "入金額（円）"],
-        ...orderRows.map((o) => {
-          const s = splitDiscount(o, itemSumByOrder.get(o.id) || 0);
-          return [
-            o.id,
-            formatJst(o.created_at),
-            String(o.name || ""),
-            String(o.email || ""),
-            paymentMethodLabel(o.payment_method),
-            itemsTextMap.get(o.id) || "-",
-            s.sub,
-            String(o.coupon_code || ""),
-            s.coupon,
-            s.pts,
-            round0(o.total),
-          ];
-        }),
-      ];
-
-      await exportXlsxSheets(fileName, [
-        { name: "売上サマリー", rows: summaryRows },
-        { name: "商品別売上", rows: productRows },
-        { name: "注文一覧", rows: orderRowsOut },
-      ]);
+      await exportSalesXlsx(
+        { label: currentRange.rangeLabel, nowJst },
+        summary,
+        items,
+        orderData
+      );
       setExcelMsg("Excelをダウンロードしました");
     } catch (e) {
       console.error(e);
@@ -628,9 +594,9 @@ export default function AdminSales() {
             <>
               <div className="as-cards">
                 <div className="as-card as-card-main">
-                  <div className="as-label">入金売上</div>
+                  <div className="as-label">利益</div>
                   <div className="as-value">{summary.cashSales.toLocaleString("ja-JP")} 円</div>
-                  <div className="as-sub">クーポン・ポイント差引後の実際の入金額</div>
+                  <div className="as-sub">＝入金売上（実際にいただいた金額）</div>
                 </div>
 
                 <div className="as-card">
@@ -662,7 +628,7 @@ export default function AdminSales() {
               </div>
 
               <p className="as-note">
-                売上合計（入金）＝お客様から実際にいただいた金額です。クーポン割引・ポイント充当は売上に含みません。
+                利益＝お客様から実際にいただいた金額（入金売上）です。クーポン割引・ポイント充当は売上に含みません。
               </p>
 
               <div className="as-excel-row">
@@ -676,7 +642,7 @@ export default function AdminSales() {
                 </button>
                 {excelMsg && <p className="as-excel-msg">{excelMsg}</p>}
                 <p className="as-excel-hint">
-                  売上サマリー・商品別売上・注文一覧の3シートを自動生成（データは外部送信されません）
+                  4シート（サマリー・商品別売上・チャート・注文一覧）をスタイル付きで自動生成
                 </p>
               </div>
 
@@ -684,6 +650,34 @@ export default function AdminSales() {
                 <p className="admin-sales-empty">この期間の売上はありません</p>
               ) : (
                 <>
+                  {/* ✅ 商品別売上比較グラフ */}
+                  <div className="as-chart">
+                    <h3 className="as-chart-title">商品別売上比較（割引後）</h3>
+                    <div className="as-chart-bars">
+                      {items.map((it, idx) => {
+                        const maxVal = items[0]?.subtotal_after_discount || 1;
+                        const pct =
+                          maxVal > 0
+                            ? Math.max(3, Math.round((it.subtotal_after_discount / maxVal) * 100))
+                            : 0;
+                        return (
+                          <div className="as-chart-row" key={it.product_name}>
+                            <span className="as-chart-name">{it.product_name}</span>
+                            <div className="as-chart-track">
+                              <div
+                                className={`as-chart-bar${idx === 0 ? " top" : ""}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="as-chart-val">
+                              {it.subtotal_after_discount.toLocaleString("ja-JP")}円
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <h3 className="as-list-title">商品別売上（タップで注文一覧を表示）</h3>
                   <div className="admin-sales-list">
                     {items.map((item) => {
