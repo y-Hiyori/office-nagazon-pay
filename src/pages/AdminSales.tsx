@@ -533,6 +533,18 @@ export default function AdminSales() {
     return out;
   };
 
+  // ✅ Blob ダウンロード（サーバー生成のExcel用）
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const handleExportExcel = async () => {
     if (!currentRange) return;
     if (orderRows.length === 0) {
@@ -568,13 +580,46 @@ export default function AdminSales() {
         };
       });
 
-      await exportSalesXlsx(
-        { label: currentRange.rangeLabel, nowJst },
+      const payload = {
+        range: { label: currentRange.rangeLabel, nowJst },
         summary,
         prev,
-        items,
-        orderData
-      );
+        products: items,
+        orders: orderData,
+      };
+      const labelSafe = (currentRange.rangeLabel || "期間").replace(/[\\/:*?"<>|～~]/g, "_");
+      const fileName = `OFFICE NAGAZON売上_${labelSafe}.xlsx`;
+
+      // ✅ サーバー（VPS/Python）で本物のネイティブグラフ入りExcelを生成を試みる
+      //   未セットアップ時は 404 等で失敗するので、下のフォールバックに自動で切り替わる
+      let served = false;
+      try {
+        const res = await fetch("/api/export-sales-xlsx", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          downloadBlob(blob, fileName);
+          served = true;
+        } else {
+          console.warn("export-sales-xlsx server returned", res.status);
+        }
+      } catch (eServer) {
+        console.error("server excel path failed:", eServer);
+      }
+
+      if (!served) {
+        // ✅ フォールバック：ブラウザ内で生成（数式入り・セル塗りグラフ）
+        await exportSalesXlsx(
+          { label: currentRange.rangeLabel, nowJst },
+          summary,
+          prev,
+          items,
+          orderData
+        );
+      }
       setExcelMsg("Excelをダウンロードしました");
     } catch (e) {
       console.error(e);

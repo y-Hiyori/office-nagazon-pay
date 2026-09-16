@@ -16,6 +16,8 @@ type OrderBaseRow = {
   coupon_code: string | null;
   points_used: number | null;
   points_applied: number | null;
+  email?: string | null;
+  name?: string | null;
 };
 
 type ItemRow = {
@@ -153,7 +155,7 @@ export default function AdminSalesProductDetail() {
         let q = supabase
           .from("orders")
           .select(
-            "id,user_id,created_at,total,status,subtotal,discount_amount,coupon_code,points_used,points_applied"
+            "id,user_id,created_at,total,status,subtotal,discount_amount,coupon_code,points_used,points_applied,email,name"
           )
           .eq("status", "paid");
 
@@ -262,8 +264,8 @@ export default function AdminSalesProductDetail() {
             createdAt: String(o.created_at || ""),
 
             userId,
-            userName: prof?.name || "(名前未設定)",
-            userEmail: prof?.email || "",
+            userName: prof?.name || String(o.name || "").trim() || "(名前未設定)",
+            userEmail: prof?.email || String(o.email || "").trim(),
 
             qty: agg.qty,
 

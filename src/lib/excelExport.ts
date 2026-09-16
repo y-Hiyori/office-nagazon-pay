@@ -89,16 +89,19 @@ type StyledOptions = {
   widths?: number[];
   // データ行のセルを中央揃えにする列（ヘッダーは常に中央）
   centerCols?: number[];
+  // フッター行（合計など）。values の文字列が "=" で始まる場合は数式として書き込む
+  footerRows?: { values: (string | number)[]; formats?: (string | null)[] }[];
 };
 
 function styledSheet(XLSX: XlsxApi, opts: StyledOptions): any {
-  const { title, headers, rows, rowFormats, align, note, freeze, formulas, widths, centerCols } = opts;
+  const { title, headers, rows, rowFormats, align, note, freeze, formulas, widths, centerCols, footerRows } = opts;
   const nCols = headers.length;
 
   const aoaRows: unknown[][] = [];
   if (title) aoaRows.push([title]);
   aoaRows.push(headers as unknown[]);
   for (const r of rows) aoaRows.push(r as unknown[]);
+  if (footerRows) for (const f of footerRows) aoaRows.push([...f.values]);
   if (note) for (const n of note) aoaRows.push([n] as unknown[]);
 
   const ws = XLSX.utils.aoa_to_sheet(aoaRows);
@@ -113,6 +116,9 @@ function styledSheet(XLSX: XlsxApi, opts: StyledOptions): any {
         const cell = (r as unknown[])[c];
         if (cell !== undefined) maxLen = Math.max(maxLen, cellW(cell));
       }
+      for (const f of footerRows ?? []) {
+        if (f.values[c] !== undefined) maxLen = Math.max(maxLen, cellW(f.values[c]));
+      }
       return { wch: Math.max(9, Math.min(56, maxLen + 3)) };
     });
   }
@@ -121,7 +127,8 @@ function styledSheet(XLSX: XlsxApi, opts: StyledOptions): any {
   const heights: { hpt: number }[] = [];
   if (title) heights.push({ hpt: 32 });
   heights.push({ hpt: 24 });
-  for (let i = 0; i < (rows as unknown[][]).length + (note ? note.length : 0); i++) heights.push({ hpt: 20 });
+  const dataAndFooterLen = (rows as unknown[][]).length + (footerRows?.length ?? 0);
+  for (let i = 0; i < dataAndFooterLen + (note ? note.length : 0); i++) heights.push({ hpt: 20 });
   ws["!rows"] = heights;
 
   // --- 結合 ---
@@ -165,6 +172,33 @@ function styledSheet(XLSX: XlsxApi, opts: StyledOptions): any {
     }
   }
 
+  // --- フッター行（合計など。数式対応） ---
+  if (footerRows) {
+    for (let i = 0; i < footerRows.length; i++) {
+      const rIdx = headRow + 1 + (rows as unknown[][]).length + i;
+      for (let c = 0; c < nCols; c++) {
+        const raw = footerRows[i].values[c];
+        if (raw === undefined) continue;
+        const isFormula = typeof raw === "string" && raw.startsWith("=");
+        const addr = encode(XLSX, rIdx, c);
+        const numFmt = footerRows[i].formats?.[c] ?? undefined;
+        applyCell(ws, addr, {
+          font: { name: "メイリオ", sz: 10.5, bold: true },
+          fill: { patternType: "solid", fgColor: { rgb: "DCE7FF" } },
+          alignment: { horizontal: numFmt ? "right" : "left", vertical: "center" },
+          border: {
+            top: { style: "medium", color: { rgb: "94A3B8" } },
+            left: MED, bottom: MED, right: MED,
+          },
+          ...(numFmt ? { numFmt } : {}),
+        });
+        if (isFormula) {
+          ws[addr] = { t: "n", f: raw.slice(1), v: 0, s: ws[addr]!.s };
+        }
+      }
+    }
+  }
+
   // --- 数式（利益などを Excel 側で計算） ---
   if (formulas) {
     for (const f of formulas) {
@@ -181,9 +215,11 @@ function styledSheet(XLSX: XlsxApi, opts: StyledOptions): any {
     }
   }
 
+  // --- フッター（合計）の開始行より前で、注記の位置を計算 ---
+  const footerCount = footerRows?.length ?? 0;
   if (note) {
     for (let i = 0; i < note.length; i++) {
-      const rIdx = headRow + 1 + (rows as unknown[][]).length + i;
+      const rIdx = headRow + 1 + (rows as unknown[][]).length + footerCount + i;
       ws["!merges"] = ws["!merges"] || [];
       ws["!merges"].push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: nCols - 1 } });
       applyCell(ws, encode(XLSX, rIdx, 0), {
@@ -220,6 +256,12 @@ function productSheet(
       ...Array.from({ length: BAR_CELLS }, () => ""),
     ]);
   }
+  // 合計行（数式）
+  aoa.push([
+    "合計", `=SUM(B3:B${products.length + 2})`, `=SUM(C3:C${products.length + 2})`,
+    `=SUM(D3:D${products.length + 2})`, `=SUM(E3:E${products.length + 2})`, `=SUM(F3:F${products.length + 2})`,
+    ...Array.from({ length: BAR_CELLS }, () => ""),
+  ]);
   aoa.push(["※ 売上（割引後）＝クーポン・ポイントの割引を商品比率で按分した金額。棒の長さ＝売上比較（最大の商品はオレンジ）。"]);
   aoa.push(["※ 商品に原価（cost）を登録すると、この列に粗利も自動追加できます（推奨機能）。"]);
 
@@ -228,7 +270,7 @@ function productSheet(
   // 列幅
   const widths = [42, 10, 16, 16, 16, 16, ...Array.from({ length: BAR_CELLS }, () => 1.8)];
   ws["!cols"] = widths.map((w) => ({ wch: w }));
-  ws["!rows"] = [{ hpt: 32 }, { hpt: 24 }, ...Array.from({ length: products.length }, () => ({ hpt: 20 })), { hpt: 16 }, { hpt: 16 }];
+  ws["!rows"] = [{ hpt: 32 }, { hpt: 24 }, ...Array.from({ length: products.length + 1 }, () => ({ hpt: 20 })), { hpt: 16 }, { hpt: 16 }];
 
   ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: nCols - 1 } }];
   applyCell(ws, encode(XLSX, 0, 0), {
@@ -257,7 +299,8 @@ function productSheet(
     const aligns: Align[] = ["left", "center", "right", "right", "right", "right"];
 
     for (let c = 0; c < 6; c++) {
-      applyCell(ws, encode(XLSX, rIdx, c), {
+      const rCur = rIdx;
+      applyCell(ws, encode(XLSX, rCur, c), {
         font: { name: "メイリオ", sz: 10, ...(c === 3 ? { bold: true } : {}) },
         fill: i % 2 === 1 ? { patternType: "solid", fgColor: { rgb: ZEBRA_BG } } : undefined,
         alignment: { horizontal: aligns[c], vertical: "center" },
@@ -276,9 +319,34 @@ function productSheet(
     }
   }
 
-  // 注記
+  // 合計行スタイル（数式セル）
+  const totalRIdx = 2 + products.length;
+  for (let c = 0; c < 6; c++) {
+    applyCell(ws, encode(XLSX, totalRIdx, c), {
+      font: { name: "メイリオ", sz: 10.5, bold: true },
+      fill: { patternType: "solid", fgColor: { rgb: "DCE7FF" } },
+      alignment: { horizontal: c === 0 ? "left" : "right", vertical: "center" },
+      border: {
+        top: { style: "medium", color: { rgb: "94A3B8" } },
+        left: MED, bottom: MED, right: MED,
+      },
+      ...(["B", "C", "D", "E", "F"].includes(String.fromCharCode(65 + c)) ? { numFmt: c === 1 ? COUNT : YEN } : {}),
+    });
+    const cellAddr = encode(XLSX, totalRIdx, c);
+    if (c >= 1 && c <= 5) {
+      const col = String.fromCharCode(65 + c);
+      ws[cellAddr] = {
+        t: "n",
+        f: `SUM(${col}3:${col}${products.length + 2})`,
+        v: 0,
+        s: ws[cellAddr]!.s,
+      };
+    }
+  }
+
+  // 注記（合計行の後・products.length+1行目から）
   for (let i = 0; i < 2; i++) {
-    const rIdx = 2 + products.length + i;
+    const rIdx = 2 + products.length + 1 + i;
     ws["!merges"] = ws["!merges"] || [];
     ws["!merges"].push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: nCols - 1 } });
     applyCell(ws, encode(XLSX, rIdx, 0), {
@@ -371,6 +439,24 @@ function compareSheet(
         border: BORDER,
       });
     }
+
+    // ✅ 増減（D列）と増減率（E列）を Excel 数式にする
+    const diff = cur - prevv;
+    const rate = (prevv !== 0 ? diff / Math.abs(prevv) : cur > 0 ? 1 : 0);
+    const addrD = encode(XLSX, curRowIdx, 3);
+    ws[addrD] = {
+      t: "n",
+      f: `C${curRowIdx}-B${curRowIdx}`,
+      v: diff,
+      s: { ...(ws[addrD]?.s || {}), numFmt: YEN, font: { name: "メイリオ", sz: 10, color: { rgb: diff < 0 ? "B45309" : "166534" }, bold: true }, alignment: { horizontal: "right", vertical: "center" }, border: BORDER },
+    };
+    const addrE = encode(XLSX, curRowIdx, 4);
+    ws[addrE] = {
+      t: "n",
+      f: `IF(B${curRowIdx}=0,0,D${curRowIdx}/B${curRowIdx})`,
+      v: Math.round(rate * 1000) / 1000,
+      s: { ...(ws[addrE]?.s || {}), numFmt: "0.0%", font: { name: "メイリオ", sz: 10, bold: true }, alignment: { horizontal: "right", vertical: "center" }, border: BORDER },
+    };
 
     for (let b = 0; b < BAR_CELLS; b++) {
       if (b < cellsCur) {
@@ -476,10 +562,10 @@ export async function exportSalesXlsx(
       [null, COUNT, null],
     ],
     align: ["left", "right", "left"],
-    // 利益セル（B8）を数式にする：
+    // 利益セル（B7）を数式にする：
     // 行2=対象期間,行3=出力日時,行4=商品売上,行5=クーポン,行6=ポイント,行7=利益,行8=注文件数
     formulas: [
-      { addr: "B8", f: "=B5-B6-B7", v: summary.cashSales, highlight: true },
+      { addr: "B7", f: "=B4-B5-B6", v: summary.cashSales, highlight: true },
     ],
     centerCols: [],
     note: [
@@ -515,6 +601,19 @@ export async function exportSalesXlsx(
     rowFormats: orders.map(() => [null, null, null, null, null, null, YEN, null, YEN, YEN, YEN]),
     align: ["left", "left", "left", "left", "center", "left", "right", "left", "right", "right", "right"],
     freeze: true,
+    footerRows: [
+      {
+        values: [
+          "合計", "", "", "", "", "",
+          `=SUM(G${2 + 2}:G${orders.length + 2})`,
+          "",
+          `=SUM(I${2 + 2}:I${orders.length + 2})`,
+          `=SUM(J${2 + 2}:J${orders.length + 2})`,
+          `=SUM(K${2 + 2}:K${orders.length + 2})`,
+        ],
+        formats: [null, null, null, null, null, null, YEN, null, YEN, YEN, YEN],
+      },
+    ],
   });
   XLSX.utils.book_append_sheet(wb, orderWs, "注文一覧");
 
