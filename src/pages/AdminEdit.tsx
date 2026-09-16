@@ -45,7 +45,8 @@ export default function AdminEdit() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping, shipping_lead_min, shipping_lead_max, shipping_lead_unit")
+        .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping, shipping_lead_min, shipping_lead_max, shipping_lead_unit")
+
       .eq("id", urlId)
       .maybeSingle();
 
@@ -298,6 +299,7 @@ export default function AdminEdit() {
               />
               <span className="ae-suffix">個</span>
             </div>
+          </div>
 
           <div className="ae-input-wrap">
             <label>会員価格（ログイン時の価格・未入力なら通常価格）</label>
@@ -373,9 +375,8 @@ export default function AdminEdit() {
               </div>
             )}
           </div>
-          </div>
         </div>
-
+ 
         {/* ✅ SALE設定 */}
         <div className="ae-sale">
           <div className="ae-sale-head">

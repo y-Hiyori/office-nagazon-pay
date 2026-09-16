@@ -234,14 +234,14 @@ export type PrevData = {
   previous: { cashSales: number; orderCount: number; grossSubtotal: number };
 };
 
-function productSheet(XLSX: XlsxApi, products: SalesProductData[]): { ws: any; totalRowNumber: number } {
-  const BAR_CELLS = 10;
+function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
+  const BAR_CELLS = 8;
   const nCols = 8 + BAR_CELLS * 2;
   const totalSales = Math.max(1, products.reduce((sum, p) => sum + p.subtotal_after_discount, 0));
-  const maxSales = Math.max(1, ...products.map((p) => p.subtotal_after_discount));
-  const maxQty = Math.max(1, ...products.map((p) => p.quantity));
+  const maxSales = Math.max(1, ...products.map((p) => p.subtotal_after_discount), 1);
+  const maxQty = Math.max(1, ...products.map((p) => p.quantity), 1);
 
-  const aoa: unknown[][] = [["商品別売上（見やすい一覧 + グラフ用データ）"]];
+  const aoa: unknown[][] = [["商品別売上（商品ごとの売上と数量がひと目で分かる一覧）"]];
   aoa.push([
     "商品名",
     "売価(平均・円)",
@@ -266,17 +266,17 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): { ws: any; t
       p.couponYen,
       p.pointsYen,
       p.subtotal_after_discount,
-      p.subtotal_after_discount > 0 ? p.subtotal_after_discount / totalSales : 0,
+      p.subtotal_after_discount / totalSales,
       ...Array.from({ length: BAR_CELLS * 2 }, () => ""),
     ]);
   }
 
   aoa.push(["合計", 0, 0, 0, 0, 0, 0, 1, ...Array.from({ length: BAR_CELLS * 2 }, () => "")]);
   aoa.push(["※ 入金売上(割引後) ＝ 売上計算(割引前) − クーポン割引 − ポイント充当 です。"]);
-  aoa.push(["※ グラフは『入金売上』と『数量』がひと目で分かるようにしています。"]);
+  aoa.push(["※ ブラウザ生成版では右側に簡易バー、サーバー生成版では本物のExcelグラフが入ります。"]);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [30, 14, 9, 16, 14, 14, 16, 11, ...Array.from({ length: BAR_CELLS * 2 }, () => 2)].map((w) => ({ wch: w }));
+  ws["!cols"] = [30, 14, 9, 16, 14, 14, 16, 11, ...Array.from({ length: BAR_CELLS * 2 }, () => 2.2)].map((w) => ({ wch: w }));
   ws["!rows"] = [{ hpt: 32 }, { hpt: 26 }, ...Array.from({ length: products.length + 1 }, () => ({ hpt: 20 })), { hpt: 18 }, { hpt: 18 }];
   ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: nCols - 1 } }];
 
@@ -295,6 +295,7 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): { ws: any; t
     });
   }
 
+  const totalRowNumber = products.length + 3;
   for (let i = 0; i < products.length; i++) {
     const rowIdx = 2 + i;
     const p = products[i];
@@ -315,7 +316,7 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): { ws: any; t
 
     ws[encode(XLSX, rowIdx, 3)] = { t: "n", f: `B${rowIdx + 1}*C${rowIdx + 1}`, v: p.subtotal_raw, s: ws[encode(XLSX, rowIdx, 3)]?.s };
     ws[encode(XLSX, rowIdx, 6)] = { t: "n", f: `D${rowIdx + 1}-E${rowIdx + 1}-F${rowIdx + 1}`, v: p.subtotal_after_discount, s: ws[encode(XLSX, rowIdx, 6)]?.s };
-    ws[encode(XLSX, rowIdx, 7)] = { t: "n", f: `IF($G$${products.length + 3}=0,0,G${rowIdx + 1}/$G$${products.length + 3})`, v: p.subtotal_after_discount / totalSales, s: ws[encode(XLSX, rowIdx, 7)]?.s };
+    ws[encode(XLSX, rowIdx, 7)] = { t: "n", f: `IF($G$${totalRowNumber}=0,0,G${rowIdx + 1}/$G$${totalRowNumber})`, v: p.subtotal_after_discount / totalSales, s: ws[encode(XLSX, rowIdx, 7)]?.s };
 
     for (let b = 0; b < BAR_CELLS; b++) {
       applyCell(ws, encode(XLSX, rowIdx, 8 + b), {
@@ -330,6 +331,11 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): { ws: any; t
   }
 
   const totalRowIdx = 2 + products.length;
+  const setFormula = (colIdx: number, f: string, v = 0) => {
+    const addr = encode(XLSX, totalRowIdx, colIdx);
+    ws[addr] = { t: "n", f, v, s: ws[addr]?.s };
+  };
+
   for (let c = 0; c < nCols; c++) {
     applyCell(ws, encode(XLSX, totalRowIdx, c), {
       font: { name: "メイリオ", sz: 10.5, bold: true },
@@ -341,18 +347,13 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): { ws: any; t
   }
 
   const lastDataRow = products.length + 2;
-  const setFormula = (colIdx: number, f: string, v = 0) => {
-    const addr = encode(XLSX, totalRowIdx, colIdx);
-    ws[addr] = { t: "n", f, v, s: ws[addr]?.s };
-  };
-
-  setFormula(1, `IF(C${totalRowIdx + 1}=0,0,D${totalRowIdx + 1}/C${totalRowIdx + 1})`);
+  setFormula(1, `IF(C${totalRowNumber}=0,0,D${totalRowNumber}/C${totalRowNumber})`);
   setFormula(2, `SUM(C3:C${lastDataRow})`);
   setFormula(3, `SUM(D3:D${lastDataRow})`);
   setFormula(4, `SUM(E3:E${lastDataRow})`);
   setFormula(5, `SUM(F3:F${lastDataRow})`);
   setFormula(6, `SUM(G3:G${lastDataRow})`);
-  setFormula(7, `IF(G${totalRowIdx + 1}=0,0,G${totalRowIdx + 1}/G${totalRowIdx + 1})`, 1);
+  setFormula(7, `IF(G${totalRowNumber}=0,0,G${totalRowNumber}/G${totalRowNumber})`, 1);
 
   for (let c = 8; c < nCols; c++) {
     applyCell(ws, encode(XLSX, totalRowIdx, c), {
@@ -371,10 +372,10 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): { ws: any; t
   }
 
   ws["!freeze"] = { xSplit: 0, ySplit: 2 };
-  return { ws, totalRowNumber: totalRowIdx + 1 };
+  return ws;
 }
 
-function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummaryData, productTotalRowNumber: number): any {
+function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummaryData): any {
   return styledSheet(XLSX, {
     title: "OFFICE NAGAZON 売上状況レポート",
     headers: ["項目", "値", "説明"],
@@ -385,10 +386,8 @@ function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummar
       ["クーポン割引", summary.couponDiscount, `${summary.couponOrderCount} 件で使用（引く）`],
       ["ポイント充当", summary.pointsTotal, `${summary.pointsOrderCount} 件で使用（引く）`],
       ["入金売上", summary.cashSales, "＝ 商品売上 − クーポン割引 − ポイント充当"],
-      ["注文件数", summary.orderCount, "支払い完了した注文数"],
-      ["平均注文単価", 0, "＝ 入金売上 ÷ 注文件数"],
-      ["販売個数", 0, "＝ 商品別売上シートの数量合計"],
-      ["1注文あたり販売個数", 0, "＝ 販売個数 ÷ 注文件数"],
+      ["総値引額", 0, "＝ クーポン割引 ＋ ポイント充当"],
+      ["実収率", 0, "＝ 入金売上 ÷ 商品売上（割引前）"],
     ],
     rowFormats: [
       [null, null, null],
@@ -397,32 +396,30 @@ function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummar
       [null, YEN, null],
       [null, YEN, null],
       [null, YEN, null],
-      [null, COUNT, null],
       [null, YEN, null],
-      [null, COUNT, null],
-      [null, "0.0", null],
+      [null, PCT, null],
     ],
     align: ["left", "right", "left"],
     formulas: [
       { addr: "B8", f: "B5-B6-B7", v: summary.cashSales, highlight: true, numFmt: YEN },
-      { addr: "B10", f: "IF(B9=0,0,B8/B9)", v: summary.orderCount ? summary.cashSales / summary.orderCount : 0, numFmt: YEN },
-      { addr: "B11", f: `'商品別売上'!C${productTotalRowNumber}`, v: 0, numFmt: COUNT },
-      { addr: "B12", f: "IF(B9=0,0,B11/B9)", v: 0, numFmt: "0.0" },
+      { addr: "B9", f: "B6+B7", v: summary.couponDiscount + summary.pointsTotal, numFmt: YEN },
+      { addr: "B10", f: "IF(B5=0,0,B8/B5)", v: summary.grossSubtotal ? summary.cashSales / summary.grossSubtotal : 0, numFmt: PCT },
     ],
-    widths: [26, 18, 52],
+    widths: [24, 18, 56],
     note: [
       "入金売上 ＝ お客様から実際にいただいた金額です。",
-      "商品別売上シートでは、商品名・売価・数量・売上計算・値引き・入金売上・構成比を表形式で確認できます。",
-      "数式を入れているので、Excel上でセルを選ぶと計算式を確認できます。",
+      "商品別売上シートには商品別の売上グラフ、数量グラフ、売上構成比グラフを追加しています。",
+      "期間比較シートには今期 vs 比較期間の棒グラフと、増減率の折れ線グラフを追加しています。",
     ],
     freeze: true,
   });
 }
 
 function compareSheet(XLSX: XlsxApi, currentLabel: string, prev: PrevData | null): any {
+  const prevLabel = prev?.label ?? "比較期間";
   return styledSheet(XLSX, {
-    title: `期間比較（${currentLabel}${prev ? ` vs ${prev.label}` : ""}）`,
-    headers: ["指標", "今期", prev?.label ?? "前期", "増減", "増減率"],
+    title: `期間比較（${currentLabel}${prev ? ` vs ${prevLabel}` : ""}）`,
+    headers: ["指標", "今期", prevLabel, "増減", "増減率"],
     rows: [
       ["入金売上", prev?.current?.cashSales ?? 0, prev?.previous?.cashSales ?? 0, 0, 0],
       ["注文件数", prev?.current?.orderCount ?? 0, prev?.previous?.orderCount ?? 0, 0, 0],
@@ -435,15 +432,15 @@ function compareSheet(XLSX: XlsxApi, currentLabel: string, prev: PrevData | null
     ],
     align: ["left", "right", "right", "right", "right"],
     formulas: [
-      { addr: "D3", f: "B3-C3", v: 0, numFmt: YEN },
+      { addr: "D3", f: "B3-C3", v: (prev?.current?.cashSales ?? 0) - (prev?.previous?.cashSales ?? 0), numFmt: YEN },
       { addr: "E3", f: "IF(C3=0,0,D3/C3)", v: 0, numFmt: PCT },
-      { addr: "D4", f: "B4-C4", v: 0, numFmt: COUNT },
+      { addr: "D4", f: "B4-C4", v: (prev?.current?.orderCount ?? 0) - (prev?.previous?.orderCount ?? 0), numFmt: COUNT },
       { addr: "E4", f: "IF(C4=0,0,D4/C4)", v: 0, numFmt: PCT },
-      { addr: "D5", f: "B5-C5", v: 0, numFmt: YEN },
+      { addr: "D5", f: "B5-C5", v: (prev?.current?.grossSubtotal ?? 0) - (prev?.previous?.grossSubtotal ?? 0), numFmt: YEN },
       { addr: "E5", f: "IF(C5=0,0,D5/C5)", v: 0, numFmt: PCT },
     ],
     widths: [24, 16, 16, 16, 14],
-    note: ["増減 ＝ 今期 − 前期、増減率 ＝ 増減 ÷ 前期 です。"],
+    note: [`増減 ＝ 今期 − ${prevLabel}、増減率 ＝ 増減 ÷ ${prevLabel} です。`],
     freeze: true,
   });
 }
@@ -469,9 +466,8 @@ export async function exportSalesXlsx(range: SalesRangeData, summary: SalesSumma
   const labelSafe = range.label.replace(/[\\/:*?"<>|～~]/g, "_");
   const fileName = `OFFICE NAGAZON売上_${labelSafe}.xlsx`;
   const wb = XLSX.utils.book_new();
-  const product = productSheet(XLSX, products);
-  XLSX.utils.book_append_sheet(wb, summarySheet(XLSX, range, summary, product.totalRowNumber), "売上サマリー");
-  XLSX.utils.book_append_sheet(wb, product.ws, "商品別売上");
+  XLSX.utils.book_append_sheet(wb, summarySheet(XLSX, range, summary), "売上サマリー");
+  XLSX.utils.book_append_sheet(wb, productSheet(XLSX, products), "商品別売上");
   XLSX.utils.book_append_sheet(wb, compareSheet(XLSX, range.label, prev), "期間比較");
   XLSX.utils.book_append_sheet(wb, orderSheet(XLSX, orders), "注文一覧");
   XLSX.writeFile(wb, fileName);

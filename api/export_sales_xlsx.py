@@ -10,7 +10,7 @@ from urllib.parse import quote
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.chart import BarChart, PieChart, LineChart, Reference
 
 TITLE_FILL = PatternFill("solid", fgColor="312E81")
 HEADER_FILL = PatternFill("solid", fgColor="4338CA")
@@ -36,7 +36,6 @@ RIGHT = Alignment(horizontal="right", vertical="center")
 YEN = "¥#,##0"
 COUNT = "#,##0"
 PCT = "0.0%"
-ONE_DEC = "0.0"
 
 
 def to_int(v):
@@ -60,6 +59,31 @@ def set_widths(ws, widths):
         ws.column_dimensions[get_column_letter(i)].width = w
 
 
+def style_range(ws, start_row, end_row, formats=None, center_cols=()):
+    formats = formats or {}
+    center_set = set(center_cols)
+    for r in range(start_row, end_row + 1):
+        zebra = ((r - start_row) % 2) == 1
+        for c in range(1, ws.max_column + 1):
+            cell = ws.cell(row=r, column=c)
+            cell.font = BODY_FONT
+            if zebra:
+                cell.fill = ZEBRA_FILL
+            cell.border = BORDER
+            if c in center_set:
+                cell.alignment = CENTER
+            elif formats.get(c) in ("yen", "count", "pct"):
+                cell.alignment = RIGHT
+            else:
+                cell.alignment = LEFT
+            if formats.get(c) == "yen":
+                cell.number_format = YEN
+            elif formats.get(c) == "count":
+                cell.number_format = COUNT
+            elif formats.get(c) == "pct":
+                cell.number_format = PCT
+
+
 def total_row_style(cell, align=RIGHT, fmt=None):
     cell.font = BOLD_FONT
     cell.fill = TOTAL_FILL
@@ -71,58 +95,24 @@ def total_row_style(cell, align=RIGHT, fmt=None):
         cell.number_format = COUNT
     elif fmt == "pct":
         cell.number_format = PCT
-    elif fmt == "one":
-        cell.number_format = ONE_DEC
-
-
-def style_range(ws, start_row, end_row, formats=None, center_cols=()):
-    formats = formats or {}
-    center_set = set(center_cols)
-    for r in range(start_row, end_row + 1):
-        zebra = ((r - start_row) % 2) == 1
-        for c in range(1, ws.max_column + 1):
-            cell = ws.cell(row=r, column=c)
-            cell.font = BODY_FONT
-            if zebra:
-                cell.fill = ZEBRA_FILL
-            if c in center_set:
-                cell.alignment = CENTER
-            elif formats.get(c) in ("yen", "count", "pct", "one"):
-                cell.alignment = RIGHT
-            else:
-                cell.alignment = LEFT
-            cell.border = BORDER
-            if formats.get(c) == "yen":
-                cell.number_format = YEN
-            elif formats.get(c) == "count":
-                cell.number_format = COUNT
-            elif formats.get(c) == "pct":
-                cell.number_format = PCT
-            elif formats.get(c) == "one":
-                cell.number_format = ONE_DEC
 
 
 def build_product_sheet(wb, products):
     ws = wb.active
     ws.title = "商品別売上"
-    bar_cells = 10
-    total_cols = 8 + bar_cells * 2
-    set_widths(ws, [30, 14, 9, 16, 14, 14, 16, 11] + [2] * (bar_cells * 2))
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_cols)
-    ws["A1"] = "商品別売上（見やすい一覧 + グラフ用データ）"
+    set_widths(ws, [30, 14, 9, 16, 14, 14, 16, 11, 2, 2])
+    ws.merge_cells("A1:H1")
+    ws["A1"] = "商品別売上（商品ごとの売上と数量がひと目で分かる一覧）"
     ws["A1"].font = TITLE_FONT
     ws["A1"].fill = TITLE_FILL
     ws["A1"].alignment = LEFT
     ws.row_dimensions[1].height = 32
     write_headers(ws, 2, [
         "商品名", "売価(平均・円)", "数量", "売上計算(割引前・円)", "クーポン割引(円)",
-        "ポイント充当(円)", "入金売上(割引後・円)", "売上構成比", "売上棒 ▶", *([""] * (bar_cells - 1)), "数量棒 ▶", *([""] * (bar_cells - 1))
+        "ポイント充当(円)", "入金売上(割引後・円)", "売上構成比"
     ])
 
     total_sales = max(1, sum(to_int(p.get("subtotal_after_discount", 0)) for p in products))
-    max_sales = max([1] + [to_int(p.get("subtotal_after_discount", 0)) for p in products])
-    max_qty = max([1] + [to_int(p.get("quantity", 0)) for p in products])
-
     for i, p in enumerate(products, start=3):
         qty = to_int(p.get("quantity", 0))
         avg_price = to_int(p.get("avg_unit_price", 0))
@@ -130,7 +120,6 @@ def build_product_sheet(wb, products):
         coupon_yen = to_int(p.get("couponYen", 0))
         points_yen = to_int(p.get("pointsYen", 0))
         sales_after = to_int(p.get("subtotal_after_discount", 0))
-        share = (sales_after / total_sales) if total_sales else 0
 
         ws.cell(row=i, column=1, value=str(p.get("product_name", "")))
         ws.cell(row=i, column=2, value=avg_price)
@@ -139,20 +128,9 @@ def build_product_sheet(wb, products):
         ws.cell(row=i, column=5, value=coupon_yen)
         ws.cell(row=i, column=6, value=points_yen)
         ws.cell(row=i, column=7, value=f"=D{i}-E{i}-F{i}")
-        ws.cell(row=i, column=8, value=f"=IF($G${len(products)+3}=0,0,G{i}/$G${len(products)+3})")
-
+        ws.cell(row=i, column=8, value=sales_after / total_sales if total_sales else 0)
         style_range(ws, i, i, {2: "yen", 3: "count", 4: "yen", 5: "yen", 6: "yen", 7: "yen", 8: "pct"}, center_cols=(3,))
         ws.cell(row=i, column=7).font = Font(name="メイリオ", size=10, bold=True)
-
-        sales_cells = max(1 if sales_after > 0 else 0, round((sales_after / max_sales) * bar_cells))
-        qty_cells = max(1 if qty > 0 else 0, round((qty / max_qty) * bar_cells))
-        for b in range(bar_cells):
-            a = ws.cell(row=i, column=9 + b)
-            a.fill = PatternFill("solid", fgColor="4F46E5" if b < sales_cells else "E2E8F0")
-            a.border = BORDER
-            q = ws.cell(row=i, column=9 + bar_cells + b)
-            q.fill = PatternFill("solid", fgColor="0EA5E9" if b < qty_cells else "E2E8F0")
-            q.border = BORDER
 
     total_row = 3 + len(products)
     ws.cell(row=total_row, column=1, value="合計")
@@ -167,33 +145,32 @@ def build_product_sheet(wb, products):
     ws.cell(row=total_row, column=6, value=f"=SUM(F3:F{data_end})")
     ws.cell(row=total_row, column=7, value=f"=SUM(G3:G{data_end})")
     ws.cell(row=total_row, column=8, value="=1")
-    for c in range(9, total_cols + 1):
-        total_row_style(ws.cell(row=total_row, column=c), RIGHT)
 
     note_row = total_row + 2
     notes = [
         "※ 入金売上(割引後) ＝ 売上計算(割引前) − クーポン割引 − ポイント充当 です。",
-        "※ グラフは『入金売上』と『数量』がひと目で分かるようにしています。",
+        "※ 右側に『商品別入金売上』『商品別販売個数』『売上構成比』の本物のExcelグラフを追加しています。",
     ]
-    for i, txt in enumerate(notes):
-        ws.merge_cells(start_row=note_row + i, start_column=1, end_row=note_row + i, end_column=total_cols)
-        c = ws.cell(row=note_row + i, column=1, value=txt)
+    for idx, txt in enumerate(notes):
+        ws.merge_cells(start_row=note_row + idx, start_column=1, end_row=note_row + idx, end_column=8)
+        c = ws.cell(row=note_row + idx, column=1, value=txt)
         c.font = NOTE_FONT
         c.alignment = LEFT
 
     if products:
         sales_chart = BarChart()
-        sales_chart.type = "col"
+        sales_chart.type = "bar"
         sales_chart.style = 10
         sales_chart.title = "商品別入金売上"
-        sales_chart.y_axis.title = "円"
+        sales_chart.y_axis.title = "商品"
+        sales_chart.x_axis.title = "円"
         sales_chart.add_data(Reference(ws, min_col=7, min_row=2, max_row=total_row - 1), titles_from_data=True)
         sales_chart.set_categories(Reference(ws, min_col=1, min_row=3, max_row=total_row - 1))
-        sales_chart.width = 19
+        sales_chart.width = 18
         sales_chart.height = 9
         if sales_chart.series:
             sales_chart.series[0].graphicalProperties.solidFill = "4F46E5"
-        ws.add_chart(sales_chart, "V3")
+        ws.add_chart(sales_chart, "J3")
 
         qty_chart = BarChart()
         qty_chart.type = "col"
@@ -202,27 +179,27 @@ def build_product_sheet(wb, products):
         qty_chart.y_axis.title = "個"
         qty_chart.add_data(Reference(ws, min_col=3, min_row=2, max_row=total_row - 1), titles_from_data=True)
         qty_chart.set_categories(Reference(ws, min_col=1, min_row=3, max_row=total_row - 1))
-        qty_chart.width = 19
+        qty_chart.width = 18
         qty_chart.height = 9
         if qty_chart.series:
             qty_chart.series[0].graphicalProperties.solidFill = "0EA5E9"
-        ws.add_chart(qty_chart, "V22")
+        ws.add_chart(qty_chart, "J22")
 
         pie = PieChart()
         pie.title = "売上構成比"
         pie.add_data(Reference(ws, min_col=7, min_row=3, max_row=total_row - 1), titles_from_data=False)
         pie.set_categories(Reference(ws, min_col=1, min_row=3, max_row=total_row - 1))
-        pie.width = 13
-        pie.height = 9
-        ws.add_chart(pie, "V41")
+        pie.width = 12
+        pie.height = 8
+        ws.add_chart(pie, "J41")
 
     ws.freeze_panes = "A3"
     return total_row
 
 
-def build_summary_sheet(wb, range_label, now_jst, summary, product_total_row):
+def build_summary_sheet(wb, range_label, now_jst, summary):
     ws = wb.create_sheet("売上サマリー", 0)
-    set_widths(ws, [26, 18, 52])
+    set_widths(ws, [24, 18, 56])
     ws.merge_cells("A1:C1")
     ws["A1"] = "OFFICE NAGAZON 売上状況レポート"
     ws["A1"].font = TITLE_FONT
@@ -238,10 +215,8 @@ def build_summary_sheet(wb, range_label, now_jst, summary, product_total_row):
         ("クーポン割引", to_int(summary.get("couponDiscount", 0)), f"{to_int(summary.get('couponOrderCount', 0))} 件で使用（引く）"),
         ("ポイント充当", to_int(summary.get("pointsTotal", 0)), f"{to_int(summary.get('pointsOrderCount', 0))} 件で使用（引く）"),
         ("入金売上", None, "＝ 商品売上 − クーポン割引 − ポイント充当"),
-        ("注文件数", to_int(summary.get("orderCount", 0)), "支払い完了した注文数"),
-        ("平均注文単価", None, "＝ 入金売上 ÷ 注文件数"),
-        ("販売個数", None, "＝ 商品別売上シートの数量合計"),
-        ("1注文あたり販売個数", None, "＝ 販売個数 ÷ 注文件数"),
+        ("総値引額", None, "＝ クーポン割引 ＋ ポイント充当"),
+        ("実収率", None, "＝ 入金売上 ÷ 商品売上（割引前）"),
     ]
 
     for i, (label, val, note) in enumerate(rows, start=3):
@@ -250,15 +225,12 @@ def build_summary_sheet(wb, range_label, now_jst, summary, product_total_row):
             ws.cell(row=i, column=2, value=val)
         ws.cell(row=i, column=3, value=note)
 
-    style_range(ws, 3, 12, {2: "yen"})
-    ws["B9"].number_format = COUNT
-    ws["B11"].number_format = COUNT
-    ws["B12"].number_format = ONE_DEC
+    style_range(ws, 3, 10, {2: "yen"})
     ws["B8"] = "=B5-B6-B7"
-    ws["B10"] = "=IF(B9=0,0,B8/B9)"
-    ws["B11"] = f"='商品別売上'!C{product_total_row}"
-    ws["B12"] = "=IF(B9=0,0,B11/B9)"
-    for addr, fmt in [("B8", YEN), ("B9", COUNT), ("B10", YEN), ("B11", COUNT), ("B12", ONE_DEC)]:
+    ws["B9"] = "=B6+B7"
+    ws["B10"] = "=IF(B5=0,0,B8/B5)"
+    ws["B10"].number_format = PCT
+    for addr, fmt in [("B8", YEN), ("B9", YEN), ("B10", PCT)]:
         ws[addr].number_format = fmt
         ws[addr].alignment = RIGHT
         ws[addr].font = Font(name="メイリオ", size=11 if addr == "B8" else 10, bold=True)
@@ -266,10 +238,10 @@ def build_summary_sheet(wb, range_label, now_jst, summary, product_total_row):
 
     notes = [
         "入金売上 ＝ お客様から実際にいただいた金額です。",
-        "商品別売上シートでは、商品名・売価・数量・売上計算・値引き・入金売上・構成比を表形式で確認できます。",
-        "数式を入れているので、Excel上でセルを選ぶと計算式を確認できます。",
+        "商品別売上シートには商品別の売上グラフ、数量グラフ、売上構成比グラフを追加しています。",
+        "期間比較シートには今期 vs 比較期間の棒グラフと、増減率の折れ線グラフを追加しています。",
     ]
-    for i, txt in enumerate(notes, start=14):
+    for i, txt in enumerate(notes, start=12):
         ws.merge_cells(start_row=i, start_column=1, end_row=i, end_column=3)
         c = ws.cell(row=i, column=1, value=txt)
         c.font = NOTE_FONT
@@ -280,11 +252,10 @@ def build_summary_sheet(wb, range_label, now_jst, summary, product_total_row):
 
 def build_compare_sheet(wb, range_label, prev):
     ws = wb.create_sheet("期間比較")
+    prev_label = (prev or {}).get("label") or "比較期間"
     set_widths(ws, [24, 16, 16, 16, 14])
-    prev_label = (prev or {}).get("label") or "前期"
-    title = f"期間比較（{range_label} vs {prev_label}）" if prev else f"期間比較（{range_label}）"
     ws.merge_cells("A1:E1")
-    ws["A1"] = title
+    ws["A1"] = f"期間比較（{range_label}{' vs ' + prev_label if prev else ''}）"
     ws["A1"].font = TITLE_FONT
     ws["A1"].fill = TITLE_FILL
     ws["A1"].alignment = LEFT
@@ -308,21 +279,35 @@ def build_compare_sheet(wb, range_label, prev):
         ws.cell(row=i, column=4).font = BOLD_FONT
 
     if prev:
-        chart = BarChart()
-        chart.type = "col"
-        chart.style = 11
-        chart.title = "今期 vs 前期"
-        chart.add_data(Reference(ws, min_col=2, max_col=3, min_row=2, max_row=5), titles_from_data=True)
-        chart.set_categories(Reference(ws, min_col=1, min_row=3, max_row=5))
-        chart.width = 20
-        chart.height = 10
-        if len(chart.series) >= 2:
-            chart.series[0].graphicalProperties.solidFill = "4F46E5"
-            chart.series[1].graphicalProperties.solidFill = "CBD5E1"
-        ws.add_chart(chart, "H3")
+        compare_chart = BarChart()
+        compare_chart.type = "col"
+        compare_chart.style = 11
+        compare_chart.title = "今期 vs {}".format(prev_label)
+        compare_chart.y_axis.title = "値"
+        compare_chart.add_data(Reference(ws, min_col=2, max_col=3, min_row=2, max_row=5), titles_from_data=True)
+        compare_chart.set_categories(Reference(ws, min_col=1, min_row=3, max_row=5))
+        compare_chart.width = 18
+        compare_chart.height = 9
+        if len(compare_chart.series) >= 2:
+            compare_chart.series[0].graphicalProperties.solidFill = "4F46E5"
+            compare_chart.series[1].graphicalProperties.solidFill = "CBD5E1"
+        ws.add_chart(compare_chart, "G3")
+
+        rate_chart = LineChart()
+        rate_chart.title = "増減率"
+        rate_chart.y_axis.title = "%"
+        rate_chart.style = 13
+        rate_chart.add_data(Reference(ws, min_col=5, min_row=2, max_row=5), titles_from_data=True)
+        rate_chart.set_categories(Reference(ws, min_col=1, min_row=3, max_row=5))
+        rate_chart.width = 18
+        rate_chart.height = 8
+        if rate_chart.series:
+            rate_chart.series[0].graphicalProperties.line.solidFill = "DC2626"
+            rate_chart.series[0].graphicalProperties.line.width = 24000
+        ws.add_chart(rate_chart, "G21")
 
     ws.merge_cells("A7:E7")
-    ws["A7"] = "増減 ＝ 今期 − 前期、増減率 ＝ 増減 ÷ 前期 です。"
+    ws["A7"] = f"増減 ＝ 今期 − {prev_label}、増減率 ＝ 増減 ÷ {prev_label} です。"
     ws["A7"].font = NOTE_FONT
     ws["A7"].alignment = LEFT
     ws.freeze_panes = "A3"
@@ -374,8 +359,8 @@ def build_workbook(d):
     now_jst = str(range_info.get("nowJst") or "")
 
     wb = Workbook()
-    product_total_row = build_product_sheet(wb, products)
-    build_summary_sheet(wb, range_label, now_jst, summary, product_total_row)
+    build_product_sheet(wb, products)
+    build_summary_sheet(wb, range_label, now_jst, summary)
     build_compare_sheet(wb, range_label, prev)
     build_order_sheet(wb, orders)
     return wb
