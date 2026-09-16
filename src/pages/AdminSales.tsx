@@ -12,12 +12,14 @@ import "./AdminSales.css";
 type SalesItem = {
   product_name: string;
   quantity: number;
+  avg_unit_price: number;
   subtotal_raw: number;
   subtotal_after_discount: number;
   coupon_orders_count: number;
   points_orders_count: number;
   couponYen: number;
   pointsYen: number;
+  cost_per_unit: number;
 };
 
 type RangeMode = "day" | "week" | "month" | "year";
@@ -287,6 +289,26 @@ export default function AdminSales() {
       setOrderRows(ordersArr);
       setItemRows(itemsRows);
 
+      let productMasterRows: any[] = [];
+      try {
+        const { data: prodData, error: prodError } = await supabase
+          .from("products")
+          .select("name, cost");
+        if (prodError) {
+          console.warn("products cost fetch skipped:", prodError.message);
+        } else {
+          productMasterRows = Array.isArray(prodData) ? (prodData as any[]) : [];
+        }
+      } catch (eProd) {
+        console.warn("products cost fetch error:", eProd);
+      }
+      const productCostMap = new Map<string, number>();
+      for (const row of productMasterRows) {
+        const name = String(row?.name || "").trim();
+        if (!name) continue;
+        productCostMap.set(name, round0((row as any)?.cost));
+      }
+
       // --- ここから集計（割引按分も含む） ---
       const orderMap = new Map<string, OrderRow>(ordersArr.map((o) => [o.id, o]));
       const orderSubtotalFromItems = new Map<string, number>();
@@ -381,16 +403,23 @@ export default function AdminSales() {
       }
 
       const list: SalesItem[] = Array.from(productAgg.entries())
-        .map(([product_name, v]) => ({
-          product_name,
-          quantity: v.quantity,
-          subtotal_raw: Math.round(v.subtotal_raw),
-          subtotal_after_discount: Math.round(v.subtotal_after_discount),
-          coupon_orders_count: v.couponOrders.size,
-          points_orders_count: v.pointsOrders.size,
-          couponYen: Math.round(v.couponYen),
-          pointsYen: Math.round(v.pointsYen),
-        }))
+        .map(([product_name, v]) => {
+          const quantity = Math.max(0, Math.round(v.quantity));
+          const subtotalRaw = Math.round(v.subtotal_raw);
+          const costPerUnit = round0(productCostMap.get(product_name));
+          return {
+            product_name,
+            quantity,
+            avg_unit_price: quantity > 0 ? Math.round(subtotalRaw / quantity) : 0,
+            subtotal_raw: subtotalRaw,
+            subtotal_after_discount: Math.round(v.subtotal_after_discount),
+            coupon_orders_count: v.couponOrders.size,
+            points_orders_count: v.pointsOrders.size,
+            couponYen: Math.round(v.couponYen),
+            pointsYen: Math.round(v.pointsYen),
+            cost_per_unit: costPerUnit,
+          };
+        })
         .sort((a, b) => b.subtotal_after_discount - a.subtotal_after_discount);
 
       let cash = 0;
