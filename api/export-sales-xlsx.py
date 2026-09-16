@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Vercel Python Function: /api/export-sales-xlsx
-売上Excel（本物のExcelグラフ + 積極的なセル数式 + 見やすい商品別売上）を生成する。
+BaseHTTPRequestHandler 版。Vercel の /api ディレクトリ用 Python 関数として公開する。
 """
 import io
 import json
+from http.server import BaseHTTPRequestHandler
 from urllib.parse import quote
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -194,7 +195,6 @@ def build_product_sheet(wb, products):
         ws.add_chart(pie, "J41")
 
     ws.freeze_panes = "A3"
-    return total_row
 
 
 def build_summary_sheet(wb, range_label, now_jst, summary):
@@ -366,48 +366,48 @@ def build_workbook(d):
     return wb
 
 
-def get_json(request):
-    j = getattr(request, "json", None)
-    if j is None:
-        body = getattr(request, "body", b"")
-        if isinstance(body, str):
-            body = body.encode("utf-8", "replace")
-        return json.loads(body) if body else {}
-    if callable(j):
-        try:
-            return j()
-        except TypeError:
-            return j
-    return j
+def build_xlsx_bytes(payload):
+    wb = build_workbook(payload or {})
+    buf = io.BytesIO()
+    wb.save(buf)
+    raw = buf.getvalue()
+    label = str((payload.get("range") or {}).get("label") or "期間") \
+        .replace("\\", "_").replace("/", "_").replace(":", "_") \
+        .replace("*", "_").replace("?", "_").replace('"', "_") \
+        .replace("<", "_").replace(">", "_").replace("|", "_") \
+        .replace("～", "_").replace("~", "_").strip() or "期間"
+    fname = f"OFFICE NAGAZON売上_{label}.xlsx"
+    return raw, fname
 
 
-def handler(request):
-    try:
-        d = get_json(request) or {}
-        wb = build_workbook(d)
-        buf = io.BytesIO()
-        wb.save(buf)
-        raw = buf.getvalue()
-        label = str((d.get("range") or {}).get("label") or "期間") \
-            .replace("\\", "_").replace("/", "_").replace(":", "_") \
-            .replace("*", "_").replace("?", "_").replace('"', "_") \
-            .replace("<", "_").replace(">", "_").replace("|", "_") \
-            .replace("～", "_").replace("~", "_").strip() or "期間"
-        fname = f"OFFICE NAGAZON売上_{label}.xlsx"
-        from vercel_response import Response
-        return Response(
-            body=raw,
-            status=200,
-            headers={
-                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "Content-Disposition": "attachment; filename*=UTF-8''{}".format(quote(fname)),
-            },
-        )
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def do_GET(self):
+        self.send_response(405)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(json.dumps({"error": "method_not_allowed"}).encode("utf-8"))
+
+    def do_POST(self):
         try:
-            from vercel_response import Response
-            return Response(body=str(e).encode("utf-8"), status=500)
-        except Exception:
-            return ("error", 500)
+            length = int(self.headers.get("content-length", "0") or "0")
+            raw_body = self.rfile.read(length) if length > 0 else b"{}"
+            payload = json.loads(raw_body.decode("utf-8")) if raw_body else {}
+            raw, fname = build_xlsx_bytes(payload)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            self.send_header("Content-Disposition", "attachment; filename*=UTF-8''{}".format(quote(fname)))
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": str(e)}, ensure_ascii=False).encode("utf-8"))
