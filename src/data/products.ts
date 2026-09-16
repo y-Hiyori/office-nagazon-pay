@@ -5,7 +5,7 @@ import img3 from "./商品画像/じゃがりこバター.avif";
 import img4 from "./商品画像/ピュレグミぶどう.jpg";
 import img5 from "./商品画像/ピュレグミマスカット.jpg";
 import img6 from "./商品画像/ラムネ.webp";
-
+import img7 from "./商品画像/めいらくアイス.jpg";
 // 画像だけのマスタ
 export type ProductImageMaster = {
   id: number;        // products テーブルの id と合わせる
@@ -20,7 +20,7 @@ export const PRODUCT_IMAGES: ProductImageMaster[] = [
   { id: 4, imageData: img4 },
   { id: 5, imageData: img5 },
   { id: 6, imageData: img6 },
-  
+  { id: 7, imageData: img7 },
 ];
 
 // id から画像パスを取る関数（なければ undefined）
