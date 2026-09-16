@@ -20,6 +20,37 @@ type Wallet = {
   balance: number;
 };
 
+// ✅ ポイント履歴1件
+type PointTx = {
+  id: string;
+  type: "earn" | "use" | "expire" | "adjust";
+  amount: number;
+  balance_after: number;
+  order_id: string | null;
+  description: string | null;
+  created_at: string;
+};
+
+const TX_INFO: Record<string, { label: string }> = {
+  earn: { label: "獲得" },
+  use: { label: "使用" },
+  expire: { label: "失効" },
+  adjust: { label: "調整" },
+};
+
+const formatTxDate = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 function AccountMenu() {
   const navigate = useNavigate();
 
@@ -28,6 +59,12 @@ function AccountMenu() {
 
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
+
+  // ✅ ポイント履歴（モーダル）
+  const [history, setHistory] = useState<PointTx[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +85,29 @@ function AccountMenu() {
     } finally {
       setWalletLoading(false);
     }
+  };
+
+  // ✅ ポイント履歴を取得
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const { data, error } = await supabase.rpc("points_get_my_history");
+      if (error) {
+        console.error("points_get_my_history error:", error);
+        setHistoryError("ポイント履歴の取得に失敗しました");
+        setHistory([]);
+        return;
+      }
+      setHistory((data as PointTx[] | null) ?? []);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openHistory = () => {
+    setShowHistory(true);
+    if (history === null) void loadHistory();
   };
 
   useEffect(() => {
@@ -108,7 +168,6 @@ function AccountMenu() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // ✅ alert → アプリ内
     await appDialog.alert({
       title: "ログアウト",
       message: "ログアウトしました",
@@ -117,13 +176,11 @@ function AccountMenu() {
   };
 
   const handleDeleteAccount = async () => {
-    // ✅ confirm → アプリ内（cancelなら何もしない）
     const check = await appDialog.confirm({
       title: "アカウント削除",
       message: "本当にアカウントを削除しますか？",
       okText: "削除する",
       cancelText: "戻る",
-      
     });
     if (!check) return;
 
@@ -194,9 +251,14 @@ function AccountMenu() {
           <section className="account-points">
             <div className="account-points-head">
               <h3 className="account-points-title">ポイント</h3>
-              <button className="account-points-reload" onClick={loadWallet} disabled={walletLoading}>
-                {walletLoading ? "更新中..." : "更新"}
-              </button>
+              <div className="account-points-actions">
+                <button className="account-points-history" onClick={openHistory}>
+                  履歴を見る
+                </button>
+                <button className="account-points-reload" onClick={loadWallet} disabled={walletLoading}>
+                  {walletLoading ? "更新中..." : "更新"}
+                </button>
+              </div>
             </div>
 
             <div className="account-points-row">
@@ -232,6 +294,69 @@ function AccountMenu() {
           </section>
         </div>
       </main>
+
+      {/* ✅ ポイント履歴モーダル */}
+      {showHistory && (
+        <div
+          className="ptx-overlay"
+          onClick={() => setShowHistory(false)}
+          role="presentation"
+        >
+          <div className="ptx-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="ptx-head">
+              <h3 className="ptx-title">ポイント履歴</h3>
+              <button
+                type="button"
+                className="ptx-close"
+                onClick={() => setShowHistory(false)}
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="ptx-sub">ポイントの獲得・使用・失効の履歴です（1pt = 1円）。</div>
+
+            {historyLoading ? (
+              <p className="ptx-ghost">読み込み中...</p>
+            ) : historyError ? (
+              <p className="ptx-error">{historyError}</p>
+            ) : !history || history.length === 0 ? (
+              <p className="ptx-empty">
+                履歴がまだありません
+                <br />
+                購入でポイントが付与されると、ここに表示されます
+              </p>
+            ) : (
+              <div className="ptx-list">
+                {history.map((tx) => {
+                  const info = TX_INFO[tx.type] ?? TX_INFO.adjust;
+                  const sign = tx.amount > 0 ? "+" : "";
+                  return (
+                    <div key={tx.id} className="ptx-row">
+                      <span className={`ptx-badge ptx-badge-${tx.type}`}>{info.label}</span>
+                      <div className="ptx-main">
+                        <div className="ptx-desc">{tx.description || info.label}</div>
+                        <div className="ptx-date">
+                          {formatTxDate(tx.created_at)}・残高 {fmt(tx.balance_after)} pt
+                        </div>
+                      </div>
+                      <div className={`ptx-amount ptx-amount-${tx.type}`}>
+                        {sign}
+                        {fmt(tx.amount)} pt
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="ptx-foot">
+              付与から1年（365日）を過ぎた未使用ポイントは自動で失効します。
+            </div>
+          </div>
+        </div>
+      )}
 
       <SiteFooter />
     </div>

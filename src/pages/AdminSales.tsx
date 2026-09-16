@@ -3,12 +3,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
+import { exportXlsxSheets } from "../lib/excelExport";
 import "./AdminSales.css";
 
 type SalesItem = {
   product_name: string;
-
-  // 合計
   quantity: number;
 
   // ✅ 割引前（= order_items の 数量×単価 合計）
@@ -36,6 +35,11 @@ type OrderRow = {
   coupon_code: string | null;
   points_used: number | null;
   points_applied: number | null;
+
+  // ✅ Excel（注文一覧）用
+  email?: string | null;
+  name?: string | null;
+  payment_method?: string | null;
 };
 
 type OrderItemRow = {
@@ -43,6 +47,16 @@ type OrderItemRow = {
   product_name: string | null;
   quantity: number | null;
   price: number | null;
+};
+
+type Summary = {
+  cashSales: number; // 入金売上（お客様からの実際の入金）
+  orderCount: number;
+  grossSubtotal: number; // 商品売上（割引前）
+  couponDiscount: number; // クーポン割引額
+  pointsTotal: number; // ポイント充当額（売上に含めない）
+  couponOrderCount: number;
+  pointsOrderCount: number;
 };
 
 const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
@@ -63,6 +77,29 @@ const toNumber = (v: any) => {
 };
 
 const round0 = (v: any) => Math.max(0, Math.round(toNumber(v)));
+
+const formatJst = (iso: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const paymentMethodLabel = (m: string | null | undefined) => {
+  const v = String(m || "").trim();
+  if (v === "paypay") return "PayPay";
+  if (v === "points") return "ポイント";
+  if (v === "coupon") return "クーポン";
+  if (v === "guest") return "ゲスト";
+  return v || "";
+};
 
 export default function AdminSales() {
   const navigate = useNavigate();
@@ -106,11 +143,21 @@ export default function AdminSales() {
   const [month, setMonth] = useState<string>(openedMonth);
   const [year, setYear] = useState<string>(openedYear);
 
-  const [totalSales, setTotalSales] = useState<number>(0); // 支払合計（割引後）
-  const [orderCount, setOrderCount] = useState<number>(0);
+  const [summary, setSummary] = useState<Summary>({
+    cashSales: 0,
+    orderCount: 0,
+    grossSubtotal: 0,
+    couponDiscount: 0,
+    pointsTotal: 0,
+    couponOrderCount: 0,
+    pointsOrderCount: 0,
+  });
   const [items, setItems] = useState<SalesItem[]>([]);
+  const [orderRows, setOrderRows] = useState<OrderRow[]>([]);
+  const [itemRows, setItemRows] = useState<OrderItemRow[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [excelMsg, setExcelMsg] = useState<string>("");
 
   const [currentRange, setCurrentRange] = useState<{
     startIso: string;
@@ -136,9 +183,23 @@ export default function AdminSales() {
     return `${formatYMD(start)} ～ ${formatYMD(end)}`;
   };
 
-  // ✅ 注文全体の割引額（確定）は “subtotal - total”
-  const getOrderDiscountTotal = (orderSubtotal: number, orderTotal: number) => {
-    return Math.max(0, round0(orderSubtotal) - round0(orderTotal));
+  const isCouponUsed = (o: OrderRow) => {
+    const code = String(o.coupon_code || "").trim();
+    return !!code || round0(o.discount_amount) > 0;
+  };
+
+  const isPointsUsed = (o: OrderRow) => {
+    return round0(o.points_used) > 0 || round0(o.points_applied) > 0;
+  };
+
+  // ✅ 注文ごとの割引を「クーポン分 / ポイント分」に分解
+  //    combined = 小計 - 合計（割引の総額）。ポイント使用額と突き合わせて内訳を作る
+  const splitDiscount = (o: OrderRow, itemsSum: number) => {
+    const sub = round0(o.subtotal) > 0 ? round0(o.subtotal) : round0(itemsSum);
+    const tot = round0(o.total);
+    const combined = Math.max(0, sub - tot);
+    const pts = Math.min(Math.max(round0(o.points_used), round0(o.points_applied)), combined);
+    return { sub, tot, combined, pts, coupon: combined - pts };
   };
 
   const loadSales = async (
@@ -151,8 +212,18 @@ export default function AdminSales() {
     setLoading(true);
     setError("");
     setItems([]);
-    setTotalSales(0);
-    setOrderCount(0);
+    setOrderRows([]);
+    setItemRows([]);
+    setExcelMsg("");
+    setSummary({
+      cashSales: 0,
+      orderCount: 0,
+      grossSubtotal: 0,
+      couponDiscount: 0,
+      pointsTotal: 0,
+      couponOrderCount: 0,
+      pointsOrderCount: 0,
+    });
 
     try {
       let start: Date;
@@ -200,7 +271,7 @@ export default function AdminSales() {
       const { data: orders, error: ordersError } = await supabase
         .from("orders")
         .select(
-          "id,total,created_at,status,subtotal,discount_amount,coupon_code,points_used,points_applied"
+          "id,total,created_at,status,subtotal,discount_amount,coupon_code,points_used,points_applied,email,name,payment_method"
         )
         .gte("created_at", startIso)
         .lt("created_at", endIso)
@@ -214,19 +285,13 @@ export default function AdminSales() {
       }
 
       if (!orders || orders.length === 0) {
-        setItems([]);
-        setTotalSales(0);
-        setOrderCount(0);
         return;
       }
 
-      const orderRows = orders as any as OrderRow[];
-      const orderIds = orderRows.map((o) => o.id);
-      setOrderCount(orderRows.length);
+      const orderRowsArr = orders as unknown as OrderRow[];
+      setOrderRows(orderRowsArr);
 
-      // ✅ 売上合計（割引後＝orders.total）
-      const sumTotal = orderRows.reduce((sum, o) => sum + round0(o.total), 0);
-      setTotalSales(sumTotal);
+      const orderIds = orderRowsArr.map((o) => o.id);
 
       // ✅ order_items（この期間の全注文の明細）
       const { data: orderItems, error: itemsError } = await supabase
@@ -240,15 +305,13 @@ export default function AdminSales() {
         return;
       }
 
-      if (!orderItems || orderItems.length === 0) {
-        setItems([]);
-        return;
-      }
+      const itemsRows = (orderItems ?? []) as unknown as OrderItemRow[];
+      setItemRows(itemsRows);
 
       // --- ここから集計（割引按分も含む） ---
 
       // 注文メタ
-      const orderMap = new Map<string, OrderRow>(orderRows.map((o) => [o.id, o]));
+      const orderMap = new Map<string, OrderRow>(orderRowsArr.map((o) => [o.id, o]));
 
       // 注文の割引前小計（itemsから計算）※ orders.subtotal が null の時の保険
       const orderSubtotalFromItems = new Map<string, number>();
@@ -259,7 +322,7 @@ export default function AdminSales() {
         { orderId: string; productName: string; qty: number; rawSub: number }
       >();
 
-      for (const row of orderItems as any as OrderItemRow[]) {
+      for (const row of itemRows) {
         const orderId = String(row.order_id || "");
         if (!orderId) continue;
 
@@ -268,7 +331,6 @@ export default function AdminSales() {
         const price = round0(row.price);
         const rawSub = qty * price;
 
-        // 注文小計（明細合計）
         orderSubtotalFromItems.set(
           orderId,
           (orderSubtotalFromItems.get(orderId) || 0) + rawSub
@@ -295,29 +357,14 @@ export default function AdminSales() {
         }
       >();
 
-      const isCouponUsed = (o: OrderRow) => {
-        const code = String(o.coupon_code || "").trim();
-        // discount_amount が入る運用でもOK。両方0でも code があればクーポン使用扱い
-        return !!code || round0(o.discount_amount) > 0;
-      };
-
-      const isPointsUsed = (o: OrderRow) => {
-        return round0(o.points_used) > 0 || round0(o.points_applied) > 0;
-      };
-
-      // 按分：注文全体の割引を “商品rawSubの比率” で配分して、この商品の割引後小計を作る
+      // 按分：注文全体の割引（クーポン＋ポイント）を “商品rawSubの比率” で配分
       for (const { orderId, productName, qty, rawSub } of byOrderProduct.values()) {
         const o = orderMap.get(orderId);
         if (!o) continue;
 
-        // 注文小計（orders.subtotal が正なら優先。無いなら items 合計）
-        const orderSubtotal =
-          round0(o.subtotal) > 0
-            ? round0(o.subtotal)
-            : round0(orderSubtotalFromItems.get(orderId) || 0);
-
-        const orderTotal = round0(o.total);
-        const orderDiscountTotal = getOrderDiscountTotal(orderSubtotal, orderTotal);
+        const s = splitDiscount(o, orderSubtotalFromItems.get(orderId) || 0);
+        const orderSubtotal = s.sub;
+        const orderDiscountTotal = s.combined;
 
         let share = 0;
         if (orderSubtotal > 0 && orderDiscountTotal > 0 && rawSub > 0) {
@@ -359,6 +406,32 @@ export default function AdminSales() {
         .sort((a, b) => b.subtotal_after_discount - a.subtotal_after_discount);
 
       setItems(list);
+
+      // ✅ サマリー（ポイント充当は売上・利益に含めない）
+      let cash = 0;
+      let gross = 0;
+      let ptotal = 0;
+      let ctotal = 0;
+      let cCnt = 0;
+      let pCnt = 0;
+      for (const o of orderRowsArr) {
+        const s = splitDiscount(o, orderSubtotalFromItems.get(o.id) || 0);
+        cash += round0(o.total);
+        gross += s.sub;
+        ptotal += s.pts;
+        ctotal += s.coupon;
+        if (isCouponUsed(o)) cCnt++;
+        if (isPointsUsed(o)) pCnt++;
+      }
+      setSummary({
+        cashSales: cash,
+        orderCount: orderRowsArr.length,
+        grossSubtotal: gross,
+        couponDiscount: ctotal,
+        pointsTotal: ptotal,
+        couponOrderCount: cCnt,
+        pointsOrderCount: pCnt,
+      });
     } catch (e) {
       console.error(e);
       setError("予期せぬエラーが発生しました");
@@ -396,6 +469,108 @@ export default function AdminSales() {
       ? month
       : `${year}年`;
 
+  // ✅ 注文ごとの「商品内訳」テキスト（Excel 用）
+  const buildItemsTextMap = () => {
+    const byOrder = new Map<string, Map<string, number>>();
+    for (const it of itemRows) {
+      if (!it.order_id) continue;
+      if (!byOrder.has(it.order_id)) byOrder.set(it.order_id, new Map());
+      const m = byOrder.get(it.order_id)!;
+      const name = String(it.product_name || "不明な商品");
+      m.set(name, (m.get(name) || 0) + round0(it.quantity));
+    }
+    const out = new Map<string, string>();
+    for (const [oid, m] of byOrder) {
+      out.set(oid, Array.from(m.entries()).map(([n, q]) => `${n}×${q}`).join("、"));
+    }
+    return out;
+  };
+
+  const handleExportExcel = async () => {
+    if (!currentRange) return;
+    if (orderRows.length === 0) {
+      setExcelMsg("この期間に売上のデータがありません");
+      return;
+    }
+    try {
+      const labelSafe = (currentRange.rangeLabel || "期間").replace(/[\\/:*?"<>|～~]/g, "_");
+      const fileName = `NAGAZON売上_${labelSafe}.xlsx`;
+      const nowJst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+
+      const itemsTextMap = buildItemsTextMap();
+      const itemSumByOrder = new Map<string, number>();
+      for (const it of itemRows) {
+        if (!it.order_id) continue;
+        itemSumByOrder.set(
+          it.order_id,
+          (itemSumByOrder.get(it.order_id) || 0) + round0(it.price) * round0(it.quantity)
+        );
+      }
+
+      // シート1: 売上サマリー
+      const summaryRows: unknown[][] = [
+        ["売上状況レポート"],
+        ["対象期間", currentRange.rangeLabel],
+        ["出力日時", nowJst],
+        [],
+        ["入金売上（お客様からの実際の入金額）", summary.cashSales, "円"],
+        ["注文件数", summary.orderCount, "件"],
+        ["商品売上（割引前）", summary.grossSubtotal, "円"],
+        ["クーポン割引額", summary.couponDiscount, "円"],
+        ["ポイント充当額（売上に含めない）", summary.pointsTotal, "円"],
+        ["クーポン使用注文数", summary.couponOrderCount, "件"],
+        ["ポイント使用注文数", summary.pointsOrderCount, "件"],
+        [],
+        ["※ 入金売上 ＝ 商品売上 − クーポン割引 − ポイント充当"],
+        ["※ ポイント充当額は売上・利益に含めません（お客様に付与したポイントで支払われた分のため）"],
+      ];
+
+      // シート2: 商品別売上
+      const productRows: unknown[][] = [
+        ["商品名", "個数", "売上（割引前・円）", "売上（割引後・円）", "クーポン使用（件）", "ポイント使用（件）"],
+        ...items.map((it) => [
+          it.product_name,
+          it.quantity,
+          it.subtotal_raw,
+          it.subtotal_after_discount,
+          it.coupon_orders_count,
+          it.points_orders_count,
+        ]),
+      ];
+
+      // シート3: 注文一覧
+      const orderRowsOut: unknown[][] = [
+        ["注文ID", "注文日時", "購入者名", "メール", "支払方法", "商品内訳", "小計（円）", "クーポンコード", "クーポン割引（円）", "ポイント充当（円）", "入金額（円）"],
+        ...orderRows.map((o) => {
+          const s = splitDiscount(o, itemSumByOrder.get(o.id) || 0);
+          return [
+            o.id,
+            formatJst(o.created_at),
+            String(o.name || ""),
+            String(o.email || ""),
+            paymentMethodLabel(o.payment_method),
+            itemsTextMap.get(o.id) || "-",
+            s.sub,
+            String(o.coupon_code || ""),
+            s.coupon,
+            s.pts,
+            round0(o.total),
+          ];
+        }),
+      ];
+
+      await exportXlsxSheets(fileName, [
+        { name: "売上サマリー", rows: summaryRows },
+        { name: "商品別売上", rows: productRows },
+        { name: "注文一覧", rows: orderRowsOut },
+      ]);
+      setExcelMsg("Excelをダウンロードしました");
+    } catch (e) {
+      console.error(e);
+      setExcelMsg("Excelの作成に失敗しました");
+    }
+  };
+
   return (
     <>
       <AdminHeader />
@@ -403,6 +578,10 @@ export default function AdminSales() {
       <div className="admin-sales-page" style={{ paddingTop: 80 }}>
         <div className="admin-sales-card">
           <h2 className="admin-sales-title">売上状況</h2>
+          <p className="admin-sales-range">
+            {rangeLabel}
+            {mode === "day" && formatWeekday(day) && `（${formatWeekday(day)}）`}
+          </p>
 
           <div className="admin-sales-mode">
             <button
@@ -477,75 +656,126 @@ export default function AdminSales() {
             <p className="admin-sales-error">{error}</p>
           ) : (
             <>
-              <div className="admin-sales-summary">
-                <p>
-                  対象：{rangeLabel}
-                  {mode === "day" && formatWeekday(day) && `（${formatWeekday(day)}）`}
-                </p>
+              {/* ✅ サマリーカード */}
+              <div className="as-cards">
+                <div className="as-card as-card-main">
+                  <div className="as-label">入金売上</div>
+                  <div className="as-value">{summary.cashSales.toLocaleString("ja-JP")} 円</div>
+                  <div className="as-sub">クーポン・ポイント差引後の実際の入金額</div>
+                </div>
 
-                <p className="admin-sales-total">売上合計：{totalSales.toLocaleString()} 円</p>
-                <p>注文件数：{orderCount.toLocaleString()} 件</p>
+                <div className="as-card">
+                  <div className="as-label">注文件数</div>
+                  <div className="as-value">{summary.orderCount.toLocaleString("ja-JP")} 件</div>
+                  <div className="as-sub">
+                    商品売上（割引前）{summary.grossSubtotal.toLocaleString("ja-JP")} 円
+                  </div>
+                </div>
+
+                <div className="as-card">
+                  <div className="as-label">クーポン割引</div>
+                  <div className="as-value as-minus">
+                    -{summary.couponDiscount.toLocaleString("ja-JP")} 円
+                  </div>
+                  <div className="as-sub">{summary.couponOrderCount} 件で使用</div>
+                </div>
+
+                <div className="as-card as-card-points">
+                  <div className="as-label">
+                    ポイント充当
+                    <span className="as-tag">利益に含めない</span>
+                  </div>
+                  <div className="as-value as-minus">
+                    -{summary.pointsTotal.toLocaleString("ja-JP")} 円
+                  </div>
+                  <div className="as-sub">お客様に付与したポイントで支払われた分</div>
+                </div>
+              </div>
+
+              <p className="as-note">
+                売上合計（入金）＝お客様から実際にいただいた金額です。クーポン割引・ポイント充当は売上に含みません。
+              </p>
+
+              {/* ✅ Excel ダウンロード */}
+              <div className="as-excel-row">
+                <button
+                  type="button"
+                  className="as-excel-btn"
+                  onClick={handleExportExcel}
+                  disabled={loading || orderRows.length === 0}
+                >
+                  ⬇ この期間の売上をExcelでダウンロード
+                </button>
+                {excelMsg && <p className="as-excel-msg">{excelMsg}</p>}
+                <p className="as-excel-hint">
+                  売上サマリー・商品別売上・注文一覧の3シートを自動生成（データは外部送信されません）
+                </p>
               </div>
 
               {items.length === 0 ? (
                 <p className="admin-sales-empty">この期間の売上はありません</p>
               ) : (
-                <div className="admin-sales-list">
-                  {items.map((item) => {
-                    const showCoupon = item.coupon_orders_count > 0;
-                    const showPoints = item.points_orders_count > 0;
-                    const showBadges = showCoupon || showPoints;
+                <>
+                  <h3 className="as-list-title">商品別売上（タップで注文一覧を表示）</h3>
+                  <div className="admin-sales-list">
+                    {items.map((item) => {
+                      const showCoupon = item.coupon_orders_count > 0;
+                      const showPoints = item.points_orders_count > 0;
+                      const showBadges = showCoupon || showPoints;
 
-                    return (
-                      <div
-                        key={item.product_name}
-                        className="admin-sales-item"
-                        onClick={() => {
-                          if (!currentRange) return;
-                          navigate(
-                            `/admin-sales-product/${encodeURIComponent(item.product_name)}`,
-                            {
-                              state: {
-                                startIso: currentRange.startIso,
-                                endIso: currentRange.endIso,
-                                rangeLabel: currentRange.rangeLabel,
-                              },
-                            }
-                          );
-                        }}
-                      >
-                        <p className="sales-name">{item.product_name}</p>
-
-                        {/* ✅ 0件は非表示（ある時だけ出す） */}
-                        {showBadges && (
-                          <div className="sales-badges">
-                            {showCoupon && (
-                              <span className="sales-badge">
-                                クーポン：{item.coupon_orders_count}件
-                              </span>
-                            )}
-                            {showPoints && (
-                              <span className="sales-badge">
-                                ポイント：{item.points_orders_count}件
-                              </span>
-                            )}
+                      return (
+                        <div
+                          key={item.product_name}
+                          className="sales-item"
+                          onClick={() => {
+                            if (!currentRange) return;
+                            navigate(
+                              `/admin-sales-product/${encodeURIComponent(item.product_name)}`,
+                              {
+                                state: {
+                                  startIso: currentRange.startIso,
+                                  endIso: currentRange.endIso,
+                                  rangeLabel: currentRange.rangeLabel,
+                                },
+                              }
+                            );
+                          }}
+                        >
+                          <div className="sales-item-top">
+                            <span className="sales-name">{item.product_name}</span>
+                            <span className="sales-qty">
+                              {item.quantity.toLocaleString("ja-JP")} 個
+                            </span>
                           </div>
-                        )}
 
-                        <p className="sales-qty">個数：{item.quantity.toLocaleString()} 個</p>
+                          {showBadges && (
+                            <div className="sales-badges">
+                              {showCoupon && (
+                                <span className="sales-badge coupon">
+                                  クーポン {item.coupon_orders_count}件
+                                </span>
+                              )}
+                              {showPoints && (
+                                <span className="sales-badge points">
+                                  ポイント {item.points_orders_count}件
+                                </span>
+                              )}
+                            </div>
+                          )}
 
-                        {/* ✅ 表示順：割引前 → 割引後 */}
-                        <p className="sales-subtotal-raw">
-                          小計（割引前）：{item.subtotal_raw.toLocaleString()} 円
-                        </p>
-
-                        <p className="sales-subtotal">
-                          売上（割引後）：{item.subtotal_after_discount.toLocaleString()} 円
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
+                          <div className="sales-item-bottom">
+                            <span className="sales-subtotal-raw">
+                              割引前 {item.subtotal_raw.toLocaleString("ja-JP")} 円
+                            </span>
+                            <span className="sales-subtotal">
+                              {item.subtotal_after_discount.toLocaleString("ja-JP")} 円
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </>
           )}
