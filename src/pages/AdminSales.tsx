@@ -1,5 +1,7 @@
 // src/pages/AdminSales.tsx
-import { useEffect, useState } from "react";
+// ✅ 安定化版：Supabase RPC「admin_sales_summary」でまとめて取得
+//   （フロント直接読み取りによる「売上はありません」誤表示を解消）
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
@@ -29,7 +31,6 @@ type OrderRow = {
   created_at: string | null;
   status?: string | null;
 
-  // ✅ CSVにある列
   subtotal: number | null;
   discount_amount: number | null;
   coupon_code: string | null;
@@ -63,12 +64,11 @@ const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 
 const formatWeekday = (dateStr: string) => {
   if (!dateStr) return "";
-  const d = new Date(dateStr + "T00:00:00");
+  const d = new Date(dateStr + "T00:00:00+09:00");
   if (Number.isNaN(d.getTime())) return "";
-  return weekdayLabels[d.getDay()];
+  return weekdayLabels[d.getUTCDay()];
 };
 
-// ✅ 「モードだけ」覚える（※日付は毎回“開いた日”にリセット）
 const STORAGE_KEY = "admin-sales-state-mode";
 
 const toNumber = (v: any) => {
@@ -118,7 +118,6 @@ export default function AdminSales() {
     return `${y}-${m}`;
   };
 
-  // ✅ 画面を開いた日の値
   const openedDay = formatYMD(today);
   const openedMonth = formatYM(today);
   const openedYear = String(today.getFullYear());
@@ -137,7 +136,6 @@ export default function AdminSales() {
 
   const [mode, setMode] = useState<RangeMode>(loadInitialMode());
 
-  // ✅ 日付系は “開いた日” に必ずリセット
   const [day, setDay] = useState<string>(openedDay);
   const [weekBase, setWeekBase] = useState<string>(openedDay);
   const [month, setMonth] = useState<string>(openedMonth);
@@ -165,11 +163,15 @@ export default function AdminSales() {
     rangeLabel: string;
   } | null>(null);
 
+  // ✅ レースコンディション防止（古い応答が新しい応答を上書きしない）
+  const loadIdRef = useRef(0);
+
+  // ✅ 週の開始（日曜始まり）。JST 00:00 を UTC メソッドで扱う
   const getWeekStartDate = (dateStr: string) => {
-    const base = new Date(dateStr + "T00:00:00");
+    const base = new Date(dateStr + "T00:00:00+09:00");
     if (Number.isNaN(base.getTime())) return null;
-    const dow = base.getDay();
-    base.setDate(base.getDate() - dow); // 日曜始まり
+    const dow = base.getUTCDay();
+    base.setUTCDate(base.getUTCDate() - dow);
     return base;
   };
 
@@ -179,7 +181,7 @@ export default function AdminSales() {
     if (!weekStart) return "";
     const start = weekStart;
     const end = new Date(start);
-    end.setDate(end.getDate() + 6);
+    end.setUTCDate(end.getUTCDate() + 6);
     return `${formatYMD(start)} ～ ${formatYMD(end)}`;
   };
 
@@ -192,8 +194,6 @@ export default function AdminSales() {
     return round0(o.points_used) > 0 || round0(o.points_applied) > 0;
   };
 
-  // ✅ 注文ごとの割引を「クーポン分 / ポイント分」に分解
-  //    combined = 小計 - 合計（割引の総額）。ポイント使用額と突き合わせて内訳を作る
   const splitDiscount = (o: OrderRow, itemsSum: number) => {
     const sub = round0(o.subtotal) > 0 ? round0(o.subtotal) : round0(itemsSum);
     const tot = round0(o.total);
@@ -209,6 +209,7 @@ export default function AdminSales() {
     month: string,
     year: string
   ) => {
+    const loadId = ++loadIdRef.current;
     setLoading(true);
     setError("");
     setItems([]);
@@ -229,28 +230,27 @@ export default function AdminSales() {
       let start: Date;
       let end: Date;
 
+      // ✅ 日本時間（+09:00）で日付境界を確定。ブラウザのタイムゾーン設定に依存しない
       if (mode === "day") {
         if (!day) return;
-        start = new Date(day + "T00:00:00");
-        end = new Date(start);
-        end.setDate(end.getDate() + 1);
+        start = new Date(day + "T00:00:00+09:00");
+        end = new Date(start.getTime() + 86400000);
       } else if (mode === "week") {
         if (!weekBase) return;
         const weekStart = getWeekStartDate(weekBase);
         if (!weekStart) return;
         start = weekStart;
-        end = new Date(weekStart);
-        end.setDate(end.getDate() + 7);
+        end = new Date(start.getTime() + 7 * 86400000);
       } else if (mode === "month") {
         if (!month) return;
-        start = new Date(month + "-01T00:00:00");
-        end = new Date(start);
-        end.setMonth(end.getMonth() + 1);
+        start = new Date(month + "-01T00:00:00+09:00");
+        end = new Date(start.getTime());
+        end.setUTCMonth(end.getUTCMonth() + 1);
       } else {
         if (!year) return;
-        start = new Date(year + "-01-01T00:00:00");
-        end = new Date(start);
-        end.setFullYear(end.getFullYear() + 1);
+        start = new Date(year + "-01-01T00:00:00+09:00");
+        end = new Date(start.getTime());
+        end.setUTCFullYear(end.getUTCFullYear() + 1);
       }
 
       const startIso = start.toISOString();
@@ -267,62 +267,38 @@ export default function AdminSales() {
 
       setCurrentRange({ startIso, endIso, rangeLabel });
 
-      // ✅ orders（割引やクーポン判定に必要な列も取得）
-      const { data: orders, error: ordersError } = await supabase
-        .from("orders")
-        .select(
-          "id,total,created_at,status,subtotal,discount_amount,coupon_code,points_used,points_applied,email,name,payment_method"
-        )
-        .gte("created_at", startIso)
-        .lt("created_at", endIso)
-        .eq("status", "paid")
-        .order("created_at", { ascending: true });
+      // ✅ RPC で一括取得（RLSの影響を受けない・1リクエストで完了）
+      const { data: raw, error: rpcError } = await supabase.rpc("admin_sales_summary", {
+        p_start: startIso,
+        p_end: endIso,
+      });
 
-      if (ordersError) {
-        console.error("ordersError:", ordersError);
-        setError("売上データの取得に失敗しました（orders）");
+      if (rpcError) {
+        console.error("admin_sales_summary error:", rpcError);
+        setError("売上データの取得に失敗しました（admin_sales_summary）");
         return;
       }
 
-      if (!orders || orders.length === 0) {
-        return;
-      }
+      const d: any = Array.isArray(raw) ? raw?.[0] : raw;
+      const ordersArr = (d?.orders ?? []) as unknown as OrderRow[];
+      const itemsRows = (d?.items ?? []) as unknown as OrderItemRow[];
 
-      const orderRowsArr = orders as unknown as OrderRow[];
-      setOrderRows(orderRowsArr);
+      if (loadId !== loadIdRef.current) return;
+      if (!ordersArr || ordersArr.length === 0) return;
 
-      const orderIds = orderRowsArr.map((o) => o.id);
-
-      // ✅ order_items（この期間の全注文の明細）
-      const { data: orderItems, error: itemsError } = await supabase
-        .from("order_items")
-        .select("order_id, product_name, quantity, price")
-        .in("order_id", orderIds);
-
-      if (itemsError) {
-        console.error("itemsError:", itemsError);
-        setError("売上データの取得に失敗しました（order_items）");
-        return;
-      }
-
-      const itemsRows = (orderItems ?? []) as unknown as OrderItemRow[];
+      setOrderRows(ordersArr);
       setItemRows(itemsRows);
 
       // --- ここから集計（割引按分も含む） ---
-
-      // 注文メタ
-      const orderMap = new Map<string, OrderRow>(orderRowsArr.map((o) => [o.id, o]));
-
-      // 注文の割引前小計（itemsから計算）※ orders.subtotal が null の時の保険
+      const orderMap = new Map<string, OrderRow>(ordersArr.map((o) => [o.id, o]));
       const orderSubtotalFromItems = new Map<string, number>();
 
-      // 注文×商品 単位で一旦集計（同じ商品が同一注文で複数行あっても合算）
       const byOrderProduct = new Map<
         string,
         { orderId: string; productName: string; qty: number; rawSub: number }
       >();
 
-      for (const row of itemRows) {
+      for (const row of itemsRows) {
         const orderId = String(row.order_id || "");
         if (!orderId) continue;
 
@@ -345,7 +321,6 @@ export default function AdminSales() {
         cur.rawSub += rawSub;
       }
 
-      // 商品ごとの集計
       const productAgg = new Map<
         string,
         {
@@ -357,7 +332,6 @@ export default function AdminSales() {
         }
       >();
 
-      // 按分：注文全体の割引（クーポン＋ポイント）を “商品rawSubの比率” で配分
       for (const { orderId, productName, qty, rawSub } of byOrderProduct.values()) {
         const o = orderMap.get(orderId);
         if (!o) continue;
@@ -402,19 +376,15 @@ export default function AdminSales() {
           coupon_orders_count: v.couponOrders.size,
           points_orders_count: v.pointsOrders.size,
         }))
-        // ✅ 並び：割引後売上の高い順
         .sort((a, b) => b.subtotal_after_discount - a.subtotal_after_discount);
 
-      setItems(list);
-
-      // ✅ サマリー（ポイント充当は売上・利益に含めない）
       let cash = 0;
       let gross = 0;
       let ptotal = 0;
       let ctotal = 0;
       let cCnt = 0;
       let pCnt = 0;
-      for (const o of orderRowsArr) {
+      for (const o of ordersArr) {
         const s = splitDiscount(o, orderSubtotalFromItems.get(o.id) || 0);
         cash += round0(o.total);
         gross += s.sub;
@@ -423,9 +393,12 @@ export default function AdminSales() {
         if (isCouponUsed(o)) cCnt++;
         if (isPointsUsed(o)) pCnt++;
       }
+
+      if (loadId !== loadIdRef.current) return;
+      setItems(list);
       setSummary({
         cashSales: cash,
-        orderCount: orderRowsArr.length,
+        orderCount: ordersArr.length,
         grossSubtotal: gross,
         couponDiscount: ctotal,
         pointsTotal: ptotal,
@@ -434,9 +407,9 @@ export default function AdminSales() {
       });
     } catch (e) {
       console.error(e);
-      setError("予期せぬエラーが発生しました");
+      if (loadId === loadIdRef.current) setError("予期せぬエラーが発生しました");
     } finally {
-      setLoading(false);
+      if (loadId === loadIdRef.current) setLoading(false);
     }
   };
 
@@ -469,7 +442,6 @@ export default function AdminSales() {
       ? month
       : `${year}年`;
 
-  // ✅ 注文ごとの「商品内訳」テキスト（Excel 用）
   const buildItemsTextMap = () => {
     const byOrder = new Map<string, Map<string, number>>();
     for (const it of itemRows) {
@@ -494,7 +466,8 @@ export default function AdminSales() {
     }
     try {
       const labelSafe = (currentRange.rangeLabel || "期間").replace(/[\\/:*?"<>|～~]/g, "_");
-      const fileName = `NAGAZON売上_${labelSafe}.xlsx`;
+      // ✅ ファイル名の先頭を「OFFICE NAGAZON売上」に
+      const fileName = `OFFICE NAGAZON売上_${labelSafe}.xlsx`;
       const nowJst = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
 
       const itemsTextMap = buildItemsTextMap();
@@ -507,7 +480,6 @@ export default function AdminSales() {
         );
       }
 
-      // シート1: 売上サマリー
       const summaryRows: unknown[][] = [
         ["売上状況レポート"],
         ["対象期間", currentRange.rangeLabel],
@@ -522,10 +494,9 @@ export default function AdminSales() {
         ["ポイント使用注文数", summary.pointsOrderCount, "件"],
         [],
         ["※ 入金売上 ＝ 商品売上 − クーポン割引 − ポイント充当"],
-        ["※ ポイント充当額は売上・利益に含めません（お客様に付与したポイントで支払われた分のため）"],
+        ["※ ポイント充当額は売上・利益に含めません"],
       ];
 
-      // シート2: 商品別売上
       const productRows: unknown[][] = [
         ["商品名", "個数", "売上（割引前・円）", "売上（割引後・円）", "クーポン使用（件）", "ポイント使用（件）"],
         ...items.map((it) => [
@@ -538,7 +509,6 @@ export default function AdminSales() {
         ]),
       ];
 
-      // シート3: 注文一覧
       const orderRowsOut: unknown[][] = [
         ["注文ID", "注文日時", "購入者名", "メール", "支払方法", "商品内訳", "小計（円）", "クーポンコード", "クーポン割引（円）", "ポイント充当（円）", "入金額（円）"],
         ...orderRows.map((o) => {
@@ -656,7 +626,6 @@ export default function AdminSales() {
             <p className="admin-sales-error">{error}</p>
           ) : (
             <>
-              {/* ✅ サマリーカード */}
               <div className="as-cards">
                 <div className="as-card as-card-main">
                   <div className="as-label">入金売上</div>
@@ -668,7 +637,7 @@ export default function AdminSales() {
                   <div className="as-label">注文件数</div>
                   <div className="as-value">{summary.orderCount.toLocaleString("ja-JP")} 件</div>
                   <div className="as-sub">
-                    商品売上（割引前）{summary.grossSubtotal.toLocaleString("ja-JP")} 円
+                    {summary.grossSubtotal.toLocaleString("ja-JP")} 円（割引前）
                   </div>
                 </div>
 
@@ -696,7 +665,6 @@ export default function AdminSales() {
                 売上合計（入金）＝お客様から実際にいただいた金額です。クーポン割引・ポイント充当は売上に含みません。
               </p>
 
-              {/* ✅ Excel ダウンロード */}
               <div className="as-excel-row">
                 <button
                   type="button"
