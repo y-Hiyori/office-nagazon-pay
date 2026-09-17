@@ -14,7 +14,6 @@ type OrderRow = {
   created_at?: string | null;
   subtotal?: number | null;
 
-  // ✅ 発送ステータス
   fulfillment_type?: string | null;
   shipping_status?: string | null;
 };
@@ -54,7 +53,6 @@ function OrderDetail() {
       setLoading(true);
       setErrorMsg("");
 
-      // ログイン必須（+ 他人の注文を見れないように user_id でも縛る）
       const {
         data: { user },
         error: userErr,
@@ -112,7 +110,6 @@ function OrderDetail() {
     load();
   }, [id, navigate]);
 
-  // ✅ 割引は「小計 - 支払合計」で計算（割引がある時だけ表示）
   const summary = useMemo(() => {
     const total = toNumber(order?.total);
 
@@ -138,7 +135,6 @@ function OrderDetail() {
 
       <main className="orders-page">
         <header className="order-header">
-          {/* ✅ AdminOrderDetail と同じ戻るボタン */}
           <button className="order-back" type="button" onClick={() => navigate(-1)}>
             ← 戻る
           </button>
@@ -175,7 +171,6 @@ function OrderDetail() {
                 <strong>小計：</strong> {formatPrice(summary.subtotal)}円
               </p>
 
-              {/* ✅ 割引がある時だけ表示 */}
               {summary.hasDiscount && (
                 <p>
                   <strong>割引：</strong> -{formatPrice(summary.discount)}円
@@ -186,7 +181,6 @@ function OrderDetail() {
                 <strong>支払合計：</strong> {formatPrice(summary.total)}円
               </p>
 
-              {/* ✅ 発送商品の配送状況 */}
               {order?.fulfillment_type === "shipping" && (
                 <div
                   className={`order-ship-status ${
@@ -244,6 +238,25 @@ function OrderDetail() {
           </>
         )}
       </main>
+
+      {/* スマホ下固定ボタン */}
+      <div className="order-bottom-actions">
+        <button
+          type="button"
+          className="order-bottom-btn order-bottom-btn-sub"
+          onClick={() => navigate("/cart")}
+        >
+          カートを見る
+        </button>
+
+        <button
+          type="button"
+          className="order-bottom-btn order-bottom-btn-main"
+          onClick={() => navigate("/products")}
+        >
+          購入する
+        </button>
+      </div>
 
       <SiteFooter />
     </div>
