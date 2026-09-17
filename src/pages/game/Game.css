@@ -30,13 +30,10 @@
   width: 100%;
   max-width: 100%;
   overflow-x: hidden; /* clipより確実に止まる端末がある */
+  overscroll-behavior: none;
 }
 .gamePage, .gamePage *{ box-sizing: border-box; }
 
-html, body{
-  overscroll-behavior: none;
-  overflow-x: hidden;
-}
 
 /* =========================
    Layout
