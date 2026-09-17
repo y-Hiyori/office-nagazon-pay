@@ -1,4 +1,4 @@
-/* ============================================
+============================================
    OrderDetail  ✨ Refined
 ============================================ */
 
@@ -36,7 +36,7 @@
   flex: 1;
   width: min(600px, 100% - 40px);
   margin: 0 auto;
-  padding: 24px 0 120px;
+  padding: 24px 0 48px;
   box-sizing: border-box;
 }
 
@@ -226,110 +226,19 @@
   letter-spacing: 0.02em;
 }
 
-/* ✅ 配送状況（注文詳細） */
-.order-ship-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #fff8e6;
-  border: 1px solid #ecd9a4;
-}
-
-.order-ship-status.is-shipped {
-  background: #e8f8ee;
-  border-color: #b6e0c4;
-}
-
-.order-ship-label {
-  font-size: 12px;
-  color: #8a7a4a;
-  font-weight: 700;
-}
-
-.order-ship-value {
-  font-weight: 800;
-  font-size: 13px;
-  color: #7a5a00;
-}
-
-.order-ship-status.is-shipped .order-ship-value {
-  color: #1c6a3a;
-}
-
-.order-ship-note {
-  flex-basis: 100%;
-  font-size: 11.5px;
-  color: #9a8a5a;
-  margin: 4px 0 0;
-}
-
-/* ✅ 下固定ボタン */
-.order-bottom-actions {
-  position: fixed;
-  left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 1200;
-
-  width: min(600px, calc(100% - 24px));
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow:
-    0 10px 30px rgba(15, 23, 42, 0.12),
-    0 4px 12px rgba(15, 23, 42, 0.08);
-}
-
-.order-bottom-btn {
-  height: 48px;
-  border-radius: 12px;
-  border: none;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-
-.order-bottom-btn-sub {
-  background: #f3f4f6;
-  color: var(--od-text);
-  border: 1px solid var(--od-border);
-}
-
-.order-bottom-btn-main {
-  background: var(--od-accent);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(139, 30, 63, 0.24);
-}
-
-.order-bottom-btn:active {
-  transform: scale(0.98);
-}
-
 @media (max-width: 480px) {
   .orders-page {
     width: calc(100% - 28px);
-    padding: 20px 0 120px;
+    padding: 20px 0 40px;
   }
-
   .order-info,
-  .order-item-box {
-    padding: 16px;
-  }
-
-  .detail-title {
-    font-size: 18px;
-  }
+  .order-item-box { padding: 16px; }
+  .detail-title { font-size: 18px; }
 }
+/* ✅ 配送状況（注文詳細） */
+.order-ship-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;padding:10px 12px;border-radius:10px;background:#fff8e6;border:1px solid #ecd9a4;}
+.order-ship-status.is-shipped{background:#e8f8ee;border-color:#b6e0c4;}
+.order-ship-label{font-size:12px;color:#8a7a4a;font-weight:700;}
+.order-ship-value{font-weight:800;font-size:13px;color:#7a5a00;}
+.order-ship-status.is-shipped .order-ship-value{color:#1c6a3a;}
+.order-ship-note{flex-basis:100%;font-size:11.5px;color:#9a8a5a;margin:4px 0 0;}
