@@ -1,466 +1,922 @@
-// src/pages/ProductDetail.tsx
-import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import "./ProductDetail.css";
-
-import { useCart } from "../context/CartContext";
-import { useIsMember } from "../lib/useIsMember";
-import { memberPriceOf, effectivePrice } from "../lib/pricing";
-import { supabase } from "../lib/supabase";
-import { findProductImage } from "../data/products";
-import type { Product } from "../types/Product";
-import { findProductDetailImage } from "../data/productDetailImages";
-
-import SiteFooter from "../components/SiteFooter";
-import SiteHeader from "../components/SiteHeader";
-
-// ✅ 追加：アプリ内ダイアログ
-import { appDialog } from "../lib/appDialog";
-
-const formatYen = (value: number) => (Number(value) || 0).toLocaleString("ja-JP");
-const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
-
-type DetailProduct = Product & {
-  created_at?: string | null;
-  is_visible?: boolean | null;
-};
-
-function ProductDetail() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const cart = useCart();
-
-  const [product, setProduct] = useState<DetailProduct | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const [quantity, setQuantity] = useState(1);
-  const isMember = useIsMember();
-  const [detailImage, setDetailImage] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadProduct = async () => {
-      setLoading(true);
-
-      if (!id) {
-        setProduct(null);
-        setLoading(false);
-        return;
-      }
-
-      const productId = Number(id);
-
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", productId)
-        .maybeSingle();
-
-      if (error || !data) {
-        console.error("商品取得エラー:", error);
-        setProduct(null);
-        setLoading(false);
-        return;
-      }
-
-      const img = (data as any).imageData ?? findProductImage(productId) ?? null;
-      const detailImg = findProductDetailImage(productId) ?? null;
-
-      setProduct({
-        id: data.id,
-        name: data.name,
-        price: data.price,
-        original_price: (data as any).original_price ?? (data as any).originalPrice ?? null,
-        member_price: (data as any).member_price ?? null,
-        earn_points: Number((data as any).earn_points ?? 0),
-        is_shipping: !!(data as any).is_shipping,
-        shipping_lead_min:
-          (data as any).shipping_lead_min != null ? Number((data as any).shipping_lead_min) : null,
-        shipping_lead_max:
-          (data as any).shipping_lead_max != null ? Number((data as any).shipping_lead_max) : null,
-        shipping_lead_unit:
-          (data as any).shipping_lead_unit === "days" ? "days" : "business_days",
-        stock: Number((data as any).stock ?? 0),
-        imageData: img,
-        created_at: (data as any).created_at ?? null,
-        is_visible: (data as any).is_visible ?? true,
-      });
-
-      setDetailImage(detailImg);
-      setQuantity(1);
-      setLoading(false);
-    };
-
-    loadProduct();
-  }, [id]);
-
-  const createdAtMs = useMemo(() => {
-    const s = product?.created_at ?? null;
-    if (!s) return 0;
-    const t = new Date(s).getTime();
-    return Number.isFinite(t) ? t : 0;
-  }, [product?.created_at]);
-
-  const isNewRaw = useMemo(() => {
-    if (!createdAtMs) return false;
-    return Date.now() - createdAtMs <= NEW_PERIOD_MS;
-  }, [createdAtMs]);
-
-  const stockNum = Number(product?.stock ?? 0) || 0;
-  const isSoldOut = stockNum <= 0;
-
-  const isHidden = product?.is_visible === false;
-
-  const canPurchase = !isHidden && !isSoldOut;
-
-  const isNew = isNewRaw && canPurchase;
-
-  const priceNum = effectivePrice(product, isMember);
-  const memberPriceNum = isMember ? memberPriceOf(product) : null;
-  const earnPoints = Math.max(0, Math.floor(Number((product as any)?.earn_points ?? 0)));
-  const originalPriceNum =
-    Number((product as any)?.original_price ?? (product as any)?.originalPrice ?? 0) || 0;
-  const isSale = originalPriceNum > priceNum;
-  const discountYen = isSale ? originalPriceNum - priceNum : 0;
-  const discountRate = isSale ? Math.round((discountYen / originalPriceNum) * 100) : 0;
-  const subtotal = priceNum * quantity;
-
-  // ✅ 発送目安テキスト（商品詳細に表示）
-  const shipLeadText = useMemo(() => {
-    if (!product?.is_shipping) return null;
-    const min = Number(product?.shipping_lead_min ?? 0);
-    const max = Number(product?.shipping_lead_max ?? 0);
-    const unit = product?.shipping_lead_unit === "days" ? "日" : "営業日";
-    if (min <= 0 && max <= 0) return null;
-    if (min > 0 && max >= min && max !== min) return `ご注文から${min}〜${max}${unit}以内に発送`;
-    const n = max > 0 ? max : min;
-    return `ご注文から${n}${unit}以内に発送`;
-  }, [product]);
-
-  const titleBadge = useMemo(() => {
-    if (!product) return null;
-    if (isHidden) return { text: "販売停止中", kind: "blocked" as const };
-    if (isSoldOut) return { text: "SOLD OUT", kind: "soldout" as const };
-    if (isNew) return { text: "NEW", kind: "new" as const };
-    return null;
-  }, [product, isHidden, isSoldOut, isNew]);
-
-  const handleChangeQty = (delta: number) => {
-    if (!canPurchase) return;
-    setQuantity((prev) => {
-      const next = prev + delta;
-      if (next < 1) return 1;
-      if (next > stockNum) return stockNum;
-      return next;
-    });
-  };
-
-  // ✅ alert() → アプリ内ダイアログ
-  const showCannotPurchase = async () => {
-    await appDialog.alert({
-      title: "購入できません",
-      message: "現在この商品は購入できません。",
-    });
-  };
-
-  const showAddedToCart = async (name: string, qty: number) => {
-    await appDialog.alert({
-      title: "カートに追加しました",
-      message: `「${name}」を${qty}個カートに追加しました`,
-    });
-  };
-
-  const handleAddToCart = async () => {
-    if (!product) return;
-
-    if (isHidden) return showCannotPurchase();
-    if (isSoldOut) return showCannotPurchase();
-
-    const existing = cart.cart.find((item) => item.id === product.id);
-    const currentQty = existing ? existing.quantity : 0;
-    const totalQty = currentQty + quantity;
-
-    if (totalQty > stockNum) return showCannotPurchase();
-
-    const result = cart.addToCart({ ...product, price: priceNum }, quantity);
-
-    if (result === "mixed") {
-      await appDialog.alert({
-        title: "カートに追加できません",
-        message:
-          "発送商品とその場受け取り商品は同時に購入できません。\nまずカートを空にしてから、どちらかにまとめて追加してください。",
-      });
-      return;
-    }
-
-    await showAddedToCart(product.name, quantity);
-  };
-
-  const handleBuyNow = async () => {
-    if (!product) return;
-
-    if (isHidden) return showCannotPurchase();
-    if (isSoldOut) return showCannotPurchase();
-
-    navigate("/checkout", {
-      state: { buyNow: { product: { ...product, price: priceNum }, quantity } },
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="pdetail-wrap">
-        <SiteHeader />
-        <main className="pdetail-main">
-          <div className="pdetail-loading">読み込み中...</div>
-        </main>
-        <SiteFooter />
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="pdetail-wrap">
-        <SiteHeader />
-        <main className="pdetail-main">
-          <div className="pdetail-notfound">
-            <div className="pdetail-notfound-title">商品が見つかりませんでした。</div>
-            <button className="pdetail-back" onClick={() => navigate("/products")} type="button">
-              商品一覧へ戻る
-            </button>
-          </div>
-        </main>
-        <SiteFooter />
-      </div>
-    );
-  }
-
-  /* ---------------- 購入カードの中身（PC/SPで共有） ---------------- */
-  const SummaryCardContent = (
-    <>
-      <div className="pdetail-titleRow">
-        <div className="pdetail-titleMeta">
-          {isSale ? (
-            <span className="pdetail-chip sale">
-              通常価格 ¥{formatYen(originalPriceNum)}
-            </span>
-          ) : null}
-          {titleBadge && (
-            <span className={`pdetail-inlineBadge ${titleBadge.kind}`}>
-              {titleBadge.text}
-            </span>
-          )}
-          {product?.is_shipping ? (
-            <span className="pdetail-chip shipping">発送商品</span>
-          ) : null}
-        </div>
-
-        <h1 className="pdetail-name">{product.name}</h1>
-      </div>
-
-      {isMember && memberPriceNum != null ? (
-        <div className="pdetail-pricePanel">
-          <div className="pdetail-priceMainRow">
-            <span className="pdetail-chip member">会員価格</span>
-            <div className="pdetail-price is-member">¥{formatYen(priceNum)}</div>
-          </div>
-          <div className="pdetail-priceCompare">
-            ¥{formatYen(Number(product?.price ?? 0))} → 会員 ¥{formatYen(priceNum)}
-          </div>
-        </div>
-      ) : (
-        <>
-          {isSale ? (
-            <div className="pdetail-pricePanel">
-              <div className="pdetail-priceMainRow">
-                <div className="pdetail-price">¥{formatYen(priceNum)}</div>
-                <div className="pdetail-discountValue">
-                  ¥{formatYen(discountYen)} OFF ({discountRate}%)
-                </div>
-              </div>
-              <div className="pdetail-priceCompare">
-                ¥{formatYen(originalPriceNum)} → ¥{formatYen(priceNum)}
-              </div>
-            </div>
-          ) : (
-            <div className="pdetail-price">¥{formatYen(priceNum)}</div>
-          )}
-        </>
-      )}
-
-      {earnPoints > 0 ? (
-        isMember ? (
-          <div className="pdetail-points">
-            購入すると <span className="pdetail-points-num">＋{earnPoints.toLocaleString("ja-JP")}pt</span>
-          </div>
-        ) : (
-          <div className="pdetail-points guest">
-            <span className="pdetail-points-msg">
-              アカウント登録して購入すると <span className="pdetail-points-num">＋{earnPoints.toLocaleString("ja-JP")}pt</span> もらえます
-            </span>
-            <button className="pdetail-points-link" onClick={() => navigate("/signup")} type="button">
-              会員登録はこちら
-            </button>
-          </div>
-        )
-      ) : null}
-
-      <div className="pdetail-qtyRow">
-        <div className="pdetail-qtyLabel">数量</div>
-        <div className="pdetail-qtyControls">
-          <button
-            className="pdetail-qtyBtn"
-            onClick={() => handleChangeQty(-1)}
-            disabled={quantity <= 1 || !canPurchase}
-            aria-label="数量を減らす"
-            type="button"
-          >
-            −
-          </button>
-
-          <div className="pdetail-qtyValue">{quantity}</div>
-
-          <button
-            className="pdetail-qtyBtn"
-            onClick={() => handleChangeQty(1)}
-            disabled={quantity >= stockNum || !canPurchase}
-            aria-label="数量を増やす"
-            type="button"
-          >
-            ＋
-          </button>
-        </div>
-      </div>
-
-      <div className="pdetail-subtotalRow">
-        <span>合計</span>
-        <span className="pdetail-subtotal">¥{formatYen(subtotal)}</span>
-      </div>
-
-      {product?.is_shipping ? (
-        <div className="pdetail-shipNote pdetail-shipNoteBox">
-          <div className="pdetail-shipNoteMain">本商品は「発送」でお届けします。購入時に配送先の入力が必要です。</div>
-          {shipLeadText ? <div className="pdetail-shipLead">発送目安：{shipLeadText}</div> : null}
-        </div>
-      ) : null}
-    </>
-  );
-
-
-
-  return (
-    <div className="pdetail-wrap">
-      <SiteHeader />
-
-      <main className="pdetail-main">
-        <div className="pdetail-layoutTop">
-          <section className="pdetail-left">
-            <div className={`pdetail-mediaCard ${isSoldOut ? "is-soldout" : ""}`}>
-              {/* 画像上の左上バッジ（SALEだけ。SOLDは中央大表示に変えたので不要） */}
-              <div className="pdetail-badges">
-                {!isSoldOut && isSale ? (
-                  <span className="pdetail-badge sale">SALE {discountRate}%OFF</span>
-                ) : null}
-              </div>
-
-              {product.imageData ? (
-                <img src={product.imageData} alt={product.name} className="pdetail-image" />
-              ) : (
-                <div className="pdetail-noimg">NO IMAGE</div>
-              )}
-
-              {isSoldOut ? <div className="pdetail-soldLabel">SOLD OUT</div> : null}
-            </div>
-
-            {/* スマホ：画像の下に購入カード */}
-            <div className="pdetail-summaryCard only-mobile">
-              {SummaryCardContent}
-              {!canPurchase && (
-                <div className="pdetail-note">※ 現在この商品は購入できません。</div>
-              )}
-            </div>
-          </section>
-
-          <aside className="pdetail-right">
-            {/* PC：右カラムに購入カード（ボタン付き） */}
-            <div className="pdetail-summaryCard only-desktop">
-              {SummaryCardContent}
-
-              <div className="pdetail-actions">
-                <button
-                  className="pdetail-btn primary"
-                  onClick={handleBuyNow}
-                  disabled={!canPurchase}
-                  type="button"
-                >
-                  すぐに購入
-                </button>
-                <button
-                  className="pdetail-btn secondary"
-                  onClick={handleAddToCart}
-                  disabled={!canPurchase}
-                  type="button"
-                >
-                  カートに入れる
-                </button>
-              </div>
-
-              {!canPurchase && (
-                <div className="pdetail-note">※ 現在この商品は購入できません。</div>
-              )}
-            </div>
-          </aside>
-        </div>
-
-        <section className="pdetail-descCard">
-          <div className="pdetail-descHead">
-            <h3 className="pdetail-descTitle">商品説明</h3>
-          </div>
-
-          {detailImage ? (
-            <img
-              src={detailImage}
-              alt={`${product.name} の説明画像`}
-              className="pdetail-descImage"
-            />
-          ) : (
-            <div className="pdetail-descNone">この商品の説明はありません。</div>
-          )}
-        </section>
-      </main>
-
-      {/* スマホ下固定バー */}
-      <div className="pdetail-bottomFixed only-mobile">
-        <div className="pdetail-bottomInner">
-          <div className="pdetail-bottomTotalRow">
-            <div className="pdetail-bottomLabel">合計</div>
-            <div className="pdetail-bottomValue">¥{formatYen(subtotal)}</div>
-          </div>
-
-          <div className="pdetail-bottomBtns">
-            <button
-              className="pdetail-bottomBtn primary"
-              onClick={handleBuyNow}
-              disabled={!canPurchase}
-              type="button"
-            >
-              購入
-            </button>
-            <button
-              className="pdetail-bottomBtn secondary"
-              onClick={handleAddToCart}
-              disabled={!canPurchase}
-              type="button"
-            >
-              カート
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <SiteFooter />
-    </div>
-  );
+/* ============================================
+   商品詳細ページ  ✨ Refined
+   Apple風プレミアム × 游ゴシック × ワインレッド
+   （商品一覧 plist.css と統一）
+============================================ */
+
+.pdetail-wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--plist-bg, #fafafa);
+
+  --pd-bg: var(--plist-bg, #fafafa);
+  --pd-surface: var(--plist-surface, #ffffff);
+  --pd-image-bg: var(--plist-image-bg, #f4f4f6);
+  --pd-border: var(--plist-border, rgba(15, 23, 42, 0.06));
+  --pd-text: var(--plist-text, #1d1d1f);
+  --pd-text-sub: var(--plist-text-sub, #6e6e73);
+  --pd-text-muted: var(--plist-text-muted, #a1a1a6);
+  --pd-accent: var(--plist-accent, #8b1e3f);
+  --pd-accent-soft: var(--plist-accent-soft, #f7ecef);
+
+  --pd-shadow-1:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.05);
+  --pd-shadow-2:
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(15, 23, 42, 0.09),
+    0 24px 56px rgba(15, 23, 42, 0.06);
+
+  --pd-radius-card: 14px;
+  --pd-radius-btn: 12px;
 }
 
-export default ProductDetail;
+.pdetail-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 20px 20px 110px;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--plist-text, #1d1d1f);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- Layout ---------- */
+
+.pdetail-layoutTop {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .pdetail-layoutTop {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+}
+
+.pdetail-loading,
+.pdetail-notfound {
+  background: var(--pd-surface);
+  border-radius: var(--pd-radius-card);
+  padding: 24px;
+  box-shadow: var(--pd-shadow-1);
+  color: var(--pd-text-sub);
+  font-size: 14px;
+  text-align: center;
+}
+
+.pdetail-notfound-title {
+  font-weight: 700;
+  color: var(--pd-text);
+  margin-bottom: 16px;
+  font-size: 15px;
+}
+
+.pdetail-back {
+  width: 100%;
+  border: none;
+  padding: 12px 14px;
+  border-radius: var(--pd-radius-btn);
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--pd-text);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.pdetail-back:hover {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+/* ---------- Media Card ---------- */
+
+.pdetail-mediaCard {
+  position: relative;
+  background: var(--pd-image-bg);
+  border-radius: var(--pd-radius-card);
+  box-shadow: var(--pd-shadow-1);
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+}
+
+.pdetail-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  background: var(--pd-image-bg);
+}
+
+.pdetail-noimg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pd-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      #f0f0f2 0 8px,
+      #f6f6f8 8px 16px
+    );
+}
+
+.pdetail-badges {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.pdetail-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.pdetail-badge.sale {
+  background: var(--pd-accent);
+  color: #fff;
+}
+
+.pdetail-badge.sold {
+  background: #1d1d1f;
+  color: #fff;
+}
+
+.pdetail-mediaCard.is-soldout::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pdetail-mediaCard.is-soldout .pdetail-image,
+.pdetail-mediaCard.is-soldout .pdetail-noimg {
+  filter: grayscale(0.5) brightness(0.85);
+}
+
+.pdetail-soldLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  background: rgba(29, 29, 31, 0.92);
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+/* ---------- Summary Card ---------- */
+
+.pdetail-summaryCard {
+  margin-top: 20px;
+  background: var(--pd-surface);
+  border-radius: var(--pd-radius-card);
+  box-shadow: var(--pd-shadow-1);
+  padding: 24px;
+}
+
+@media (min-width: 900px) {
+  .pdetail-summaryCard {
+    margin-top: 0;
+  }
+
+  .pdetail-right .pdetail-summaryCard {
+    position: sticky;
+    top: 86px;
+  }
+}
+
+.pdetail-titleRow {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.pdetail-titleMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.pdetail-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-feature-settings: "tnum" 1;
+}
+
+.pdetail-chip.sale {
+  background: var(--pd-accent-soft);
+  color: var(--pd-accent);
+}
+
+.pdetail-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--pd-text);
+  margin: 0;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.pdetail-inlineBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+.pdetail-inlineBadge.new {
+  background: #1d1d1f;
+  color: #fff;
+}
+
+.pdetail-inlineBadge.soldout {
+  background: rgba(29, 29, 31, 0.85);
+  color: #fff;
+}
+
+.pdetail-inlineBadge.blocked {
+  background: var(--pd-accent);
+  color: #fff;
+}
+
+.pdetail-price {
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700;
+  color: var(--pd-text);
+  letter-spacing: -0.02em;
+  font-feature-settings: "tnum" 1;
+  line-height: 1.1;
+}
+
+.pdetail-pricePanel {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.pdetail-priceMainRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pdetail-pricePanel .pdetail-price {
+  color: var(--pd-accent);
+}
+
+.pdetail-discountValue {
+  color: var(--pd-accent);
+  background: var(--pd-accent-soft);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+}
+
+.pdetail-priceCompare {
+  margin-top: 6px;
+  color: var(--pd-text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 数量 ---------- */
+
+.pdetail-qtyRow {
+  margin-top: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--pd-radius-btn);
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--pd-border);
+}
+
+.pdetail-qtyLabel {
+  font-weight: 600;
+  color: var(--pd-text);
+  font-size: 14px;
+}
+
+.pdetail-qtyControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdetail-qtyBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--pd-border);
+  background: var(--pd-surface);
+  cursor: pointer;
+  color: var(--pd-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", "Helvetica Neue", sans-serif;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+  box-shadow: var(--pd-shadow-1);
+}
+
+.pdetail-qtyBtn:hover:not(:disabled) {
+  border-color: rgba(15, 23, 42, 0.15);
+}
+
+.pdetail-qtyBtn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.pdetail-qtyBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pdetail-qtyValue {
+  min-width: 44px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--pd-text);
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- 合計 ---------- */
+
+.pdetail-subtotalRow {
+  margin-top: 18px;
+  padding-top: 18px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-top: 1px solid var(--pd-border);
+  color: var(--pd-text-sub);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.pdetail-subtotal {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--pd-text);
+  letter-spacing: -0.01em;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- ボタン ---------- */
+
+.pdetail-actions {
+  margin-top: 20px;
+  display: grid;
+  gap: 10px;
+}
+
+.pdetail-btn {
+  width: 100%;
+  border: none;
+  border-radius: var(--pd-radius-btn);
+  padding: 15px 14px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.pdetail-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.pdetail-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pdetail-btn.primary {
+  background: var(--pd-accent);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+}
+
+.pdetail-btn.primary:hover:not(:disabled) {
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
+}
+
+.pdetail-btn.secondary {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--pd-text);
+}
+
+.pdetail-btn.secondary:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.09);
+}
+
+.pdetail-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--pd-text-sub);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 商品説明 ---------- */
+
+.pdetail-descCard {
+  margin-top: 32px;
+  background: var(--pd-surface);
+  border-radius: var(--pd-radius-card);
+  box-shadow: var(--pd-shadow-1);
+  overflow: hidden;
+}
+
+.pdetail-descHead {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--pd-border);
+}
+
+.pdetail-descTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pd-text);
+  letter-spacing: 0.04em;
+}
+
+.pdetail-descImage {
+  width: 100%;
+  display: block;
+  height: auto;
+}
+
+.pdetail-descNone {
+  padding: 32px 20px;
+  color: var(--pd-text-sub);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- スマホ下固定バー ---------- */
+
+.pdetail-bottomFixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-top: 1px solid var(--pd-border);
+  padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  z-index: 1200;
+}
+
+.pdetail-bottomInner {
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  gap: 10px;
+}
+
+.pdetail-bottomTotalRow,
+.pdetail-bottomPriceRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.pdetail-bottomLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pd-text-sub);
+  letter-spacing: 0.04em;
+}
+
+.pdetail-bottomValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--pd-text);
+  letter-spacing: -0.01em;
+  font-feature-settings: "tnum" 1;
+}
+
+.pdetail-bottomBtns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pdetail-bottomBtn {
+  width: 100%;
+  border: none;
+  border-radius: var(--pd-radius-btn);
+  padding: 14px 14px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+
+.pdetail-bottomBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.pdetail-bottomBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pdetail-bottomBtn.primary {
+  background: var(--pd-accent);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(139, 30, 63, 0.22);
+}
+
+.pdetail-bottomBtn.primary:hover:not(:disabled) {
+  background: #75182f;
+}
+
+.pdetail-bottomBtn.secondary {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--pd-text);
+  border: 1px solid var(--pd-border);
+}
+
+.pdetail-bottomBtn.secondary:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.09);
+}
+
+/* ---------- 表示切り替え ---------- */
+
+.only-mobile {
+  display: block;
+}
+
+.only-desktop {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .only-mobile {
+    display: none;
+  }
+
+  .only-desktop {
+    display: block;
+  }
+
+  .pdetail-bottomFixed {
+    display: none;
+  }
+
+  .pdetail-main {
+    padding-bottom: 40px;
+  }
+}
+
+/* ---------- 会員価格・ポイント ---------- */
+
+.plist-price.is-member {
+  color: #1e6fd9;
+}
+
+.plist-memberTag {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e7f0ff;
+  color: #1e6fd9;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.pdetail-price.is-member {
+  color: #1e6fd9;
+}
+
+.pdetail-chip.member {
+  background: #e7f0ff;
+  color: #1e6fd9;
+}
+
+.pdetail-points {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f6f8ff;
+  border: 1px dashed #bcd3f6;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pd-text, #1d1d1f);
+}
+
+.pdetail-points-num {
+  font-weight: 800;
+  font-size: 15px;
+  color: #1e6fd9;
+}
+
+.pdetail-points.guest {
+  background: #fff8ec;
+  border-color: #f3cf96;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.pdetail-points.guest .pdetail-points-msg {
+  flex: 1 1 auto;
+}
+
+.pdetail-points-link {
+  flex: 0 0 auto;
+  border: none;
+  background: #f0a93c;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pdetail-points-link:hover {
+  background: #d9931f;
+}
+
+/* ---------- スマホ：固定購入バー ---------- */
+
+.pdetail-mobileBar {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .pdetail-mobileBar {
+    display: flex;
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.06);
+  }
+
+  .pdetail-mobileBar .pdetail-btn {
+    flex: 1;
+    margin: 0;
+  }
+
+  .pdetail-wrap {
+    padding-bottom: 84px;
+  }
+}
+
+/* ---------- 発送商品対応 ---------- */
+
+.add-shipping-toggle,
+.ae-shipping-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #334155;
+  cursor: pointer;
+  padding: 8px 0;
+  user-select: none;
+}
+
+.add-shipping-toggle input,
+.ae-shipping-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: #1e6fd9;
+}
+
+.ae-help {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.shipping-label {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #1e6fd9;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 6px rgba(30, 111, 217, 0.35);
+}
+
+.pdetail-chip.shipping {
+  background: #eaf2fd;
+  color: #1e6fd9;
+  border: 1px solid #bcd4f4;
+}
+
+.pdetail-shipNote {
+  margin-top: 10px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #1e6fd9;
+  background: #f2f7fd;
+  border: 1px dashed #bcd4f4;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.co-fulfillBanner {
+  font-size: 13px;
+  font-weight: 800;
+  padding: 9px 12px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.co-fulfillBanner.shipping {
+  background: #eaf2fd;
+  color: #1e6fd9;
+  border: 1px solid #bcd4f4;
+}
+
+.co-fulfillBanner.pickup {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.co-item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.co-item-tag {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.co-item-tag.shipping {
+  background: #eaf2fd;
+  color: #1e6fd9;
+}
+
+.co-item-tag.pickup {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.pdetail-shipNoteBox {
+  background: #eef7ff;
+  border: 1px solid #b8d8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: #1c4e7c;
+  margin-top: 10px;
+}
+
+.pdetail-shipNoteMain {
+  font-weight: 700;
+}
+
+.pdetail-shipLead {
+  margin-top: 6px;
+  font-weight: 800;
+  color: #0d6fb8;
+}
+
+@media (max-width: 480px) {
+  .pdetail-main {
+    padding: 16px 14px 110px;
+  }
+
+  .pdetail-summaryCard {
+    padding: 18px 16px;
+  }
+
+  .pdetail-name {
+    font-size: 20px;
+  }
+
+  .pdetail-price {
+    font-size: 30px;
+  }
+
+  .pdetail-bottomBtn {
+    font-size: 14px;
+    padding: 13px 10px;
+  }
+
+  .pdetail-bottomValue {
+    font-size: 18px;
+  }
+}
