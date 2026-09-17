@@ -1,8 +1,6 @@
 // src/lib/scrollLock.ts
-//
-// ✅ スクロールロックを「参照カウント」風に安全に管理するユーティリティ。
-// どこかが lock している間だけ body を overflow:hidden にする。
-// （ドロワー／モーダルが複数重なっても、解除漏れで全体がスクロール不能にならないようにする）
+// モーダルやドロワー表示中だけ body のスクロールを止める
+// html には触らない。解除時は "" に戻して元のCSSへ返す。
 
 const locks = new Set<string>();
 
@@ -11,8 +9,10 @@ function apply() {
 
   const locked = locks.size > 0;
 
-  document.documentElement.style.overflowY = locked ? "hidden" : "auto";
-  document.body.style.overflowY = locked ? "hidden" : "auto";
+  // html 全体は触らず、body だけ最小限ロックする
+  document.documentElement.style.overflowY = "";
+  document.body.style.overflowY = locked ? "hidden" : "";
+  document.body.style.touchAction = locked ? "none" : "";
   document.body.dataset.scrollLocked = locked ? "true" : "false";
 }
 
@@ -26,7 +26,6 @@ export function unlockScroll(key: string) {
   apply();
 }
 
-// 何かがバグってロックが残った時の「強制解除」
 export function resetScrollLocks() {
   locks.clear();
   apply();
