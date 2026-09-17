@@ -9,28 +9,7 @@
   display: flex;
   flex-direction: column;
   background: var(--plist-bg, #fafafa);
-}
 
-.pdetail-main {
-  flex: 1;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  box-sizing: border-box;
-  padding: 20px 20px 40px;
-  font-family:
-    "游ゴシック体", "Yu Gothic", YuGothic,
-    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
-    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
-  color: var(--plist-text, #1d1d1f);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "palt" 1;
-  letter-spacing: 0.02em;
-}
-
-/* ---------- Palette & tokens (fallback付き) ---------- */
-.pdetail-wrap {
   --pd-bg: var(--plist-bg, #fafafa);
   --pd-surface: var(--plist-surface, #ffffff);
   --pd-image-bg: var(--plist-image-bg, #f4f4f6);
@@ -51,6 +30,24 @@
 
   --pd-radius-card: 14px;
   --pd-radius-btn: 12px;
+}
+
+.pdetail-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 20px 20px 110px;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic,
+    "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--plist-text, #1d1d1f);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
 }
 
 /* ---------- Layout ---------- */
@@ -100,7 +97,10 @@
   font-family: inherit;
   transition: background 0.15s ease;
 }
-.pdetail-back:hover { background: rgba(15, 23, 42, 0.08); }
+
+.pdetail-back:hover {
+  background: rgba(15, 23, 42, 0.08);
+}
 
 /* ---------- Media Card ---------- */
 
@@ -138,7 +138,6 @@
     );
 }
 
-/* 画像上のバッジ（一覧と同じフラット・ワインレッド） */
 .pdetail-badges {
   position: absolute;
   top: 12px;
@@ -175,7 +174,6 @@
   color: #fff;
 }
 
-/* SOLD OUTのオーバーレイ（一覧と同じ暗転） */
 .pdetail-mediaCard.is-soldout::after {
   content: "";
   position: absolute;
@@ -223,13 +221,13 @@
   .pdetail-summaryCard {
     margin-top: 0;
   }
+
   .pdetail-right .pdetail-summaryCard {
     position: sticky;
     top: 86px;
   }
 }
 
-/* タイトル周り */
 .pdetail-titleRow {
   display: block;
   margin-bottom: 20px;
@@ -268,7 +266,6 @@
   letter-spacing: 0.02em;
 }
 
-/* 商品名横のインラインバッジ */
 .pdetail-inlineBadge {
   flex: 0 0 auto;
   display: inline-flex;
@@ -298,7 +295,6 @@
   color: #fff;
 }
 
-/* 価格（ミニマル・パネルなし） */
 .pdetail-price {
   font-size: clamp(28px, 4vw, 36px);
   font-weight: 700;
@@ -324,7 +320,6 @@
   flex-wrap: wrap;
 }
 
-/* SALE時：メイン価格をワインレッドに */
 .pdetail-pricePanel .pdetail-price {
   color: var(--pd-accent);
 }
@@ -400,11 +395,19 @@
     border-color 0.15s ease;
   box-shadow: var(--pd-shadow-1);
 }
+
 .pdetail-qtyBtn:hover:not(:disabled) {
   border-color: rgba(15, 23, 42, 0.15);
 }
-.pdetail-qtyBtn:active:not(:disabled) { transform: scale(0.96); }
-.pdetail-qtyBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.pdetail-qtyBtn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.pdetail-qtyBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 .pdetail-qtyValue {
   min-width: 44px;
@@ -460,14 +463,22 @@
     box-shadow 0.2s ease,
     background 0.2s ease;
 }
-.pdetail-btn:active:not(:disabled) { transform: scale(0.98); }
-.pdetail-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.pdetail-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.pdetail-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 .pdetail-btn.primary {
   background: var(--pd-accent);
   color: #fff;
   box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
 }
+
 .pdetail-btn.primary:hover:not(:disabled) {
   background: #75182f;
   box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
@@ -477,6 +488,7 @@
   background: rgba(15, 23, 42, 0.05);
   color: var(--pd-text);
 }
+
 .pdetail-btn.secondary:hover:not(:disabled) {
   background: rgba(15, 23, 42, 0.09);
 }
@@ -530,16 +542,18 @@
 /* ---------- スマホ下固定バー ---------- */
 
 .pdetail-bottomFixed {
-  position: sticky;
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: 0;
   width: 100%;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: saturate(180%) blur(14px);
   -webkit-backdrop-filter: saturate(180%) blur(14px);
   border-top: 1px solid var(--pd-border);
   padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
   box-sizing: border-box;
-  z-index: 20;
+  z-index: 1200;
 }
 
 .pdetail-bottomInner {
@@ -592,37 +606,70 @@
   white-space: nowrap;
   transition: transform 0.12s ease, background 0.2s ease;
 }
-.pdetail-bottomBtn:active:not(:disabled) { transform: scale(0.98); }
-.pdetail-bottomBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.pdetail-bottomBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.pdetail-bottomBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 .pdetail-bottomBtn.primary {
   background: var(--pd-accent);
   color: #fff;
   box-shadow: 0 4px 12px rgba(139, 30, 63, 0.22);
 }
-.pdetail-bottomBtn.primary:hover:not(:disabled) { background: #75182f; }
+
+.pdetail-bottomBtn.primary:hover:not(:disabled) {
+  background: #75182f;
+}
 
 .pdetail-bottomBtn.secondary {
   background: rgba(15, 23, 42, 0.05);
   color: var(--pd-text);
+  border: 1px solid var(--pd-border);
 }
-.pdetail-bottomBtn.secondary:hover:not(:disabled) { background: rgba(15, 23, 42, 0.09); }
+
+.pdetail-bottomBtn.secondary:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.09);
+}
 
 /* ---------- 表示切り替え ---------- */
 
-.only-mobile { display: block; }
-.only-desktop { display: none; }
+.only-mobile {
+  display: block;
+}
+
+.only-desktop {
+  display: none;
+}
 
 @media (min-width: 900px) {
-  .only-mobile { display: none; }
-  .only-desktop { display: block; }
-  .pdetail-bottomFixed { display: none; }
+  .only-mobile {
+    display: none;
+  }
+
+  .only-desktop {
+    display: block;
+  }
+
+  .pdetail-bottomFixed {
+    display: none;
+  }
+
+  .pdetail-main {
+    padding-bottom: 40px;
+  }
 }
 
-/* ============ 会員価格の差別化（追加） ============ */
+/* ---------- 会員価格・ポイント ---------- */
+
 .plist-price.is-member {
   color: #1e6fd9;
 }
+
 .plist-memberTag {
   flex: 0 0 auto;
   padding: 2px 8px;
@@ -633,13 +680,16 @@
   font-weight: 700;
   margin-right: 6px;
 }
+
 .pdetail-price.is-member {
   color: #1e6fd9;
 }
+
 .pdetail-chip.member {
   background: #e7f0ff;
   color: #1e6fd9;
 }
+
 .pdetail-points {
   margin-top: 14px;
   display: flex;
@@ -653,86 +703,7 @@
   font-weight: 500;
   color: var(--pd-text, #1d1d1f);
 }
-.pdetail-points-num {
-  font-weight: 800;
-  font-size: 15px;
-  color: #1e6fd9;
-}
 
-/* ============ 会員価格の差別化（追加） ============ */
-.plist-price.is-member {
-  color: #1e6fd9;
-}
-.plist-memberTag {
-  flex: 0 0 auto;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: #e7f0ff;
-  color: #1e6fd9;
-  font-size: 11px;
-  font-weight: 700;
-  margin-right: 6px;
-}
-.pdetail-price.is-member {
-  color: #1e6fd9;
-}
-.pdetail-chip.member {
-  background: #e7f0ff;
-  color: #1e6fd9;
-}
-.pdetail-points {
-  margin-top: 14px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #f6f8ff;
-  border: 1px dashed #bcd3f6;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--pd-text, #1d1d1f);
-}
-.pdetail-points-num {
-  font-weight: 800;
-  font-size: 15px;
-  color: #1e6fd9;
-}
-
-/* ============ 会員価格の差別化（追加） ============ */
-.plist-price.is-member {
-  color: #1e6fd9;
-}
-.plist-memberTag {
-  flex: 0 0 auto;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: #e7f0ff;
-  color: #1e6fd9;
-  font-size: 11px;
-  font-weight: 700;
-  margin-right: 6px;
-}
-.pdetail-price.is-member {
-  color: #1e6fd9;
-}
-.pdetail-chip.member {
-  background: #e7f0ff;
-  color: #1e6fd9;
-}
-.pdetail-points {
-  margin-top: 14px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #f6f8ff;
-  border: 1px dashed #bcd3f6;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--pd-text, #1d1d1f);
-}
 .pdetail-points-num {
   font-weight: 800;
   font-size: 15px;
@@ -745,9 +716,11 @@
   flex-wrap: wrap;
   justify-content: space-between;
 }
+
 .pdetail-points.guest .pdetail-points-msg {
   flex: 1 1 auto;
 }
+
 .pdetail-points-link {
   flex: 0 0 auto;
   border: none;
@@ -759,14 +732,17 @@
   border-radius: 8px;
   cursor: pointer;
 }
+
 .pdetail-points-link:hover {
   background: #d9931f;
 }
 
-/* ============ スマホ：固定購入バー（追加） ============ */
+/* ---------- スマホ：固定購入バー ---------- */
+
 .pdetail-mobileBar {
   display: none;
 }
+
 @media (max-width: 860px) {
   .pdetail-mobileBar {
     display: flex;
@@ -782,18 +758,19 @@
     border-top: 1px solid rgba(15, 23, 42, 0.08);
     box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.06);
   }
+
   .pdetail-mobileBar .pdetail-btn {
     flex: 1;
     margin: 0;
   }
-  /* 固定バーに隠れないよう、スマホのカード下に余白を確保 */
+
   .pdetail-wrap {
     padding-bottom: 84px;
   }
 }
-/* ============ 発送商品対応（追記分） ============ */
 
-/* --- 管理者：発送商品チェック（AdminAdd / AdminEdit） --- */
+/* ---------- 発送商品対応 ---------- */
+
 .add-shipping-toggle,
 .ae-shipping-toggle {
   display: flex;
@@ -806,12 +783,14 @@
   padding: 8px 0;
   user-select: none;
 }
+
 .add-shipping-toggle input,
 .ae-shipping-toggle input {
   width: 18px;
   height: 18px;
   accent-color: #1e6fd9;
 }
+
 .ae-help {
   font-size: 12px;
   color: #64748b;
@@ -819,7 +798,6 @@
   margin-top: 2px;
 }
 
-/* --- 商品一覧：発送バッジ --- */
 .shipping-label {
   position: absolute;
   top: 8px;
@@ -834,12 +812,12 @@
   box-shadow: 0 2px 6px rgba(30, 111, 217, 0.35);
 }
 
-/* --- 商品詳細：発送タグ・発送案内 --- */
 .pdetail-chip.shipping {
   background: #eaf2fd;
   color: #1e6fd9;
   border: 1px solid #bcd4f4;
 }
+
 .pdetail-shipNote {
   margin-top: 10px;
   font-size: 12.5px;
@@ -851,7 +829,6 @@
   padding: 8px 10px;
 }
 
-/* --- 購入画面：受渡方法バナー --- */
 .co-fulfillBanner {
   font-size: 13px;
   font-weight: 800;
@@ -859,24 +836,26 @@
   border-radius: 10px;
   margin-bottom: 12px;
 }
+
 .co-fulfillBanner.shipping {
   background: #eaf2fd;
   color: #1e6fd9;
   border: 1px solid #bcd4f4;
 }
+
 .co-fulfillBanner.pickup {
   background: #f0fdf4;
   color: #15803d;
   border: 1px solid #bbf7d0;
 }
 
-/* --- 購入画面：商品ごとの受渡タグ --- */
 .co-item-name {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
 }
+
 .co-item-tag {
   font-size: 10.5px;
   font-weight: 800;
@@ -884,217 +863,60 @@
   border-radius: 999px;
   white-space: nowrap;
 }
+
 .co-item-tag.shipping {
   background: #eaf2fd;
   color: #1e6fd9;
 }
+
 .co-item-tag.pickup {
   background: #f0fdf4;
   color: #15803d;
 }
-/* ============ 発送商品対応（追記分） ============ */
 
-/* --- 管理者：発送商品チェック（AdminAdd / AdminEdit） --- */
-.add-shipping-toggle,
-.ae-shipping-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 800;
-  color: #334155;
-  cursor: pointer;
-  padding: 8px 0;
-  user-select: none;
-}
-.add-shipping-toggle input,
-.ae-shipping-toggle input {
-  width: 18px;
-  height: 18px;
-  accent-color: #1e6fd9;
-}
-.ae-help {
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 600;
-  margin-top: 2px;
-}
-
-/* --- 商品一覧：発送バッジ --- */
-.shipping-label {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: #1e6fd9;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 999px;
-  letter-spacing: 0.04em;
-  box-shadow: 0 2px 6px rgba(30, 111, 217, 0.35);
-}
-
-/* --- 商品詳細：発送タグ・発送案内 --- */
-.pdetail-chip.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
-}
-.pdetail-shipNote {
-  margin-top: 10px;
+.pdetail-shipNoteBox {
+  background: #eef7ff;
+  border: 1px solid #b8d8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
   font-size: 12.5px;
-  font-weight: 800;
-  color: #1e6fd9;
-  background: #f2f7fd;
-  border: 1px dashed #bcd4f4;
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-
-/* --- 購入画面：受渡方法バナー --- */
-.co-fulfillBanner {
-  font-size: 13px;
-  font-weight: 800;
-  padding: 9px 12px;
-  border-radius: 10px;
-  margin-bottom: 12px;
-}
-.co-fulfillBanner.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
-}
-.co-fulfillBanner.pickup {
-  background: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
-}
-
-/* --- 購入画面：商品ごとの受渡タグ --- */
-.co-item-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.co-item-tag {
-  font-size: 10.5px;
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-.co-item-tag.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-}
-.co-item-tag.pickup {
-  background: #f0fdf4;
-  color: #15803d;
-}
-/* ============ 発送商品対応（追記分） ============ */
-
-/* --- 管理者：発送商品チェック（AdminAdd / AdminEdit） --- */
-.add-shipping-toggle,
-.ae-shipping-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 800;
-  color: #334155;
-  cursor: pointer;
-  padding: 8px 0;
-  user-select: none;
-}
-.add-shipping-toggle input,
-.ae-shipping-toggle input {
-  width: 18px;
-  height: 18px;
-  accent-color: #1e6fd9;
-}
-.ae-help {
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 600;
-  margin-top: 2px;
-}
-
-/* --- 商品一覧：発送バッジ --- */
-.shipping-label {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: #1e6fd9;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 999px;
-  letter-spacing: 0.04em;
-  box-shadow: 0 2px 6px rgba(30, 111, 217, 0.35);
-}
-
-/* --- 商品詳細：発送タグ・発送案内 --- */
-.pdetail-chip.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
-}
-.pdetail-shipNote {
+  color: #1c4e7c;
   margin-top: 10px;
-  font-size: 12.5px;
-  font-weight: 800;
-  color: #1e6fd9;
-  background: #f2f7fd;
-  border: 1px dashed #bcd4f4;
-  border-radius: 8px;
-  padding: 8px 10px;
 }
 
-/* --- 購入画面：受渡方法バナー --- */
-.co-fulfillBanner {
-  font-size: 13px;
-  font-weight: 800;
-  padding: 9px 12px;
-  border-radius: 10px;
-  margin-bottom: 12px;
-}
-.co-fulfillBanner.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
-}
-.co-fulfillBanner.pickup {
-  background: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+.pdetail-shipNoteMain {
+  font-weight: 700;
 }
 
-/* --- 購入画面：商品ごとの受渡タグ --- */
-.co-item-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.co-item-tag {
-  font-size: 10.5px;
+.pdetail-shipLead {
+  margin-top: 6px;
   font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 999px;
-  white-space: nowrap;
+  color: #0d6fb8;
 }
-.co-item-tag.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
+
+@media (max-width: 480px) {
+  .pdetail-main {
+    padding: 16px 14px 110px;
+  }
+
+  .pdetail-summaryCard {
+    padding: 18px 16px;
+  }
+
+  .pdetail-name {
+    font-size: 20px;
+  }
+
+  .pdetail-price {
+    font-size: 30px;
+  }
+
+  .pdetail-bottomBtn {
+    font-size: 14px;
+    padding: 13px 10px;
+  }
+
+  .pdetail-bottomValue {
+    font-size: 18px;
+  }
 }
-.co-item-tag.pickup {
-  background: #f0fdf4;
-  color: #15803d;
-}
-/* ✅ 発送目安（商品詳細） */
-.pdetail-shipNoteBox{background:#eef7ff;border:1px solid #b8d8f0;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#1c4e7c;margin-top:10px;}
-.pdetail-shipNoteMain{font-weight:700;}
-.pdetail-shipLead{margin-top:6px;font-weight:800;color:#0d6fb8;}
