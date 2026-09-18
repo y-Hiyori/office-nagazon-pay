@@ -18,7 +18,25 @@ type CouponRow = {
   starts_at: string | null;
   ends_at: string | null;
   created_at: string | null;
+  audience: string | null;
+  per_user_limit: number | null;
+  target_scope: string | null;
 };
+
+const jstDate = (iso?: string | null) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  return p;
+};
+const AUDIENCE_LABEL: Record<string, string> = { all: "全員", member: "会員のみ", guest: "ゲストのみ" };
+
 
 export default function AdminCoupons() {
   const nav = useNavigate();
@@ -26,13 +44,14 @@ export default function AdminCoupons() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [onlyActive, setOnlyActive] = useState(false);
+  const [targets, setTargets] = useState<{ code: string; product_id: number }[]>([]);
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("coupons")
       .select(
-        "code,discount_type,discount_value,max_discount_yen,min_subtotal,usage_limit,used_count,is_active,starts_at,ends_at,created_at"
+        "code,discount_type,discount_value,max_discount_yen,min_subtotal,usage_limit,used_count,is_active,starts_at,ends_at,created_at,audience,per_user_limit,target_scope"
       )
       .order("created_at", { ascending: false });
 
@@ -43,6 +62,9 @@ export default function AdminCoupons() {
       return;
     }
     setRows((data ?? []) as CouponRow[]);
+
+    const { data: tgt } = await supabase.from("coupon_products").select("code,product_id");
+    setTargets((tgt ?? []) as { code: string; product_id: number }[]);
     setLoading(false);
   };
 
@@ -60,6 +82,18 @@ export default function AdminCoupons() {
   }, [rows, q, onlyActive]);
 
   const fmt = (n: number | null | undefined) => (n == null ? "-" : n.toLocaleString("ja-JP"));
+
+  const targetCount = (code: string) => targets.filter((t) => t.code === code).length;
+
+  // ✅ いま使えるかどうか（期間・有効・回数から判定）
+  const statusOf = (r: CouponRow) => {
+    if (!r.is_active) return { label: "停止中", cls: "off" };
+    const now = Date.now();
+    if (r.starts_at && now < new Date(r.starts_at).getTime()) return { label: "開始前", cls: "wait" };
+    if (r.ends_at && now > new Date(r.ends_at).getTime()) return { label: "終了", cls: "off" };
+    if (r.usage_limit != null && (r.used_count ?? 0) >= r.usage_limit) return { label: "上限到達", cls: "off" };
+    return { label: "使用中", cls: "on" };
+  };
 
   const discountLabel = (r: CouponRow) => {
     if ((r.discount_type ?? "yen") === "percent") return `${fmt(r.discount_value)}%`;
@@ -138,8 +172,11 @@ export default function AdminCoupons() {
                   <th>上限</th>
                   <th>最低小計</th>
                   <th>回数</th>
+                  <th>1人上限</th>
+                  <th>対象者</th>
+                  <th>対象商品</th>
                   <th>期間</th>
-                  <th>有効</th>
+                  <th>状態</th>
                   <th></th>
                 </tr>
               </thead>
@@ -153,15 +190,23 @@ export default function AdminCoupons() {
                     <td>
                       {fmt(r.used_count)} / {fmt(r.usage_limit)}
                     </td>
+                    <td>{fmt(r.per_user_limit)}</td>
+                    <td className="small">{AUDIENCE_LABEL[r.audience ?? "all"] ?? "全員"}</td>
                     <td className="small">
-                      {r.starts_at ? r.starts_at.slice(0, 10) : "-"} 〜 {r.ends_at ? r.ends_at.slice(0, 10) : "-"}
+                      {(r.target_scope ?? "all") === "products"
+                        ? `${targetCount(r.code)}商品`
+                        : "全商品"}
+                    </td>
+                    <td className="small">
+                      {jstDate(r.starts_at) || "-"} 〜 {jstDate(r.ends_at) || "-"}
                     </td>
                     <td>
                       <button
-                        className={`pill ${r.is_active ? "on" : "off"}`}
+                        className={`pill ${statusOf(r).cls === "on" ? "on" : "off"}`}
                         onClick={() => toggleActive(r.code, !r.is_active)}
+                        title="クリックで有効/停止を切り替え"
                       >
-                        {r.is_active ? "ON" : "OFF"}
+                        {statusOf(r).label}
                       </button>
                     </td>
                     <td className="right">
@@ -179,7 +224,7 @@ export default function AdminCoupons() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="empty">該当なし</td>
+                    <td colSpan={11} className="empty">該当なし</td>
                   </tr>
                 )}
               </tbody>

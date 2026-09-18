@@ -25,6 +25,7 @@ const GROUPS: MenuGroup[] = [
       { label: "クーポン管理", path: "/admin-coupons" },
       { label: "ポイント管理", path: "/admin-points", cls: "is-danger" },
       { label: "売上状況確認", path: "/admin-sales" },
+      { label: "ゲスト購入履歴", path: "/admin-guest-orders" },
       { label: "アカウント管理", path: "/admin-users" },
     ],
   },

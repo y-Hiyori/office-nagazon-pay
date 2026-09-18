@@ -64,6 +64,7 @@ type Summary = {
   profitTotal: number;
   disposalCost: number; // 廃棄ロス（処分した原価）
   disposalQty: number; // 処分した個数
+  guestCount: number; // ゲスト購入の件数
 };
 
 type DisposalRow = {
@@ -181,6 +182,7 @@ export default function AdminSales() {
     profitTotal: 0,
     disposalCost: 0,
     disposalQty: 0,
+    guestCount: 0,
   });
   const [disposals, setDisposals] = useState<DisposalRow[]>([]);
   const [prev, setPrev] = useState<PrevData | null>(null);
@@ -272,6 +274,7 @@ export default function AdminSales() {
       profitTotal: 0,
       disposalCost: 0,
       disposalQty: 0,
+      guestCount: 0,
     });
     setDisposals([]);
 
@@ -553,6 +556,20 @@ export default function AdminSales() {
         console.warn("disposal load failed:", eAdj);
       }
 
+      // ✅ ゲスト購入（user_id が空）の件数
+      let guestCount = 0;
+      try {
+        const { count } = await supabase
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .is("user_id", null)
+          .gte("created_at", startIso)
+          .lt("created_at", endIso);
+        guestCount = Number(count ?? 0);
+      } catch (eGuest) {
+        console.warn("guest count failed:", eGuest);
+      }
+
       if (loadId !== loadIdRef.current) return;
       setDisposals(disposalRows);
       setItems(list);
@@ -567,6 +584,7 @@ export default function AdminSales() {
         costTotal: Math.round(costSum),
         disposalCost: Math.round(disposalCost),
         disposalQty,
+        guestCount,
         profitTotal: Math.round(cash - costSum - disposalCost),
       });
 
@@ -908,6 +926,14 @@ export default function AdminSales() {
                   </div>
                   <div className="as-sub">
                     処分 {summary.disposalQty.toLocaleString("ja-JP")} 個（商品管理の履歴で理由を確認）
+                  </div>
+                </div>
+
+                <div className="as-card">
+                  <div className="as-label">ゲスト購入</div>
+                  <div className="as-value">{summary.guestCount.toLocaleString("ja-JP")} 件</div>
+                  <div className="as-sub">
+                    アカウント未登録での購入（「ゲスト購入履歴」で確認できます）
                   </div>
                 </div>
 

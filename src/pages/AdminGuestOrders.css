@@ -1,0 +1,95 @@
+/* AdminGuestOrders */
+.admin-guest-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 96px 18px 48px;
+  box-sizing: border-box;
+  font-family: "游ゴシック体", "Yu Gothic", YuGothic, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  color: #1d1d1f;
+}
+.admin-guest-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.admin-guest-head h2 { margin: 0 0 6px; font-size: 21px; font-weight: 800; }
+.admin-guest-sub { margin: 0; font-size: 12.5px; color: #6e6e73; }
+.admin-guest-actions .btn { padding: 9px 16px; }
+.admin-guest-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 18px 0 14px;
+}
+.admin-guest-stats .stat {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.admin-guest-stats .stat-label { display: block; font-size: 11.5px; font-weight: 800; color: #6e6e73; }
+.admin-guest-stats .stat-value { display: block; margin-top: 4px; font-size: 18px; font-weight: 900; }
+.admin-guest-filter { margin-bottom: 14px; }
+.admin-guest-filter .input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 10px;
+  font-size: 14px;
+}
+.admin-guest-empty { padding: 18px; color: #6e6e73; }
+.admin-guest-list { display: flex; flex-direction: column; gap: 10px; }
+.admin-guest-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 15px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.admin-guest-item:hover {
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+.gi-main { min-width: 0; flex: 1 1 auto; }
+.gi-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gi-name { font-size: 15px; font-weight: 800; }
+.gi-badge {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 10.5px;
+  font-weight: 900;
+}
+.gi-coupon {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10.5px;
+  font-weight: 900;
+}
+.gi-ship {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 10.5px;
+  font-weight: 900;
+}
+.gi-sub { margin-top: 4px; font-size: 12.5px; color: #475569; word-break: break-all; }
+.gi-id { margin-top: 4px; font-size: 11px; color: #94a3b8; word-break: break-all; }
+.gi-right { text-align: right; flex: 0 0 auto; }
+.gi-total { font-size: 16px; font-weight: 900; }
+.gi-disc { font-size: 11.5px; font-weight: 800; color: #b91c1c; }
+.gi-open { margin-top: 6px; font-size: 11.5px; font-weight: 800; color: #8b1e3f; }

@@ -87,7 +87,7 @@ serve(async (req: Request) => {
       const { data: c, error: cErr } = await sb
         .from("coupons")
         .select(
-          "code, discount_type, discount_value, max_discount_yen, min_subtotal, is_active, starts_at, ends_at, usage_limit, used_count"
+          "code, discount_type, discount_value, max_discount_yen, min_subtotal, is_active, starts_at, ends_at, usage_limit, used_count, audience, per_user_limit, target_scope"
         )
         .eq("code", coupon)
         .maybeSingle();
@@ -104,13 +104,43 @@ serve(async (req: Request) => {
         return json({ ok: false, error: "coupon limit reached" });
       }
 
+      // ✅ v33：対象者（ゲスト専用／会員専用）のチェック。ゲスト注文なので member は不可
+      const aud = String(c.audience || "all");
+      if (aud === "member") return json({ ok: false, error: "coupon is members only" });
+
+      // ✅ v33：1人あたりの使用回数上限（メールで判定）
+      if (c.per_user_limit != null && Number(c.per_user_limit) > 0) {
+        const { count } = await sb
+          .from("coupon_redemptions")
+          .select("id", { count: "exact", head: true })
+          .eq("code", coupon)
+          .ilike("email", bEmail);
+        if (Number(count || 0) >= Number(c.per_user_limit)) {
+          return json({ ok: false, error: "coupon per user limit reached" });
+        }
+      }
+
+      // ✅ v33：対象商品が決まっている場合は、その商品の小計にだけ適用する
+      let base = subtotal;
+      if (String(c.target_scope || "all") === "products") {
+        const { data: tgt } = await sb
+          .from("coupon_products")
+          .select("product_id")
+          .eq("code", coupon);
+        const ids = new Set((tgt || []).map((t: any) => Number(t.product_id)));
+        base = items
+          .filter((it) => ids.has(Number(it.productId)))
+          .reduce((s, it) => s + yen(it.price) * Math.max(0, Math.floor(Number(it.quantity || 0))), 0);
+        if (base <= 0) return json({ ok: false, error: "coupon target items not in cart" });
+      }
+
       const v = yen(c.discount_value);
       discount =
         String(c.discount_type || "yen") === "percent"
-          ? Math.floor((subtotal * v) / 100)
+          ? Math.floor((base * v) / 100)
           : v;
       if (c.max_discount_yen != null) discount = Math.min(discount, yen(c.max_discount_yen));
-      discount = Math.min(discount, subtotal);
+      discount = Math.min(discount, base);
     }
     // 0円になる根拠は①割引でちょうど0円 or ②商品自体が無料（subtotal=0・クーポン不要）
     if (subtotal - discount !== 0) {

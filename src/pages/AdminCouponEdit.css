@@ -134,3 +134,79 @@
   display: block;
   max-width: 100%;
 }
+/* ---------- v33：対象商品の選択 ---------- */
+.admin-coupon-edit .target {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+.admin-coupon-edit .target .lab {
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  margin-bottom: 8px;
+}
+.admin-coupon-edit .target-modes {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.admin-coupon-edit .radio {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+.admin-coupon-edit .target-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.admin-coupon-edit .target-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 800;
+  color: #8b1e3f;
+}
+.admin-coupon-edit .target-list {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+  padding: 6px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-coupon-edit .target-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.admin-coupon-edit .target-row:hover { background: #f8fafc; }
+.admin-coupon-edit .target-id { font-weight: 800; color: #64748b; font-size: 11.5px; }
+.admin-coupon-edit .target-name { flex: 1 1 auto; min-width: 0; }
+.admin-coupon-edit .target-off {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+}
+.admin-coupon-edit .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.admin-coupon-edit .btn.danger {
+  background: #fff;
+  border: 1px solid #dc2626;
+  color: #dc2626;
+}

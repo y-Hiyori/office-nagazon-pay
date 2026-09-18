@@ -279,6 +279,7 @@ function Checkout() {
   };
 
   // クーポン適用
+  // ✅ v33：対象者・1人上限・対象商品に対応したクーポン判定
   const applyCoupon = async () => {
     const code = couponCode.trim().toUpperCase();
     setCouponMsg("");
@@ -294,7 +295,7 @@ function Checkout() {
     const { data, error } = await supabase
       .from("coupons")
       .select(
-        "code, discount_type, discount_value, max_discount_yen, min_subtotal, is_active, starts_at, ends_at, usage_limit, used_count"
+        "code, discount_type, discount_value, max_discount_yen, min_subtotal, is_active, starts_at, ends_at, usage_limit, used_count, audience, per_user_limit, target_scope"
       )
       .eq("code", code)
       .maybeSingle();
@@ -314,7 +315,7 @@ function Checkout() {
 
     if (data.starts_at && nowIso < data.starts_at) {
       clearCoupon();
-      setCouponMsg("このクーポンはまだ使えません。");
+      setCouponMsg("このクーポンはまだ使えません（開始前）。");
       return;
     }
     if (data.ends_at && nowIso > data.ends_at) {
@@ -323,9 +324,17 @@ function Checkout() {
       return;
     }
 
-    if (data.min_subtotal != null && subtotal < data.min_subtotal) {
+    // ✅ 対象者（全員／会員のみ／ゲストのみ）
+    const aud = String((data as any).audience ?? "all");
+    const isGuest = !authUser;
+    if (aud === "member" && isGuest) {
       clearCoupon();
-      setCouponMsg(`小計${formatPrice(data.min_subtotal)}円以上で使えます。`);
+      setCouponMsg("このクーポンは会員（アカウント登録済み）専用です。");
+      return;
+    }
+    if (aud === "guest" && !isGuest) {
+      clearCoupon();
+      setCouponMsg("このクーポンはゲスト購入専用です。");
       return;
     }
 
@@ -335,13 +344,60 @@ function Checkout() {
       return;
     }
 
+    // ✅ 1人あたりの使用回数上限
+    const perUser = (data as any).per_user_limit;
+    if (perUser != null && Number(perUser) > 0) {
+      const mail = (authUser?.email ?? guestInfo.email ?? "").trim();
+      const { data: usedCnt } = await supabase.rpc("coupon_usage_count", {
+        p_code: code,
+        p_email: mail,
+      });
+      if (Number(usedCnt ?? 0) >= Number(perUser)) {
+        clearCoupon();
+        setCouponMsg("このクーポンは、あなたはすでに使用回数の上限に達しています。");
+        return;
+      }
+    }
+
+    // ✅ 対象商品が決まっている場合は、その商品の小計にだけ適用する
+    let base = subtotal;
+    if (String((data as any).target_scope ?? "all") === "products") {
+      const { data: tgt, error: tErr } = await supabase
+        .from("coupon_products")
+        .select("product_id")
+        .eq("code", code);
+      if (tErr) {
+        console.error("coupon_products error:", tErr);
+        clearCoupon();
+        setCouponMsg("クーポン確認に失敗しました。");
+        return;
+      }
+      const ids = new Set((tgt ?? []).map((t: any) => Number(t.product_id)));
+      base = pricedItems
+        .filter((x) => ids.has(Number(x.id)))
+        .reduce((sum, x) => sum + x.lineTotal, 0);
+      if (base <= 0) {
+        clearCoupon();
+        setCouponMsg("このクーポンの対象商品がカートにありません。");
+        return;
+      }
+    }
+
+    if (data.min_subtotal != null && base < data.min_subtotal) {
+      clearCoupon();
+      setCouponMsg(
+        `対象商品の小計が${formatPrice(data.min_subtotal)}円以上で使えます。`
+      );
+      return;
+    }
+
     let discount = 0;
     const v = Number(data.discount_value ?? 0);
-    if ((data.discount_type ?? "yen") === "percent") discount = Math.floor((subtotal * v) / 100);
+    if ((data.discount_type ?? "yen") === "percent") discount = Math.floor((base * v) / 100);
     else discount = v;
 
     if (data.max_discount_yen != null) discount = Math.min(discount, Number(data.max_discount_yen));
-    discount = Math.min(discount, subtotal);
+    discount = Math.min(discount, base);
 
     if (discount <= 0) {
       clearCoupon();
@@ -351,7 +407,10 @@ function Checkout() {
 
     setDiscountYen(discount);
     setAppliedCoupon(data.code);
-    setCouponMsg(`クーポン適用：-${formatPrice(discount)}円`);
+    setCouponMsg(
+      `クーポン適用：-${formatPrice(discount)}円` +
+        (String((data as any).target_scope ?? "all") === "products" ? "（対象商品のみ）" : "")
+    );
 
     setTimeout(() => setPointsClamped(pointsToUse), 0);
   };
@@ -550,6 +609,14 @@ function Checkout() {
 
           const guestOrderId = String(guestResult.orderId || "");
 
+          // ✅ クーポンの使用を記録（ゲストでも同じ）
+          if (appliedCoupon && guestOrderId) {
+            const { error: eCoupon } = await supabase.rpc("coupon_redeem_for_order", {
+              p_order_id: guestOrderId,
+            });
+            if (eCoupon) console.error("coupon_redeem_for_order (guest) failed:", eCoupon);
+          }
+
           // ✅ ゲスト購入（0円）でも、アカウント購入と同じく購入者本人へ購入完了メールを送る
           //   注文には guest-checkout が email / name を保存済みなので、既存API（send-buyer-order-email）がそのまま使える
           await fetch("/api/send-buyer-order-email", {
@@ -726,6 +793,14 @@ function Checkout() {
           await supabase.rpc("points_award_for_order", { p_order_id: orderRow.id });
         } catch (e) {
           console.error("points_award_for_order error:", e);
+        }
+
+        // ✅ クーポンの使用を記録（使用回数・1人あたり上限／同じ注文では二重に数えない）
+        if (appliedCoupon) {
+          const { error: eCoupon } = await supabase.rpc("coupon_redeem_for_order", {
+            p_order_id: orderRow.id,
+          });
+          if (eCoupon) console.error("coupon_redeem_for_order failed:", eCoupon);
         }
 
         if (buyerEmail) {
