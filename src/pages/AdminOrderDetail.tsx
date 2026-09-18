@@ -41,6 +41,9 @@ type OrderItemRow = {
   product_name?: string | null;
   price?: number | null;
   quantity?: number | null;
+  is_sale?: boolean | null;
+  original_price?: number | null;
+  sale_mode?: string | null;
 };
 
 export default function AdminOrderDetail() {
@@ -132,7 +135,7 @@ export default function AdminOrderDetail() {
       // ✅ 明細取得
       const { data: itemData, error: itemErr } = await supabase
         .from("order_items")
-        .select("id,order_id,product_id,product_name,price,quantity")
+        .select("id,order_id,product_id,product_name,price,quantity,is_sale,original_price,sale_mode")
         .eq("order_id", id)
         .order("id", { ascending: true });
 
@@ -413,6 +416,16 @@ export default function AdminOrderDetail() {
                       </p>
                       <p>
                         <strong>単価：</strong> {formatPrice(i.price)}円
+                        {i.is_sale ? (
+                          <span style={{ marginLeft: 6, padding: "2px 8px", borderRadius: 999, background: "#059669", color: "#fff", fontSize: 11, fontWeight: 800 }}>
+                            セール
+                          </span>
+                        ) : null}
+                        {i.is_sale && i.original_price != null ? (
+                          <span style={{ marginLeft: 6, fontSize: 11, color: "#64748b" }}>
+                            （通常 {formatPrice(i.original_price)}円 → セール価格）
+                          </span>
+                        ) : null}
                       </p>
                       <p>
                         <strong>数量：</strong> {toNumber(i.quantity)}

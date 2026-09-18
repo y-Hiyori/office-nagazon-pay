@@ -2,40 +2,55 @@
 // 入荷ロット（product_lots）まわりの共通ヘルパー
 import { supabase } from "./supabase";
 
+export type SaleMode = "total" | "per_order";
+
 export type SaleLot = {
   product_id: number;
   sale_price: number; // 0 = 0円セール（無料）
-  remaining: number;
+  sale_mode: SaleMode; // total=合計◯個限定／per_order=1会計◯個まで
+  sale_qty: number; // 設定個数（per_order は1会計の上限）
+  remaining: number; // total は残り個数／per_order は在庫数
 };
 
 /** セール中のロット（原価は含まない公開ビュー）を product_id → 情報 で返す */
 export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
   const map = new Map<number, SaleLot>();
   try {
-    const { data, error } = await supabase
-      .from("product_sale_lots")
-      .select("product_id,sale_price,remaining");
-
-    if (error) {
-      console.error("product_sale_lots error:", error);
-      return map;
+    let rows: any[] | null = null;
+    {
+      const full = await supabase
+        .from("product_sale_lots")
+        .select("product_id,sale_price,sale_mode,sale_qty,remaining");
+      if (!full.error) {
+        rows = (full.data ?? []) as any[];
+      } else {
+        // v26 SQL 未実行の環境でも動くようにフォールバック
+        const legacy = await supabase
+          .from("product_sale_lots")
+          .select("product_id,sale_price,remaining");
+        if (legacy.error) {
+          console.error("product_sale_lots error:", full.error);
+          return map;
+        }
+        rows = (legacy.data ?? []) as any[];
+      }
     }
 
-    for (const r of (data ?? []) as any[]) {
+    for (const r of rows) {
       const id = Number(r?.product_id);
-      const price = Math.floor(Number(r?.sale_price) || 0);
+      const price = Math.max(0, Math.floor(Number(r?.sale_price) || 0));
       const rem = Math.max(0, Math.floor(Number(r?.remaining) || 0));
+      const mode: SaleMode = r?.sale_mode === "per_order" ? "per_order" : "total";
+      const sq = Math.max(0, Math.floor(Number(r?.sale_qty) || 0));
       // 0円セールも有効（0円は無料販売）
-      if (!Number.isFinite(id) || price < 0 || rem <= 0) continue;
-
-      const cur = map.get(id);
-      if (!cur) {
-        map.set(id, { product_id: id, sale_price: price, remaining: rem });
-      } else if (price < cur.sale_price) {
-        map.set(id, { product_id: id, sale_price: price, remaining: rem });
-      } else if (price === cur.sale_price) {
-        cur.remaining += rem;
-      }
+      if (!Number.isFinite(id) || rem <= 0) continue;
+      map.set(id, {
+        product_id: id,
+        sale_price: price,
+        sale_mode: mode,
+        sale_qty: sq,
+        remaining: rem,
+      });
     }
   } catch (e) {
     console.error("fetchSaleLots failed:", e);
@@ -54,6 +69,23 @@ export async function syncProductLots(
   const { error } = await supabase.rpc("sync_product_lots", { p_product_id: productId });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+/**
+ * カート数量のうち、セール価格が適用される個数を返す
+ *   ・total     → 残り個数までがセール価格
+ *   ・per_order → 1会計につき設定個数までがセール価格（超過分は通常価格）
+ */
+export function splitSaleQty(
+  qty: number,
+  s?: SaleLot | null
+): { saleQty: number; normalQty: number } {
+  const q = Math.max(0, Math.floor(Number(qty) || 0));
+  if (!s) return { saleQty: 0, normalQty: q };
+  const limit =
+    s.sale_mode === "per_order" ? Math.max(0, s.sale_qty) : Math.max(0, s.remaining);
+  const saleQty = Math.min(q, limit);
+  return { saleQty, normalQty: q - saleQty };
 }
 
 /** 1回の会計での購入上限（未設定なら null） */
@@ -145,16 +177,20 @@ export function isOnSale(p: any): boolean {
 export async function setProductSale(
   productId: number,
   salePrice: number | null,
-  qty: number
+  qty: number,
+  mode: SaleMode = "total"
 ): Promise<{ ok: boolean; error?: string }> {
   // 0円は「無料セール」として有効。解除は salePrice=null か qty=0 で行う
   const price = salePrice == null ? null : Math.max(0, Math.floor(salePrice));
   const count = Math.max(0, Math.floor(qty));
 
+  const m: SaleMode = mode === "per_order" ? "per_order" : "total";
+
   const { error } = await supabase.rpc("set_product_sale", {
     p_product_id: productId,
     p_sale_price: price,
     p_qty: count,
+    p_mode: m,
   });
 
   if (!error) return { ok: true };
@@ -166,8 +202,8 @@ export async function setProductSale(
     .from("products")
     .update(
       clearing
-        ? { sale_price: null, sale_qty: 0, sale_remaining: 0 }
-        : { sale_price: price, sale_qty: count, sale_remaining: count }
+        ? { sale_price: null, sale_qty: 0, sale_remaining: 0, sale_mode: m }
+        : { sale_price: price, sale_qty: count, sale_remaining: count, sale_mode: m }
     )
     .eq("id", productId);
 

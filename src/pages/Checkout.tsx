@@ -9,6 +9,7 @@ import "./Checkout.css";
 
 // ✅ 追加：アプリ内ダイアログ
 import { appDialog } from "../lib/appDialog";
+import { fetchSaleLots, splitSaleQty, type SaleLot } from "../lib/lots";
 
 type StoredItem = {
   productId: string | number;
@@ -17,6 +18,11 @@ type StoredItem = {
   quantity: number;
   stock: number;
   isShipping?: boolean;
+  // ✅ セール適用の内訳（v26）
+  saleQty: number;
+  salePrice: number;
+  normalQty: number;
+  saleMode: "total" | "per_order" | null;
 };
 
 // ✅ 予約なし：balance と available だけ
@@ -102,9 +108,53 @@ function Checkout() {
     ? [{ id: buyNow.product.id, product: buyNow.product, quantity: buyNow.quantity }]
     : cart.cart;
 
-  const subtotal = buyNow
+  // ✅ セール（商品単位・2パターン）を取得
+  const [saleMap, setSaleMap] = useState<Map<number, SaleLot>>(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const m = await fetchSaleLots();
+        if (!cancelled) setSaleMap(m);
+      } catch {
+        if (!cancelled) setSaleMap(new Map());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ✅ 商品ごとのセール適用内訳（セール価格×個数 ＋ 通常価格×超過分）
+  const pricedItems = useMemo(() => {
+    return (items as any[]).map((it) => {
+      const id = Number(it?.product?.id);
+      const qty = Math.max(0, Math.floor(Number(it?.quantity) || 0));
+      const normal = Math.max(0, Math.floor(Number(it?.product?.price) || 0));
+      const s = Number.isFinite(id) ? saleMap.get(id) ?? null : null;
+      const { saleQty, normalQty } = splitSaleQty(qty, s);
+      const salePrice = s ? Math.max(0, Math.floor(s.sale_price)) : 0;
+      return {
+        item: it,
+        id,
+        qty,
+        normal,
+        sale: s,
+        saleQty,
+        normalQty,
+        salePrice,
+        lineTotal: saleQty * salePrice + normalQty * normal,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, saleMap]);
+
+  const cartSubtotal = buyNow
     ? (Number(buyNow.product.price) || 0) * buyNow.quantity
     : cart.getTotalPrice();
+  const pricedSubtotal = pricedItems.reduce((sum, x) => sum + x.lineTotal, 0);
+  const hasAnySale = pricedItems.some((x) => x.saleQty > 0);
+  const subtotal = hasAnySale ? pricedSubtotal : cartSubtotal;
 
   // ✅ 受渡方法：商品に1つでも発送商品が含まれれば「発送」
   const fulfillmentType: "shipping" | "pickup" = (items as any[]).some(
@@ -432,13 +482,17 @@ function Checkout() {
       const buyerName = guestInfo.name.trim() || "(名前未設定)";
       const buyerEmail = guestInfo.email.trim() || (user?.email ?? "");
 
-      const itemsForStorage: StoredItem[] = items.map((item: any) => ({
-        productId: item.product.id,
-        name: item.product.name,
-        price: Number(item.product.price) || 0,
-        quantity: item.quantity,
-        stock: Number(item.product.stock ?? 0),
-        isShipping: !!item?.product?.is_shipping,
+      const itemsForStorage: StoredItem[] = pricedItems.map((x) => ({
+        productId: x.item.product.id,
+        name: x.item.product.name,
+        price: x.normal,
+        quantity: x.qty,
+        stock: Number(x.item.product.stock ?? 0),
+        isShipping: !!x?.item?.product?.is_shipping,
+        saleQty: x.saleQty,
+        salePrice: x.salePrice,
+        normalQty: x.normalQty,
+        saleMode: x.sale ? x.sale.sale_mode : null,
       }));
 
       const pointsUsed = Number(pointsDiscountYen || 0);
@@ -552,15 +606,61 @@ function Checkout() {
           return;
         }
 
-        const orderItemsPayload = itemsForStorage.map((it) => ({
-          order_id: orderRow.id,
-          product_id: Number(it.productId),
-          product_name: it.name,
-          price: it.price,
-          quantity: it.quantity,
-        }));
+        // ✅ セール分と通常分を別明細に分けて保存（セールで買ったことが履歴に残る）
+        const orderItemsPayload = itemsForStorage.flatMap((it) => {
+          const base = {
+            order_id: orderRow.id,
+            product_id: Number(it.productId),
+            product_name: it.name,
+          };
+          const rows: any[] = [];
+          if (it.saleQty > 0) {
+            rows.push({
+              ...base,
+              price: it.salePrice,
+              quantity: it.saleQty,
+              is_sale: true,
+              original_price: it.price,
+              sale_mode: it.saleMode,
+            });
+          }
+          if (it.normalQty > 0 || rows.length === 0) {
+            rows.push({
+              ...base,
+              price: it.price,
+              quantity: it.normalQty > 0 ? it.normalQty : it.quantity,
+              is_sale: false,
+              original_price: null,
+              sale_mode: null,
+            });
+          }
+          return rows;
+        });
 
-        const { error: itemsErr } = await supabase.from("order_items").insert(orderItemsPayload);
+        let itemsErr: any = null;
+        {
+          const attempt = await supabase.from("order_items").insert(orderItemsPayload);
+          itemsErr = attempt.error;
+          if (itemsErr) {
+            // v26 SQL 未実行でも注文できるようにフォールバック
+            const plain = itemsForStorage.flatMap((it) => {
+              const base = {
+                order_id: orderRow.id,
+                product_id: Number(it.productId),
+                product_name: it.name,
+              };
+              const rows: any[] = [];
+              if (it.saleQty > 0 && it.salePrice !== it.price) {
+                rows.push({ ...base, price: it.salePrice, quantity: it.saleQty });
+              }
+              const rest = it.normalQty > 0 ? it.normalQty : it.saleQty > 0 ? 0 : it.quantity;
+              if (rest > 0) rows.push({ ...base, price: it.price, quantity: rest });
+              return rows;
+            });
+            const retry = await supabase.from("order_items").insert(plain);
+            itemsErr = retry.error;
+          }
+        }
         if (itemsErr) {
           console.error(itemsErr);
           await appDialog.alert({
@@ -892,30 +992,41 @@ function Checkout() {
                   : "🏠 その場受け取りでお渡しします"}
               </div>
               <div className="co-card">
-                {items.map((item: any) => (
-                  <div className="co-item" key={item.id}>
+                {pricedItems.map((x) => (
+                  <div className="co-item" key={x.item.id}>
                     <img
-                      src={item.product.imageData ?? "/no-image.png"}
+                      src={x.item.product.imageData ?? "/no-image.png"}
                       className="co-item-img"
-                      alt={item.product.name}
+                      alt={x.item.product.name}
                     />
                     <div className="co-item-info">
                       <div className="co-item-name">
-                        {item.product.name}
-                        {item.product.is_shipping ? (
+                        {x.item.product.name}
+                        {x.item.product.is_shipping ? (
                           <span className="co-item-tag shipping">発送</span>
                         ) : (
                           <span className="co-item-tag pickup">受け取り</span>
                         )}
+                        {x.saleQty > 0 && <span className="co-item-tag sale">セール</span>}
                       </div>
                       <div className="co-item-sub">
-                        {formatPrice(item.product.price)}円 × {item.quantity}
+                        {x.saleQty > 0 && (
+                          <>
+                            <b>
+                              セール {formatPrice(x.salePrice)}円 × {x.saleQty}
+                            </b>
+                            {x.normalQty > 0 && " ／ "}
+                          </>
+                        )}
+                        {x.normalQty > 0 || x.saleQty === 0 ? (
+                          <>
+                            {formatPrice(x.normal)}円 × {x.normalQty > 0 ? x.normalQty : x.qty}
+                          </>
+                        ) : null}
                       </div>
                     </div>
                     <div className="co-item-right">
-                      <div className="co-item-subtotal">
-                        {formatPrice((Number(item.product.price) || 0) * item.quantity)}円
-                      </div>
+                      <div className="co-item-subtotal">{formatPrice(x.lineTotal)}円</div>
                     </div>
                   </div>
                 ))}

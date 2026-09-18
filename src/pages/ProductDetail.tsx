@@ -130,11 +130,14 @@ function ProductDetail() {
 
   const basePriceNum = effectivePrice(product, isMember);
   // ✅ セールロットの残数内なら、そのロットのセール価格を使う
-  // 0円セール（無料）も有効
-  const lotSalePrice =
-    saleLot && saleLot.sale_price >= 0 && quantity <= saleLot.remaining
-      ? saleLot.sale_price
-      : null;
+  // セールの適用上限（合計◯個まで／1会計◯個まで）
+  const saleLimit = saleLot
+    ? saleLot.sale_mode === "per_order"
+      ? Math.max(0, saleLot.sale_qty)
+      : Math.max(0, saleLot.remaining)
+    : 0;
+  const saleAppliesQty = Math.min(Math.max(0, quantity), saleLimit);
+  const lotSalePrice = saleLot && saleAppliesQty > 0 ? saleLot.sale_price : null;
   const priceNum = lotSalePrice != null ? lotSalePrice : basePriceNum;
   const memberPriceNum = isMember ? memberPriceOf(product) : null;
   const earnPoints = Math.max(0, Math.floor(Number((product as any)?.earn_points ?? 0)));
@@ -331,7 +334,11 @@ function ProductDetail() {
           {lotSalePrice != null && (
             <div className="pdetail-lotSale">
               いまだけセール価格 {lotSalePrice === 0 ? "¥0（無料）" : `¥${formatYen(lotSalePrice)}`}
-              （セール残り{saleLot?.remaining}個）
+              （
+              {saleLot?.sale_mode === "per_order"
+                ? `1会計${saleLimit}個まで`
+                : `セール残り${saleLot?.remaining}個`}
+              ／{saleAppliesQty}個に適用）
             </div>
           )}
           {maxPerOrder != null && (

@@ -17,7 +17,6 @@ import {
   expiryStatusOf,
   setProductSale,
   type ExpiryStatus,
-  syncProductLots,
 } from "../lib/lots";
 import { appDialog } from "../lib/appDialog";
 
@@ -34,6 +33,7 @@ type ProductRow = {
   sale_price?: number | null;
   sale_qty?: number | null;
   sale_remaining?: number | null;
+  sale_mode?: string | null;
   member_price?: number | null;
   cost?: number | null;
   earn_points?: number | null;
@@ -83,15 +83,11 @@ const REASONS: { value: Reason; label: string }[] = [
 
 const reasonLabel = (v: string) => REASONS.find((r) => r.value === v)?.label ?? v;
 
-type AdjustState = {
+type ReduceState = {
   productId: number;
   productName: string;
-  lotId: string;
-  lotLabel: string | null;
-  remaining: number;
-  cost: number;
-  expiryDate: string | null;
-  qty: string;
+  lots: Lot[];
+  selected: Record<string, boolean>;
   reason: "" | Reason;
   memo: string;
 };
@@ -220,10 +216,14 @@ function AdminPage() {
   // セール
   const [saleReady, setSaleReady] = useState(true);
   const [saleOpen, setSaleOpen] = useState(false);
-  const [saleDraft, setSaleDraft] = useState<{ price: string; qty: string }>({ price: "", qty: "" });
+  const [saleDraft, setSaleDraft] = useState<{
+    price: string;
+    qty: string;
+    mode: "total" | "per_order";
+  }>({ price: "", qty: "", mode: "total" });
 
   // 在庫を減らす
-  const [adjust, setAdjust] = useState<AdjustState | null>(null);
+  const [adjust, setAdjust] = useState<ReduceState | null>(null);
   const [reduceErr, setReduceErr] = useState("");
 
   const [noExpiryReady, setNoExpiryReady] = useState(true);
@@ -242,7 +242,7 @@ function AdminPage() {
   const load = async () => {
     setLoading(true);
 
-    const baseCols = "id,name,price,stock,is_visible,max_per_order,expiry_alert_days,member_price,cost,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit";
+    const baseCols = "id,name,price,stock,is_visible,max_per_order,expiry_alert_days,member_price,cost,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,sale_price,sale_qty,sale_remaining,sale_mode";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let pRes: any = await supabase
       .from("products")
@@ -332,6 +332,7 @@ function AdminPage() {
       p.sale_price == null || p.sale_price === undefined ? null : Math.max(0, toInt(p.sale_price));
     const saleQtyN = Math.max(0, toInt(p.sale_qty));
     const saleRemainingN = Math.max(0, toInt(p.sale_remaining));
+    const saleMode: "total" | "per_order" = p.sale_mode === "per_order" ? "per_order" : "total";
     const limitNum = toInt(p.max_per_order);
 
     return {
@@ -349,8 +350,11 @@ function AdminPage() {
       missingCost,
       missingExpiry,
       noExpiryOnly: !hasDated && hasNoExpiry,
-      hasSale: salePriceNum != null && saleRemainingN > 0,
+      hasSale:
+        salePriceNum != null &&
+        (saleMode === "per_order" ? stockNum > 0 : saleRemainingN > 0),
       salePrice: salePriceNum,
+      saleMode,
       saleQtyN,
       saleRemainingN,
       limit: limitNum > 0 ? limitNum : null,
@@ -705,33 +709,28 @@ function AdminPage() {
     }
   };
 
-  // ---------- 在庫を減らす ----------
-  const requestReduce = (p: ProductRow, l: Lot) => {
+  // ---------- 在庫を減らす（ロット＝1個なので、選んだロットを削除する） ----------
+  const openReduce = (p: ProductRow, lots: Lot[], preselect?: Lot) => {
     setReduceErr("");
     setAdjust({
       productId: p.id,
       productName: p.name ?? String(p.id),
-      lotId: l.id,
-      lotLabel: l.lot_label,
-      remaining: toInt(l.remaining),
-      cost: toInt(l.cost),
-      expiryDate: l.expiry_date ? String(l.expiry_date).slice(0, 10) : null,
-      qty: String(toInt(l.remaining)),
+      lots,
+      selected: preselect ? { [preselect.id]: true } : {},
       reason: "",
       memo: "",
     });
   };
 
+  const selectedLotIds = (st: ReduceState) =>
+    st.lots.filter((l) => st.selected[l.id]).map((l) => l.id);
+
   const confirmReduce = async () => {
     if (!adjust || busy) return;
 
-    const qty = Math.floor(Number(adjust.qty));
-    if (!Number.isFinite(qty) || qty <= 0) {
-      setReduceErr("減らす数は1以上で入力してください");
-      return;
-    }
-    if (qty > adjust.remaining) {
-      setReduceErr(`このロットの残りは${adjust.remaining}個です`);
+    const ids = selectedLotIds(adjust);
+    if (ids.length === 0) {
+      setReduceErr("削除する在庫（ロット）を選んでください");
       return;
     }
     if (!adjust.reason) {
@@ -751,25 +750,28 @@ function AdminPage() {
 
     setBusy(true);
     try {
-      const newRemaining = adjust.remaining - qty;
-      const fullDelete = newRemaining <= 0;
+      const targets = adjust.lots.filter((l) => adjust.selected[l.id]);
+      const qty = ids.length;
 
-      if (fullDelete) {
-        const { error } = await supabase.from("product_lots").delete().eq("id", adjust.lotId);
-        if (error) {
-          setReduceErr("削除に失敗しました: " + error.message);
-          return;
-        }
-      } else {
-        const { error } = await supabase
-          .from("product_lots")
-          .update({ remaining: newRemaining, updated_at: new Date().toISOString() })
-          .eq("id", adjust.lotId);
-        if (error) {
-          setReduceErr("更新に失敗しました: " + error.message);
-          return;
-        }
+      // ロットは1個＝1件なので、行ごと削除する
+      const { error } = await supabase.from("product_lots").delete().in("id", ids);
+      if (error) {
+        setReduceErr("削除に失敗しました: " + error.message);
+        return;
       }
+
+      const { error: eLog } = await supabase.from("stock_adjustments").insert(
+        targets.map((l) => ({
+          product_id: product.id,
+          lot_id: l.id,
+          qty: -1,
+          reason: adjust.reason,
+          memo: adjust.memo.trim() || null,
+          lot_label: l.lot_label,
+          cost: toInt(l.cost),
+          expiry_date: l.expiry_date ? String(l.expiry_date).slice(0, 10) : null,
+        }))
+      );
 
       const stockNow = Math.max(0, toInt(product.stock));
       await supabase
@@ -777,28 +779,15 @@ function AdminPage() {
         .update({ stock: Math.max(0, stockNow - qty) })
         .eq("id", product.id);
 
-      const { error: eLog } = await supabase.from("stock_adjustments").insert({
-        product_id: product.id,
-        lot_id: adjust.lotId,
-        qty: -qty,
-        reason: adjust.reason,
-        memo: adjust.memo.trim() || null,
-        lot_label: adjust.lotLabel,
-        cost: adjust.cost,
-        expiry_date: adjust.expiryDate,
-      });
       if (eLog) {
         setMsg(
-          `在庫を${qty}個減らしました（理由：${reasonLabel(adjust.reason)}）／履歴の保存に失敗: ${eLog.message}`
+          `在庫を${qty}個削除しました（理由：${reasonLabel(adjust.reason)}）／履歴の保存に失敗: ${eLog.message}`
         );
       } else {
-        setMsg(
-          `「${product.name ?? product.id}」の在庫を${qty}個減らしました（理由：${reasonLabel(
-            adjust.reason
-          )}）${fullDelete ? "／ロットを削除しました" : ""}`
-        );
+        setMsg(`「${product.name ?? product.id}」の在庫を${qty}個削除しました（理由：${reasonLabel(adjust.reason)}）`);
       }
 
+      // 一括作成ボタン等のステートを初期化
       setAdjust(null);
       await load();
     } finally {
@@ -815,6 +804,7 @@ function AdminPage() {
     setSaleDraft({
       price: info.salePrice != null ? String(info.salePrice) : "",
       qty: info.saleQtyN > 0 ? String(info.saleQtyN) : "",
+      mode: info.saleMode ?? "total",
     });
     setSaleOpen(true);
     if (p.id !== openId) setOpenId(p.id);
@@ -837,7 +827,7 @@ function AdminPage() {
       setMsg("セール個数は1個以上で入力してください");
       return;
     }
-    if (stockNum > 0 && qty > stockNum) {
+    if (saleDraft.mode === "total" && stockNum > 0 && qty > stockNum) {
       setMsg(`在庫は${stockNum}個です。セール個数は在庫以下にしてください`);
       return;
     }
@@ -850,7 +840,7 @@ function AdminPage() {
 
     setBusy(true);
     try {
-      const res = await setProductSale(p.id, price, qty);
+      const res = await setProductSale(p.id, price, qty, saleDraft.mode);
       if (!res.ok) {
         setMsg("セール設定に失敗しました: " + res.error);
         return;
@@ -874,39 +864,13 @@ function AdminPage() {
 
     setBusy(true);
     try {
-      const res = await setProductSale(p.id, 0, 0);
+      const res = await setProductSale(p.id, null, 0, p.sale_mode === "per_order" ? "per_order" : "total");
       if (!res.ok) {
         setMsg("セール解除に失敗しました: " + res.error);
         return;
       }
       setMsg(`「${p.name ?? p.id}」のセールを解除しました`);
       setSaleOpen(false);
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // ---------- v25：在庫とロットの一致 ----------
-  const syncLots = async (p: ProductRow, lotsCount: number, stockNum: number) => {
-    if (busy) return;
-    const ok = await appDialog.confirm({
-      message:
-        `「${p.name ?? p.id}」の在庫とロットを一致させます。\n` +
-        `在庫 ${stockNum}個 ／ ロット ${lotsCount}件\n\n` +
-        "足りないぶんは「在庫調整」ロットとして自動作成し、多いぶんは削除します。\n" +
-        "ロットは1個＝1件に正規化されます。よろしいですか？",
-    });
-    if (!ok) return;
-
-    setBusy(true);
-    try {
-      const res = await syncProductLots(p.id);
-      if (!res.ok) {
-        setMsg("一致処理に失敗しました: " + res.error);
-        return;
-      }
-      setMsg(`「${p.name ?? p.id}」の在庫とロットを一致させました`);
       await load();
     } finally {
       setBusy(false);
@@ -1360,11 +1324,346 @@ function AdminPage() {
             </div>
 
             <div className="ap-modal-body">
-              {/* ---- 在庫を追加 ---- */}
+              {/* ---- 商品設定（v24：編集・削除までこの画面で完結） ---- */}
               <section className="ap-section">
-                <h3 className="ap-section-title">
-                  在庫を追加<span className="ap-req">原価・期限は必須</span>
-                </h3>
+                <h3 className="ap-section-title">商品設定</h3>
+
+                {!(editOpen && editId === openRow.p.id) ? (
+                  <>
+                    <div className="ap-links">
+                      <button
+                        className="ap-edit-open"
+                        type="button"
+                        onClick={() => openEditPanel(openRow.p)}
+                      >
+                        商品情報を編集（名前・価格・発送など）
+                      </button>
+                      <button
+                        className="ap-secondary"
+                        type="button"
+                        onClick={() => navigate(`/products/${openRow.p.id}`)}
+                      >
+                        商品ページを確認
+                      </button>
+                    </div>
+                    <p className="ap-hint">
+                      1会計の購入上限：
+                      {openRow.info.limit != null ? `${openRow.info.limit}個` : "無制限"}
+                      ／ 期限アラート：{openRow.info.alertDays}日以内
+                      ／ 販売状態：{openRow.p.is_visible === false ? "非表示" : "表示中"}
+                    </p>
+                  </>
+                ) : editDraft ? (
+                  <div className="ap-edit">
+                    <div className="ap-edit-grid">
+                      <label className="ap-edit-wide">
+                        <span>商品名 必須</span>
+                        <input
+                          type="text"
+                          value={editDraft.name}
+                          onChange={(e) => patchEdit({ name: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>販売価格（円）必須</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={editDraft.price}
+                          onChange={(e) => patchEdit({ price: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>会員価格（円・空欄=通常価格）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="例: 130"
+                          value={editDraft.memberPrice}
+                          onChange={(e) => patchEdit({ memberPrice: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>購入時付与ポイント（pt）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="例: 10"
+                          value={editDraft.earnPoints}
+                          onChange={(e) => patchEdit({ earnPoints: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>仕入れ原価（1個・円／入荷時の既定値）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="例: 80"
+                          value={editDraft.cost}
+                          onChange={(e) => patchEdit({ cost: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>1会計の購入上限（個・空欄=無制限）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="例: 3"
+                          value={editDraft.maxPerOrder}
+                          onChange={(e) => patchEdit({ maxPerOrder: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>期限アラート日数（既定30日）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="30"
+                          value={editDraft.alertDays}
+                          onChange={(e) => patchEdit({ alertDays: e.target.value })}
+                        />
+                      </label>
+
+                      <div className="ap-edit-wide">
+                        <span>販売状態</span>
+                        <label className="ap-edit-check">
+                          <input
+                            type="checkbox"
+                            checked={editDraft.isVisible}
+                            onChange={(e) => patchEdit({ isVisible: e.target.checked })}
+                          />
+                          <span>商品一覧に表示する（オフで非表示）</span>
+                        </label>
+                      </div>
+
+                      <div className="ap-edit-wide">
+                        <span>受渡方法</span>
+                        <label className="ap-edit-check">
+                          <input
+                            type="checkbox"
+                            checked={editDraft.isShipping}
+                            onChange={(e) => patchEdit({ isShipping: e.target.checked })}
+                          />
+                          <span>発送商品（購入時に配送先の住所・電話番号が必要）</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {editDraft.isShipping && (
+                      <div className="ap-edit-grid">
+                        <label>
+                          <span>発送目安（最短）必須</span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            placeholder="例: 3"
+                            value={editDraft.leadMin}
+                            onChange={(e) => patchEdit({ leadMin: e.target.value })}
+                          />
+                        </label>
+                        <label>
+                          <span>発送目安（最長）必須</span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            placeholder="例: 5"
+                            value={editDraft.leadMax}
+                            onChange={(e) => patchEdit({ leadMax: e.target.value })}
+                          />
+                        </label>
+                        <label>
+                          <span>単位</span>
+                          <select
+                            value={editDraft.leadUnit}
+                            onChange={(e) =>
+                              patchEdit({ leadUnit: e.target.value as "business_days" | "days" })
+                            }
+                          >
+                            <option value="business_days">営業日</option>
+                            <option value="days">日</option>
+                          </select>
+                        </label>
+                      </div>
+                    )}
+
+                    <details className="ap-edit-id">
+                      <summary>商品ID変更（注意）</summary>
+                      <label>
+                        <span>商品ID</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={editDraft.newId}
+                          onChange={(e) => patchEdit({ newId: e.target.value })}
+                        />
+                      </label>
+                      <p className="ap-hint">
+                        在庫ロットが登録されている商品はIDを変更できません。変更するとリンク切れの原因になります。
+                      </p>
+                    </details>
+
+                    {editErr && <p className="ac-modal-err">{editErr}</p>}
+
+                    <div className="ap-edit-foot">
+                      <button
+                        className="ap-secondary"
+                        type="button"
+                        disabled={busy}
+                        onClick={closeEditPanel}
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        className="ap-edit-save"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => saveProductEdit(openRow.p, openRow.info.count)}
+                      >
+                        {busy ? "処理中..." : "この商品の設定を保存"}
+                      </button>
+                    </div>
+
+                    <div className="ap-danger">
+                      <b>危険な操作</b>
+                      <p className="ap-hint">
+                        商品と在庫ロット（{openRow.info.count}件）をまとめて削除します。元に戻せません。
+                      </p>
+                      <button
+                        className="ap-danger-btn"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => deleteProduct(openRow.p, openRow.info.count)}
+                      >
+                        この商品を削除する
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </section>              {/* ---- セール ---- */}
+              {saleReady && (
+                <section className="ap-section">
+                  <h3 className="ap-section-title">セール設定</h3>
+
+                  {openRow.info.hasSale ? (
+                    <div className="ap-sale-info">
+                      <div>
+                        <div className="ap-sale-price">
+                          ¥{yen(openRow.info.salePrice ?? 0)}
+                          {openRow.info.salePrice === 0 && <span className="ap-sale-free">無料</span>}
+                          <span className="ap-sale-orig">（通常 ¥{yen(openRow.p.price)}）</span>
+                        </div>
+                        <div className="ap-sale-sub">
+                          {openRow.info.saleMode === "per_order"
+                            ? `1会計 ${openRow.info.saleQtyN}個まで この価格（セール中）`
+                            : `合計 ${openRow.info.saleQtyN}個限定（残り ${openRow.info.saleRemainingN}個）`}
+                        </div>
+                      </div>
+                      <div className="ap-sale-actions">
+                        <button
+                          className="ap-secondary"
+                          type="button"
+                          onClick={() => openSalePanel(openRow.p, openRow.info)}
+                        >
+                          {saleOpen ? "閉じる" : "内容を変更"}
+                        </button>
+                        <button
+                          className="ap-secondary is-danger"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => clearSale(openRow.p)}
+                        >
+                          セール解除
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      className="ap-secondary"
+                      type="button"
+                      onClick={() => openSalePanel(openRow.p, openRow.info)}
+                    >
+                      {saleOpen ? "閉じる" : "セールを設定する"}
+                    </button>
+                  )}
+
+                  {saleOpen && (
+                    <div className="ap-sale-form">
+                      <label>
+                        <span>セールの種類</span>
+                        <select
+                          value={saleDraft.mode}
+                          onChange={(e) =>
+                            setSaleDraft((d) => ({
+                              ...d,
+                              mode: e.target.value === "per_order" ? "per_order" : "total",
+                            }))
+                          }
+                        >
+                          <option value="total">合計◯個限定（設定した個数が売れたらセール終了）</option>
+                          <option value="per_order">1会計で◯個まで（それ以上は通常価格）</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>セール価格（円・0で無料）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="0（無料）"
+                          value={saleDraft.price}
+                          onChange={(e) => setSaleDraft((d) => ({ ...d, price: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        <span>
+                          {saleDraft.mode === "per_order" ? "1会計での上限個数" : "セール個数（合計）"}
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={1}
+                          placeholder="例: 5"
+                          value={saleDraft.qty}
+                          onChange={(e) => setSaleDraft((d) => ({ ...d, qty: e.target.value }))}
+                        />
+                      </label>
+                      <button
+                        className="ap-primary"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => applySale(openRow.p, openRow.info.stockNum)}
+                      >
+                        {busy ? "処理中..." : "この内容でセール開始"}
+                      </button>
+                      <p className="ap-hint">
+                        {saleDraft.mode === "per_order"
+                          ? "1回の会計につき指定した個数までセール価格、それを超えた分は通常価格で販売します。セールは解除するまで続きます。"
+                          : "合計で指定した個数が売れたらセールを終了します（それ以降は通常価格）。"}
+                        <br />
+                        価格は<b>0円（無料）</b>も設定できます。通常価格は ¥{yen(openRow.p.price)} です。
+                      </p>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* ---- 在庫を追加 ---- */}
+              <details className="ap-acc">
+                <summary className="ap-acc-sum">
+                  <span className="ap-acc-name">在庫を追加</span>
+                  <span className="ap-req">原価・期限は必須</span>
+                  <span className="ap-acc-chev">▼</span>
+                </summary>
+                <div className="ap-acc-body">
 
                 {(() => {
                   const a = arrivalOf(openRow.p.id);
@@ -1590,38 +1889,19 @@ function AdminPage() {
                     </>
                   );
                 })()}
-              </section>
-
-              {/* ---- v25：在庫とロットの一致 ---- */}
-              <section className="ap-section">
-                <h3 className="ap-section-title">
-                  在庫とロットの一致
-                  {openRow.info.count !== openRow.info.stockNum && (
-                    <span className="ap-badge-warn">要一致</span>
-                  )}
-                </h3>
-                <p className="ap-hint">
-                  ロットは<b>1個＝1件</b>で管理します。商品を購入するとロットも同時に消えます。
-                  <br />
-                  現在：在庫 <b>{openRow.info.stockNum}個</b> ／ ロット <b>{openRow.info.count}件</b>
-                  {openRow.info.count !== openRow.info.stockNum && "（数が合っていません）"}
-                </p>
-                <button
-                  className="ap-sync"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => syncLots(openRow.p, openRow.info.count, openRow.info.stockNum)}
-                >
-                  在庫とロットを一致させる（不足分は自動作成）
-                </button>
-              </section>
+                </div>
+              </details>
 
               {/* ---- ロット（在庫の内訳） ---- */}
-              <section className="ap-section">
-                <h3 className="ap-section-title">
-                  在庫の内訳（ロット）
-                  <span className="ap-badge">{openRow.info.remaining}個 / {openRow.info.count}ロット</span>
-                </h3>
+              <details className="ap-acc">
+                <summary className="ap-acc-sum">
+                  <span className="ap-acc-name">在庫の内訳（ロット）</span>
+                  {openRow.info.count > 0 && (
+                    <span className="ap-badge">ロット {openRow.info.count}件</span>
+                  )}
+                  <span className="ap-acc-chev">▼</span>
+                </summary>
+                <div className="ap-acc-body">
 
                 {openRow.info.lots.length === 0 ? (
                   <p className="ap-hint">まだ在庫（ロット）がありません。上の「在庫を追加」から登録してください。</p>
@@ -1727,9 +2007,9 @@ function AdminPage() {
                                 className="ac-del"
                                 type="button"
                                 disabled={busy}
-                                onClick={() => requestReduce(openRow.p, l)}
+                                onClick={() => openReduce(openRow.p, openRow.info.lots, l)}
                               >
-                                在庫を減らす
+                                この1個を削除
                               </button>
                             )}
                           </div>
@@ -1738,6 +2018,15 @@ function AdminPage() {
                     })}
                   </div>
                 )}
+
+                <button
+                  className="ap-secondary is-danger ap-reduce-open"
+                  type="button"
+                  disabled={busy || openRow.info.lots.length === 0}
+                  onClick={() => openReduce(openRow.p, openRow.info.lots)}
+                >
+                  在庫を減らす（複数選択して削除）
+                </button>
 
                 <div className="ap-lot-savebar">
                   <span className="ap-dirty">
@@ -1754,347 +2043,84 @@ function AdminPage() {
                     {busy ? "保存中..." : "変更を保存"}
                   </button>
                 </div>
-              </section>
+                </div>
+              </details>
 
-              {/* ---- セール ---- */}
-              {saleReady && (
-                <section className="ap-section">
-                  <h3 className="ap-section-title">セール設定</h3>
 
-                  {openRow.info.hasSale ? (
-                    <div className="ap-sale-info">
-                      <div>
-                        <div className="ap-sale-price">
-                          ¥{yen(openRow.info.salePrice ?? 0)}
-                          {openRow.info.salePrice === 0 && <span className="ap-sale-free">無料</span>}
-                          <span className="ap-sale-orig">（通常 ¥{yen(openRow.p.price)}）</span>
-                        </div>
-                        <div className="ap-sale-sub">
-                          残り {openRow.info.saleRemainingN}個 / 設定 {openRow.info.saleQtyN}個
-                        </div>
-                      </div>
-                      <div className="ap-sale-actions">
-                        <button
-                          className="ap-secondary"
-                          type="button"
-                          onClick={() => openSalePanel(openRow.p, openRow.info)}
-                        >
-                          {saleOpen ? "閉じる" : "内容を変更"}
-                        </button>
-                        <button
-                          className="ap-secondary is-danger"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => clearSale(openRow.p)}
-                        >
-                          セール解除
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      className="ap-secondary"
-                      type="button"
-                      onClick={() => openSalePanel(openRow.p, openRow.info)}
-                    >
-                      {saleOpen ? "閉じる" : "セールを設定する"}
-                    </button>
-                  )}
-
-                  {saleOpen && (
-                    <div className="ap-sale-form">
-                      <label>
-                        <span>セール価格（円・0で無料）</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder="0（無料）"
-                          value={saleDraft.price}
-                          onChange={(e) => setSaleDraft((d) => ({ ...d, price: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        <span>セール個数（個）</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          placeholder="例: 5"
-                          value={saleDraft.qty}
-                          onChange={(e) => setSaleDraft((d) => ({ ...d, qty: e.target.value }))}
-                        />
-                      </label>
-                      <button
-                        className="ap-primary"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => applySale(openRow.p, openRow.info.stockNum)}
-                      >
-                        {busy ? "処理中..." : "この内容でセール開始"}
-                      </button>
-                      <p className="ap-hint">
-                        在庫 {openRow.info.stockNum}個のうち、指定した個数をセール価格で販売します。
-                        価格は<b>0円（無料）</b>も設定できます。
-                        売り切れると通常価格（¥{yen(openRow.p.price)}）に戻ります。
-                      </p>
-                    </div>
-                  )}
-                </section>
-              )}
-
-              {/* ---- 商品設定（v24：編集・削除までこの画面で完結） ---- */}
-              <section className="ap-section">
-                <h3 className="ap-section-title">商品設定</h3>
-
-                {!(editOpen && editId === openRow.p.id) ? (
-                  <>
-                    <div className="ap-links">
-                      <button
-                        className="ap-edit-open"
-                        type="button"
-                        onClick={() => openEditPanel(openRow.p)}
-                      >
-                        商品情報を編集（名前・価格・発送など）
-                      </button>
-                      <button
-                        className="ap-secondary"
-                        type="button"
-                        onClick={() => navigate(`/products/${openRow.p.id}`)}
-                      >
-                        商品ページを確認
-                      </button>
-                    </div>
-                    <p className="ap-hint">
-                      1会計の購入上限：
-                      {openRow.info.limit != null ? `${openRow.info.limit}個` : "無制限"}
-                      ／ 期限アラート：{openRow.info.alertDays}日以内
-                      ／ 販売状態：{openRow.p.is_visible === false ? "非表示" : "表示中"}
-                    </p>
-                  </>
-                ) : editDraft ? (
-                  <div className="ap-edit">
-                    <div className="ap-edit-grid">
-                      <label className="ap-edit-wide">
-                        <span>商品名 必須</span>
-                        <input
-                          type="text"
-                          value={editDraft.name}
-                          onChange={(e) => patchEdit({ name: e.target.value })}
-                        />
-                      </label>
-
-                      <label>
-                        <span>販売価格（円）必須</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          value={editDraft.price}
-                          onChange={(e) => patchEdit({ price: e.target.value })}
-                        />
-                      </label>
-
-                      <label>
-                        <span>会員価格（円・空欄=通常価格）</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="例: 130"
-                          value={editDraft.memberPrice}
-                          onChange={(e) => patchEdit({ memberPrice: e.target.value })}
-                        />
-                      </label>
-
-                      <label>
-                        <span>購入時付与ポイント（pt）</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="例: 10"
-                          value={editDraft.earnPoints}
-                          onChange={(e) => patchEdit({ earnPoints: e.target.value })}
-                        />
-                      </label>
-
-                      <label>
-                        <span>仕入れ原価（1個・円／入荷時の既定値）</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="例: 80"
-                          value={editDraft.cost}
-                          onChange={(e) => patchEdit({ cost: e.target.value })}
-                        />
-                      </label>
-
-                      <label>
-                        <span>1会計の購入上限（個・空欄=無制限）</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="例: 3"
-                          value={editDraft.maxPerOrder}
-                          onChange={(e) => patchEdit({ maxPerOrder: e.target.value })}
-                        />
-                      </label>
-
-                      <label>
-                        <span>期限アラート日数（既定30日）</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="30"
-                          value={editDraft.alertDays}
-                          onChange={(e) => patchEdit({ alertDays: e.target.value })}
-                        />
-                      </label>
-
-                      <div className="ap-edit-wide">
-                        <span>販売状態</span>
-                        <label className="ap-edit-check">
-                          <input
-                            type="checkbox"
-                            checked={editDraft.isVisible}
-                            onChange={(e) => patchEdit({ isVisible: e.target.checked })}
-                          />
-                          <span>商品一覧に表示する（オフで非表示）</span>
-                        </label>
-                      </div>
-
-                      <div className="ap-edit-wide">
-                        <span>受渡方法</span>
-                        <label className="ap-edit-check">
-                          <input
-                            type="checkbox"
-                            checked={editDraft.isShipping}
-                            onChange={(e) => patchEdit({ isShipping: e.target.checked })}
-                          />
-                          <span>発送商品（購入時に配送先の住所・電話番号が必要）</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {editDraft.isShipping && (
-                      <div className="ap-edit-grid">
-                        <label>
-                          <span>発送目安（最短）必須</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
-                            placeholder="例: 3"
-                            value={editDraft.leadMin}
-                            onChange={(e) => patchEdit({ leadMin: e.target.value })}
-                          />
-                        </label>
-                        <label>
-                          <span>発送目安（最長）必須</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
-                            placeholder="例: 5"
-                            value={editDraft.leadMax}
-                            onChange={(e) => patchEdit({ leadMax: e.target.value })}
-                          />
-                        </label>
-                        <label>
-                          <span>単位</span>
-                          <select
-                            value={editDraft.leadUnit}
-                            onChange={(e) =>
-                              patchEdit({ leadUnit: e.target.value as "business_days" | "days" })
-                            }
-                          >
-                            <option value="business_days">営業日</option>
-                            <option value="days">日</option>
-                          </select>
-                        </label>
-                      </div>
-                    )}
-
-                    <details className="ap-edit-id">
-                      <summary>商品ID変更（注意）</summary>
-                      <label>
-                        <span>商品ID</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          value={editDraft.newId}
-                          onChange={(e) => patchEdit({ newId: e.target.value })}
-                        />
-                      </label>
-                      <p className="ap-hint">
-                        在庫ロットが登録されている商品はIDを変更できません。変更するとリンク切れの原因になります。
-                      </p>
-                    </details>
-
-                    {editErr && <p className="ac-modal-err">{editErr}</p>}
-
-                    <div className="ap-edit-foot">
-                      <button
-                        className="ap-secondary"
-                        type="button"
-                        disabled={busy}
-                        onClick={closeEditPanel}
-                      >
-                        キャンセル
-                      </button>
-                      <button
-                        className="ap-edit-save"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => saveProductEdit(openRow.p, openRow.info.count)}
-                      >
-                        {busy ? "処理中..." : "この商品の設定を保存"}
-                      </button>
-                    </div>
-
-                    <div className="ap-danger">
-                      <b>危険な操作</b>
-                      <p className="ap-hint">
-                        商品と在庫ロット（{openRow.info.count}件）をまとめて削除します。元に戻せません。
-                      </p>
-                      <button
-                        className="ap-danger-btn"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => deleteProduct(openRow.p, openRow.info.count)}
-                      >
-                        この商品を削除する
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </section>
             </div>
           </div>
         </div>
       )}
 
-      {/* ================= 在庫を減らす ================= */}
+      {/* ================= 在庫を減らす（ロット＝1個なので選択削除） ================= */}
       {adjust && (
         <div className="ap-modal-back">
-          <div className="ac-modal">
-            <h3 className="ac-modal-title">在庫を減らす</h3>
+          <div className="ac-modal ac-modal-wide-box">
+            <h3 className="ac-modal-title">在庫を減らす（ロットを削除）</h3>
             <p className="ac-modal-sub">
-              {adjust.productName}
-              {adjust.lotLabel ? ` ／ ${adjust.lotLabel}` : ""} ／ 残り{adjust.remaining}個
+              {adjust.productName} ／ ロットは<b>1個＝1件</b>です。減らす在庫にチェックしてください。
             </p>
 
+            <div className="ac-lot-pick-bar">
+              <button
+                className="ac-mini"
+                type="button"
+                onClick={() =>
+                  setAdjust((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          selected: Object.fromEntries(prev.lots.map((l) => [l.id, true])),
+                        }
+                      : prev
+                  )
+                }
+              >
+                すべて選択
+              </button>
+              <button
+                className="ac-mini"
+                type="button"
+                onClick={() => setAdjust((prev) => (prev ? { ...prev, selected: {} } : prev))}
+              >
+                選択を解除
+              </button>
+              <span className="ac-lot-pick-count">選択中 {selectedLotIds(adjust).length}個</span>
+            </div>
+
+            <div className="ac-lot-pick-list">
+              {adjust.lots.map((l) => {
+                const rem = toInt(l.remaining);
+                const st = expiryStatusOf(l.expiry_date, openRow?.info.alertDays ?? 30);
+                const isNo = l.no_expiry === true || !l.expiry_date;
+                return (
+                  <label key={l.id} className="ac-lot-pick-row">
+                    <input
+                      type="checkbox"
+                      checked={!!adjust.selected[l.id]}
+                      onChange={(e) =>
+                        setAdjust((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                selected: { ...prev.selected, [l.id]: e.target.checked },
+                              }
+                            : prev
+                        )
+                      }
+                    />
+                    <span className={`ap-exp ${isNo ? "is-none" : statusClass(st)}`}>
+                      {isNo ? "期限なし" : expiryStatusLabel(st, daysLeftOf(l.expiry_date))}
+                    </span>
+                    <span className="ac-lot-pick-cost">原価 ¥{yen(l.cost)}</span>
+                    <span className="ac-lot-pick-rem">残り {rem}個</span>
+                    {l.lot_label && <span className="ap-lot-memo">{l.lot_label}</span>}
+                  </label>
+                );
+              })}
+            </div>
+
             <div className="ac-modal-grid">
-              <label>
-                <span>減らす数（個）必須</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={adjust.remaining}
-                  value={adjust.qty}
-                  onChange={(e) => setAdjust((prev) => (prev ? { ...prev, qty: e.target.value } : prev))}
-                />
-              </label>
               <label>
                 <span>理由 必須</span>
                 <select
@@ -2123,8 +2149,7 @@ function AdminPage() {
             </div>
 
             <p className="ac-modal-note">
-              このロットから{toInt(adjust.qty)}個を在庫から減らします
-              {toInt(adjust.qty) >= adjust.remaining ? "（ロットは削除されます）" : ""}。在庫数も同じ数だけ減ります。
+              選択した {selectedLotIds(adjust).length}個 を在庫から削除します（在庫数も同じ数だけ減ります）。
             </p>
 
             {reduceErr && <p className="ac-modal-err">{reduceErr}</p>}
@@ -2134,7 +2159,7 @@ function AdminPage() {
                 キャンセル
               </button>
               <button className="ac-save" type="button" disabled={busy} onClick={confirmReduce}>
-                {busy ? "処理中..." : "在庫を減らす"}
+                {busy ? "処理中..." : `選択した${selectedLotIds(adjust).length}個を削除`}
               </button>
             </div>
           </div>

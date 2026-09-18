@@ -1574,3 +1574,96 @@
   cursor: pointer;
 }
 .ap-sync:disabled { opacity: .5; }
+
+/* ---------- v26：商品設定のレイアウト修正 ---------- */
+.ap-edit-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+@media (max-width: 700px) {
+  .ap-edit-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+.ap-edit-grid label,
+.ap-edit-grid .ap-edit-wide { min-width: 0; }
+.ap-edit-grid input,
+.ap-edit-grid select,
+.ap-edit-id input {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100%;
+  min-width: 0;
+  display: block;
+}
+.ap-edit-check { box-sizing: border-box; width: 100%; min-width: 0; }
+.ap-edit-grid label > span { line-height: 1.4; }
+
+/* ---------- v26：折りたたみ（在庫を追加／在庫の内訳） ---------- */
+.ap-acc {
+  margin-top: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.ap-acc > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 13px 14px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 900;
+  color: #0f172a;
+}
+.ap-acc > summary::-webkit-details-marker { display: none; }
+.ap-acc-name { flex: 0 0 auto; }
+.ap-acc-chev {
+  margin-left: auto;
+  font-size: 11px;
+  color: #64748b;
+  transition: transform .15s ease;
+}
+.ap-acc[open] > .ap-acc-chev { transform: rotate(180deg); }
+.ap-acc[open] > summary .ap-acc-chev { transform: rotate(180deg); }
+.ap-acc-body { padding: 14px; }
+
+/* ---------- v26：在庫を減らす（ロット選択） ---------- */
+.ap-reduce-open { margin-top: 12px; }
+.ac-lot-pick-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 8px;
+}
+.ac-lot-pick-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 800;
+  color: #4338ca;
+}
+.ac-lot-pick-list {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ac-lot-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.ac-lot-pick-row input[type="checkbox"] { width: 16px; height: 16px; }
+.ac-lot-pick-cost { font-weight: 800; color: #334155; }
+.ac-lot-pick-rem { color: #64748b; }
