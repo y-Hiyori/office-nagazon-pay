@@ -168,3 +168,85 @@
   .admin-menu-btn { padding: 14px 4px; font-size: 14px; }
   .admin-menu-btn:hover { padding-left: 10px; padding-right: 10px; }
 }
+
+/* ============================================
+   v30：グループ分け（商品・販売 / ゲーム / アカウント）
+============================================ */
+.admin-menu-group {
+  margin-top: 26px;
+}
+.admin-menu-group:first-of-type {
+  margin-top: 22px;
+}
+
+.admin-menu-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--am-accent);
+}
+.admin-menu-group-title::before {
+  content: "";
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--am-accent);
+  align-self: center;
+}
+.admin-menu-group-note {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--am-text-muted);
+}
+
+.admin-menu-group .admin-menu-buttons {
+  margin-top: 0;
+}
+
+/* nth-child の自動装飾をリセットして、明示クラスだけで色を付ける */
+.admin-menu-buttons .admin-menu-btn:first-child {
+  color: var(--am-text);
+  font-weight: 500;
+}
+.admin-menu-buttons .admin-menu-btn:first-child::after {
+  border-color: var(--am-text-muted);
+}
+.admin-menu-buttons .admin-menu-btn:nth-child(4) {
+  color: var(--am-text);
+}
+.admin-menu-buttons .admin-menu-btn:nth-child(4)::after {
+  border-color: var(--am-text-muted);
+}
+.admin-menu-buttons .admin-menu-btn:nth-child(4):hover {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.admin-menu-buttons .admin-menu-btn.is-main {
+  color: var(--am-accent);
+  font-weight: 700;
+}
+.admin-menu-buttons .admin-menu-btn.is-main::after {
+  border-color: var(--am-accent);
+}
+.admin-menu-buttons .admin-menu-btn.is-danger {
+  color: #c02323;
+}
+.admin-menu-buttons .admin-menu-btn.is-danger::after {
+  border-color: #c02323;
+}
+.admin-menu-buttons .admin-menu-btn.is-danger:hover {
+  background: rgba(192, 35, 35, 0.04);
+}
+
+/* グループが小さいときは2列にせず、読みやすく1列のまま */
+@media (min-width: 840px) {
+  .admin-menu-group .admin-menu-buttons {
+    grid-template-columns: 1fr 1fr;
+  }
+}
