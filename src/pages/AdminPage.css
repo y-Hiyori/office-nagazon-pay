@@ -531,3 +531,55 @@
   color: #92400e;
   line-height: 1.5;
 }
+
+/* ---------- v21：統合（商品カード内で入荷・在庫操作） ---------- */
+.admin-item-head {
+  cursor: pointer;
+}
+
+.admin-item.is-open {
+  grid-column: 1 / -1;
+  border: 1px solid #c7d2fe;
+  box-shadow: 0 16px 36px rgba(79, 70, 229, 0.16);
+  text-align: left;
+}
+
+.admin-item.is-open img,
+.admin-item.is-open .admin-no-img {
+  max-width: 320px;
+  margin: 0 auto 8px;
+  display: block;
+}
+
+.admin-item.is-open .admin-info h3,
+.admin-item.is-open .admin-info p,
+.admin-item.is-open .admin-stock-line,
+.admin-item.is-open .admin-exp-line,
+.admin-item.is-open .admin-cost-line {
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.admin-open-hint {
+  margin-top: 7px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #4f46e5;
+}
+
+.admin-alert-chip.is-missing {
+  background: #e7f0ff;
+  color: #1e6fd9;
+}
+
+.admin-tag.warn {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ac-modal-wide-box {
+  max-width: 700px;
+  max-height: 88vh;
+  overflow-y: auto;
+  text-align: left;
+}
