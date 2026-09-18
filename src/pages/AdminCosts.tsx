@@ -1,9 +1,9 @@
 // src/pages/AdminCosts.tsx
 // ✅ 仕入れ原価・入荷ロット管理
-//   ・同じ商品でも原価／賞味期限が違う在庫を「ロット」として1件ずつ登録
-//   ・複数商品をまとめて選択して一括登録（まとめ仕入れ）
-//   ・ロット単位でセール価格（一部だけセール）を設定
-//   ・期限切れ／期限間近を色分け表示
+//   ・在庫があるのにロット未作成の商品 →「在庫に合わせてロットを一括作成」で揃える
+//   ・在庫を増やすときは「原価」と「賞味期限／消費期限」の登録が必須（1個ずつ／1ロット単位）
+//   ・在庫を減らすときは「理由」と「対象ロット」が必須（履歴を stock_adjustments に残す）
+//   ・まとめて選択して原価・期限を入力する機能は廃止
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -29,19 +29,17 @@ type Lot = {
   cost: number;
   quantity: number;
   remaining: number;
-  sale_price: number | null;
   expiry_date: string | null;
   expiry_type: string;
   received_at: string | null;
-  memo: string | null;
 };
 
 type LotDraft = {
   cost: string;
-  remaining: string;
   expiry_date: string;
   expiry_type: string;
   lot_label: string;
+  remaining?: string; // 「1件ずつ追加」フォーム用
 };
 
 // ✅ 在庫を1個ずつ登録するときの1行ぶん
@@ -49,6 +47,33 @@ type UnitDraft = {
   cost: string;
   expiry_date: string;
   expiry_type: "best_before" | "use_by";
+};
+
+// ✅ 在庫を減らすときの理由（必須）
+type Reason = "discard" | "expired" | "return" | "sample" | "other";
+
+const REASONS: { value: Reason; label: string }[] = [
+  { value: "discard", label: "廃棄（傷み・破損）" },
+  { value: "expired", label: "期限切れ廃棄" },
+  { value: "return", label: "返品・返却" },
+  { value: "sample", label: "試食・サンプル提供" },
+  { value: "other", label: "その他（メモ必須）" },
+];
+
+const reasonLabel = (v: string) =>
+  REASONS.find((r) => r.value === v)?.label ?? v;
+
+type AdjustState = {
+  productId: number;
+  productName: string;
+  lotId: string;
+  lotLabel: string | null;
+  remaining: number;
+  cost: number;
+  expiryDate: string | null;
+  qty: string;
+  reason: "" | Reason;
+  memo: string;
 };
 
 const toInt = (v: any) => {
@@ -60,10 +85,15 @@ const yen = (v: any) => toInt(v).toLocaleString("ja-JP");
 
 const draftOf = (l: Lot): LotDraft => ({
   cost: String(toInt(l.cost)),
-  remaining: String(toInt(l.remaining)),
   expiry_date: l.expiry_date ? String(l.expiry_date).slice(0, 10) : "",
   expiry_type: l.expiry_type === "use_by" ? "use_by" : "best_before",
   lot_label: l.lot_label ?? "",
+});
+
+const emptyUnit = (cost: string): UnitDraft => ({
+  cost,
+  expiry_date: "",
+  expiry_type: "best_before",
 });
 
 export default function AdminCosts() {
@@ -77,15 +107,10 @@ export default function AdminCosts() {
   const [q, setQ] = useState("");
   const [onlyAlert, setOnlyAlert] = useState(false);
 
-  // 選択（まとめて登録用）
-  const [selected, setSelected] = useState<Record<number, boolean>>({});
-
-  // 一括登録フォーム
-  const [bCost, setBCost] = useState("");
-  const [bQty, setBQty] = useState("");
-  const [bExpiry, setBExpiry] = useState("");
-  const [bExpiryType, setBExpiryType] = useState<"best_before" | "use_by">("best_before");
-  const [bLabel, setBLabel] = useState("");
+  // 展開中の商品
+  const [openId, setOpenId] = useState<number | null>(null);
+  // ロット編集ドラフト
+  const [drafts, setDrafts] = useState<Record<string, LotDraft>>({});
 
   // ✅ 在庫を1個ずつ登録（商品ごと）
   const [unitCount, setUnitCount] = useState<Record<number, string>>({});
@@ -93,10 +118,9 @@ export default function AdminCosts() {
   const [unitRows, setUnitRows] = useState<Record<number, UnitDraft[]>>({});
   const [unitSyncStock, setUnitSyncStock] = useState<Record<number, boolean>>({});
 
-  // 展開中の商品
-  const [openId, setOpenId] = useState<number | null>(null);
-  // ロット編集ドラフト
-  const [drafts, setDrafts] = useState<Record<string, LotDraft>>({});
+  // ✅ 在庫を減らすダイアログ
+  const [adjust, setAdjust] = useState<AdjustState | null>(null);
+  const [reduceErr, setReduceErr] = useState("");
 
   useEffect(() => {
     document.body.classList.add("adminmenu-whitebg");
@@ -105,7 +129,6 @@ export default function AdminCosts() {
 
   const load = async () => {
     setLoading(true);
-    setMsg("");
 
     const [pRes, lRes] = await Promise.all([
       supabase
@@ -114,7 +137,7 @@ export default function AdminCosts() {
         .order("id", { ascending: true }),
       supabase
         .from("product_lots")
-        .select("*")
+        .select("id,product_id,lot_label,cost,quantity,remaining,expiry_date,expiry_type,received_at")
         .order("created_at", { ascending: false }),
     ]);
 
@@ -166,11 +189,15 @@ export default function AdminCosts() {
     let remaining = 0;
     let costSum = 0;
     let nearest: string | null = null;
+    let missingCost = false;
+    let missingExpiry = false;
 
     for (const l of ls) {
       const rem = Math.max(0, toInt(l.remaining));
       remaining += rem;
       costSum += toInt(l.cost) * rem;
+      if (rem > 0 && toInt(l.cost) <= 0) missingCost = true;
+      if (rem > 0 && !l.expiry_date) missingExpiry = true;
       if (rem > 0 && l.expiry_date) {
         const d = String(l.expiry_date).slice(0, 10);
         if (!nearest || d < nearest) nearest = d;
@@ -179,6 +206,7 @@ export default function AdminCosts() {
 
     const avgCost = remaining > 0 ? Math.round(costSum / remaining) : 0;
     const status: ExpiryStatus = expiryStatusOf(nearest, alertDays);
+    const stockNum = Math.max(0, toInt(p.stock));
 
     return {
       lots: ls,
@@ -190,6 +218,9 @@ export default function AdminCosts() {
       status,
       alertDays,
       days: daysLeftOf(nearest),
+      unregistered: Math.max(0, stockNum - remaining),
+      missingCost,
+      missingExpiry,
     };
   };
 
@@ -212,111 +243,228 @@ export default function AdminCosts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, q, onlyAlert, lotsByProduct]);
 
-  const selectedIds = useMemo(
-    () => products.filter((p) => selected[p.id]).map((p) => p.id),
-    [products, selected]
-  );
-
   const alertCounts = useMemo(() => {
     let expired = 0;
     let soon = 0;
+    let missing = 0;
+    let missingField = 0;
     for (const p of products) {
-      const s = infoOf(p).status;
-      if (s === "expired") expired++;
-      else if (s === "urgent" || s === "warn") soon++;
+      const info = infoOf(p);
+      if (info.status === "expired") expired++;
+      else if (info.status === "urgent" || info.status === "warn") soon++;
+      if (info.unregistered > 0) missing++;
+      else if (info.missingCost || info.missingExpiry) missingField++;
     }
-    return { expired, soon };
+    return { expired, soon, missing, missingField };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, lotsByProduct]);
 
-  const toggleAll = (on: boolean) => {
-    const next: Record<number, boolean> = {};
-    for (const p of filtered) next[p.id] = on;
-    setSelected(on ? next : {});
-  };
-
-  // ✅ まとめて登録
-  const bulkAdd = async () => {
+  // ✅ 在庫があるのにロット未作成 → 在庫に合わせてロットを作る
+  const backfillAll = async () => {
     if (busy) return;
-    setMsg("");
 
-    if (selectedIds.length === 0) {
-      setMsg("商品を選択してください（チェックボックス）");
+    const targets = products
+      .map((p) => ({ p, info: infoOf(p) }))
+      .filter((t) => t.info.unregistered > 0);
+    if (targets.length === 0) {
+      setMsg("ロット未作成の在庫はありません（すべて在庫とロットが一致しています）");
       return;
     }
-
-    const costRaw = bCost.trim();
-    const qtyRaw = bQty.trim();
-    if (costRaw === "" || qtyRaw === "") {
-      setMsg("仕入れ原価（1個あたり）と数量を入力してください");
-      return;
-    }
-
-    const cost = toInt(costRaw);
-    const qty = toInt(qtyRaw);
-    if (cost < 0 || qty <= 0) {
-      setMsg("仕入れ原価は0以上・数量は1以上で入力してください");
-      return;
-    }
+    const total = targets.reduce((s, t) => s + t.info.unregistered, 0);
 
     const ok = await appDialog.confirm({
       message:
-        `${selectedIds.length}商品に、原価${yen(cost)}円 × ${qty}個のロットを追加します。\n` +
-        (bExpiry ? `期限：${bExpiry}\n` : "") +
+        `${targets.length}商品・合計${total}個のロットを、いまの在庫数に合わせて作成します。\n\n` +
+        "・在庫数は変わりません（すでにある在庫をロットとして登録するだけです）\n" +
+        "・原価は0円・期限は未設定で作られます\n" +
+        "・作成後、各商品を開いて「原価」と「賞味期限」を入力してください\n\n" +
         "よろしいですか？",
     });
     if (!ok) return;
 
     setBusy(true);
     try {
-      const rows = selectedIds.map((pid) => ({
-        product_id: pid,
-        lot_label: bLabel.trim() || null,
-        cost,
-        quantity: qty,
-        remaining: qty,
-        sale_price: null,
-        expiry_date: bExpiry.trim() || null,
-        expiry_type: bExpiryType,
+      const rows = targets.map((t) => ({
+        product_id: t.p.id,
+        lot_label: "初期在庫（要編集）",
+        cost: 0,
+        quantity: t.info.unregistered,
+        remaining: t.info.unregistered,
+        expiry_date: null,
+        expiry_type: "best_before",
       }));
 
       const { error } = await supabase.from("product_lots").insert(rows);
       if (error) {
-        console.error("bulk insert error:", error);
-        setMsg("登録に失敗しました: " + error.message);
+        setMsg("作成に失敗しました: " + error.message);
         return;
       }
 
-      setMsg(`${selectedIds.length}商品にロットを登録しました（在庫は自動では増えません。「在庫数をロット残数に合わせる」を押してください）`);
-      setSelected({});
-      setBCost("");
-      setBQty("");
-      setBExpiry("");
-      setBLabel("");
+      setMsg(
+        `${targets.length}商品・${total}個のロットを作成しました。原価と期限が未入力なので、各商品を開いて入力してください`
+      );
       await load();
     } finally {
       setBusy(false);
     }
   };
 
-  // ✅ ロット1件を保存
+  // ✅ 商品を開いたら、未登録の在庫ぶんの入力欄を自動で用意する
+  const ensureUnitRows = (p: ProductRow) => {
+    if (unitRows[p.id] !== undefined) return;
+
+    const info = infoOf(p);
+    const n = info.unregistered;
+    if (n <= 0) {
+      setUnitCount((prev) => ({ ...prev, [p.id]: "0" }));
+      setUnitRows((prev) => ({ ...prev, [p.id]: [] }));
+      return;
+    }
+
+    const unit = Math.min(200, n);
+    const base = info.avgCost > 0 ? String(info.avgCost) : "";
+    setUnitCount((prev) => ({ ...prev, [p.id]: String(unit) }));
+    setUnitRows((prev) => ({
+      ...prev,
+      [p.id]: Array.from({ length: unit }, () => emptyUnit(base)),
+    }));
+  };
+
+  // ✅ 入力欄を指定の個数で作り直す
+  const buildUnitRows = (p: ProductRow) => {
+    const n = Math.min(200, Math.max(0, toInt(unitCount[p.id])));
+    if (n <= 0) {
+      setMsg("個数を1以上で入力してください");
+      return;
+    }
+    const base = (unitBulkCost[p.id] ?? "").trim();
+    setUnitRows((prev) => ({
+      ...prev,
+      [p.id]: Array.from({ length: n }, () => emptyUnit(base)),
+    }));
+    setMsg(`${n}個ぶんの入力欄を作りました。原価と期限を入れてください`);
+  };
+
+  const setUnitRow = (pid: number, idx: number, key: keyof UnitDraft, value: string) => {
+    setUnitRows((prev) => {
+      const rows = [...(prev[pid] ?? [])];
+      if (!rows[idx]) return prev;
+      rows[idx] = { ...rows[idx], [key]: value } as unknown as UnitDraft;
+      return { ...prev, [pid]: rows };
+    });
+  };
+
+  const removeUnitRow = (pid: number, idx: number) => {
+    setUnitRows((prev) => ({
+      ...prev,
+      [pid]: (prev[pid] ?? []).filter((_, i) => i !== idx),
+    }));
+  };
+
+  // ✅ 入力中の原価を全行にまとめて反映（同じ入荷ぶんを素早く入力）
+  const fillUnitCost = (p: ProductRow) => {
+    const v = (unitBulkCost[p.id] ?? "").trim();
+    setUnitRows((prev) => ({
+      ...prev,
+      [p.id]: (prev[p.id] ?? []).map((r) => ({ ...r, cost: v })),
+    }));
+  };
+
+  // ✅ 1個＝1ロットとして登録（在庫が増える／原価・期限は必須）
+  const saveUnits = async (p: ProductRow) => {
+    if (busy) return;
+
+    const rows = unitRows[p.id] ?? [];
+    if (rows.length === 0) {
+      setMsg("先に個数を入れて「この個数で作り直す」を押してください");
+      return;
+    }
+
+    const missing = rows.some((r) => r.cost.trim() === "" || r.expiry_date.trim() === "");
+    if (missing) {
+      setMsg("原価と賞味期限（消費期限）は全行に入力してください（在庫を増やすときは必須です）");
+      return;
+    }
+
+    const parsed = rows.map((r) => ({
+      cost: Math.max(0, toInt(r.cost)),
+      expiry_date: r.expiry_date.trim(),
+      expiry_type: r.expiry_type === "use_by" ? "use_by" : "best_before",
+    }));
+
+    const syncAfter = unitSyncStock[p.id] !== false;
+    const stockNow = toInt(p.stock);
+
+    const ok = await appDialog.confirm({
+      message:
+        `「${p.name ?? p.id}」に ${parsed.length}個ぶんのロットを1個ずつ登録し、在庫を ${parsed.length}個 増やします。\n` +
+        `在庫数：${stockNow} → ${stockNow + parsed.length}\n` +
+        "よろしいですか？",
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("product_lots").insert(
+        parsed.map((r) => ({
+          product_id: p.id,
+          lot_label: null,
+          cost: r.cost,
+          quantity: 1,
+          remaining: 1,
+          expiry_date: r.expiry_date,
+          expiry_type: r.expiry_type,
+        }))
+      );
+
+      if (error) {
+        console.error("unit insert error:", error);
+        setMsg("登録に失敗しました: " + error.message);
+        return;
+      }
+
+      if (syncAfter) {
+        const { error: e2 } = await supabase
+          .from("products")
+          .update({ stock: stockNow + parsed.length })
+          .eq("id", p.id);
+
+        if (e2) {
+          setMsg("ロットは登録しましたが、在庫数の更新に失敗しました: " + e2.message);
+        } else {
+          setMsg(
+            `${parsed.length}個ぶんを1個ずつ登録し、在庫数を ${stockNow + parsed.length} に更新しました`
+          );
+        }
+      } else {
+        setMsg(`${parsed.length}個ぶんを1個ずつ登録しました（在庫数は変えていません）`);
+      }
+
+      setUnitRows((prev) => ({ ...prev, [p.id]: [] }));
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ✅ ロット1件を保存（原価・期限・メモのみ。残数は変更できない）
   const saveLot = async (l: Lot) => {
     if (busy) return;
     const d = drafts[l.id];
     if (!d) return;
 
-    const cost = toInt(d.cost);
-    const remaining = Math.max(0, toInt(d.remaining));
+    if (d.cost.trim() === "" || d.expiry_date.trim() === "") {
+      setMsg("原価と賞味期限（消費期限）を入力してください");
+      return;
+    }
 
     setBusy(true);
     try {
       const { error } = await supabase
         .from("product_lots")
         .update({
-          cost,
-          remaining,
-          sale_price: null,
-          expiry_date: d.expiry_date.trim() || null,
+          cost: Math.max(0, toInt(d.cost)),
+          expiry_date: d.expiry_date.trim(),
           expiry_type: d.expiry_type === "use_by" ? "use_by" : "best_before",
           lot_label: d.lot_label.trim() || null,
           updated_at: new Date().toISOString(),
@@ -335,8 +483,17 @@ export default function AdminCosts() {
     }
   };
 
-  const deleteLot = async (l: Lot) => {
-    const ok = await appDialog.confirm({ message: "このロットを削除しますか？（元に戻せません）" });
+  // ✅ 残数0のロットを削除（在庫は変わらないので理由は不要）
+  const deleteEmptyLot = async (l: Lot) => {
+    if (busy) return;
+    if (toInt(l.remaining) > 0) {
+      setMsg("残りがあるロットは削除できません。「在庫を減らす」から理由を選んでください");
+      return;
+    }
+
+    const ok = await appDialog.confirm({
+      message: "残数0のこのロットを削除しますか？（在庫数は変わりません）",
+    });
     if (!ok) return;
 
     setBusy(true);
@@ -353,43 +510,173 @@ export default function AdminCosts() {
     }
   };
 
-  // ✅ ロット1件を追加（1個ずつ設定したい時用）
-  const addOneLot = async (p: ProductRow) => {
-    if (busy) return;
-    const d = drafts[`new-${p.id}`];
-    const cost = d ? toInt(d.cost) : 0;
-    const qty = d ? Math.max(1, toInt(d.remaining)) : 1;
+  // ✅ 在庫を減らすダイアログを開く
+  const requestReduce = (p: ProductRow, l: Lot) => {
+    setReduceErr("");
+    setAdjust({
+      productId: p.id,
+      productName: p.name ?? String(p.id),
+      lotId: l.id,
+      lotLabel: l.lot_label,
+      remaining: toInt(l.remaining),
+      cost: toInt(l.cost),
+      expiryDate: l.expiry_date ? String(l.expiry_date).slice(0, 10) : null,
+      qty: String(toInt(l.remaining)),
+      reason: "",
+      memo: "",
+    });
+  };
+
+  // ✅ 在庫を減らす（理由と対象ロットが必須・履歴を残す）
+  const confirmReduce = async () => {
+    if (!adjust || busy) return;
+
+    const qty = Math.floor(Number(adjust.qty));
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setReduceErr("減らす数は1以上で入力してください");
+      return;
+    }
+    if (qty > adjust.remaining) {
+      setReduceErr(`このロットの残りは${adjust.remaining}個です`);
+      return;
+    }
+    if (!adjust.reason) {
+      setReduceErr("理由を選択してください（必須）");
+      return;
+    }
+    if (adjust.reason === "other" && adjust.memo.trim() === "") {
+      setReduceErr("「その他」を選んだ場合はメモを入力してください");
+      return;
+    }
+
+    const product = products.find((pp) => pp.id === adjust.productId);
+    if (!product) {
+      setReduceErr("商品が見つかりません。画面を再読み込みしてください");
+      return;
+    }
 
     setBusy(true);
     try {
-      const { error } = await supabase.from("product_lots").insert({
-        product_id: p.id,
-        lot_label: d?.lot_label?.trim() || null,
-        cost,
-        quantity: qty,
-        remaining: qty,
-        sale_price: null,
-        expiry_date: d?.expiry_date?.trim() || null,
-        expiry_type: d?.expiry_type === "use_by" ? "use_by" : "best_before",
-      });
-      if (error) {
-        setMsg("追加に失敗しました: " + error.message);
-        return;
+      const newRemaining = adjust.remaining - qty;
+      const fullDelete = newRemaining <= 0;
+
+      if (fullDelete) {
+        const { error } = await supabase.from("product_lots").delete().eq("id", adjust.lotId);
+        if (error) {
+          setReduceErr("削除に失敗しました: " + error.message);
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from("product_lots")
+          .update({ remaining: newRemaining, updated_at: new Date().toISOString() })
+          .eq("id", adjust.lotId);
+        if (error) {
+          setReduceErr("更新に失敗しました: " + error.message);
+          return;
+        }
       }
-      setMsg("ロットを1件追加しました");
+
+      const stockNow = Math.max(0, toInt(product.stock));
+      const { error: eStock } = await supabase
+        .from("products")
+        .update({ stock: Math.max(0, stockNow - qty) })
+        .eq("id", product.id);
+      if (eStock) console.error("stock update error:", eStock);
+
+      const { error: eLog } = await supabase.from("stock_adjustments").insert({
+        product_id: product.id,
+        lot_id: adjust.lotId,
+        qty: -qty,
+        reason: adjust.reason,
+        memo: adjust.memo.trim() || null,
+        lot_label: adjust.lotLabel,
+        cost: adjust.cost,
+        expiry_date: adjust.expiryDate,
+      });
+      if (eLog) {
+        console.warn("stock_adjustments insert failed:", eLog);
+        setMsg(
+          `在庫を${qty}個減らしました（理由：${reasonLabel(adjust.reason)}）／履歴の保存に失敗: ${eLog.message}`
+        );
+      } else {
+        setMsg(
+          `「${product.name ?? product.id}」の在庫を${qty}個減らしました（理由：${reasonLabel(
+            adjust.reason
+          )}）${fullDelete ? "／ロットを削除しました" : ""}`
+        );
+      }
+
+      setAdjust(null);
       await load();
     } finally {
       setBusy(false);
     }
   };
 
-  // ✅ 在庫数をロット残数の合計に合わせる
+  // ✅ 1件ずつ追加（在庫が増える／原価・期限は必須）
+  const addOneLot = async (p: ProductRow) => {
+    if (busy) return;
+    const d = drafts[`new-${p.id}`];
+    const costRaw = d ? d.cost.trim() : "";
+    const qty = d ? Math.max(1, toInt(d.remaining)) : 1;
+    const expiry = d ? d.expiry_date.trim() : "";
+
+    if (costRaw === "" || expiry === "") {
+      setMsg("原価と賞味期限（消費期限）を入力してください（在庫を増やすときは必須です）");
+      return;
+    }
+
+    const stockNow = toInt(p.stock);
+
+    const ok = await appDialog.confirm({
+      message:
+        `「${p.name ?? p.id}」に ${qty}個のロットを追加し、在庫を ${qty}個 増やします。\n` +
+        `在庫数：${stockNow} → ${stockNow + qty}\n` +
+        "よろしいですか？",
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("product_lots").insert({
+        product_id: p.id,
+        lot_label: d?.lot_label?.trim() || null,
+        cost: Math.max(0, toInt(costRaw)),
+        quantity: qty,
+        remaining: qty,
+        expiry_date: expiry,
+        expiry_type: d?.expiry_type === "use_by" ? "use_by" : "best_before",
+      });
+      if (error) {
+        setMsg("追加に失敗しました: " + error.message);
+        return;
+      }
+
+      await supabase.from("products").update({ stock: stockNow + qty }).eq("id", p.id);
+      setMsg(`ロットを追加し、在庫数を ${stockNow + qty} に更新しました`);
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ✅ 棚卸し調整（在庫数をロット残数に合わせる）※履歴を残す
   const syncStock = async (p: ProductRow) => {
     if (busy) return;
     const info = infoOf(p);
+    const stockNow = toInt(p.stock);
+    const diff = info.remaining - stockNow;
+
+    if (diff === 0) {
+      setMsg("在庫数とロット残数はすでに一致しています");
+      return;
+    }
 
     const ok = await appDialog.confirm({
-      message: `「${p.name ?? p.id}」の在庫数を ${toInt(p.stock)} → ${info.remaining} に合わせますか？`,
+      message:
+        `「${p.name ?? p.id}」の在庫数を ${stockNow} → ${info.remaining} に合わせますか？\n` +
+        `（${diff > 0 ? "+" : ""}${diff}個／棚卸し調整として履歴に残ります）`,
     });
     if (!ok) return;
 
@@ -403,149 +690,19 @@ export default function AdminCosts() {
         setMsg("在庫の更新に失敗しました: " + error.message);
         return;
       }
-      setMsg("在庫数をロット残数に合わせました");
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  };
 
-  // ✅ 商品を開いたら、未登録の在庫ぶんの入力欄を自動で用意する
-  const ensureUnitRows = (p: ProductRow) => {
-    // すでに入力欄があるなら触らない（入力中の内容を消さないため）
-    if (unitRows[p.id] !== undefined) return;
+      await supabase.from("stock_adjustments").insert({
+        product_id: p.id,
+        lot_id: null,
+        qty: diff,
+        reason: "棚卸し調整（在庫数をロット残数に合わせる）",
+        memo: null,
+        lot_label: null,
+        cost: null,
+        expiry_date: null,
+      });
 
-    const info = infoOf(p);
-    const n = Math.max(0, toInt(p.stock) - info.remaining);
-    if (n <= 0) {
-      setUnitCount((prev) => ({ ...prev, [p.id]: "0" }));
-      setUnitRows((prev) => ({ ...prev, [p.id]: [] }));
-      return;
-    }
-
-    const unit = Math.min(200, n);
-    const base = info.avgCost > 0 ? String(info.avgCost) : "";
-    setUnitCount((prev) => ({ ...prev, [p.id]: String(unit) }));
-    setUnitRows((prev) => ({
-      ...prev,
-      [p.id]: Array.from({ length: unit }, () => ({
-        cost: base,
-        expiry_date: "",
-        expiry_type: "best_before" as const,
-      })),
-    }));
-  };
-
-  // ✅ 在庫を1個ずつ登録：個数ぶんの入力欄を作る
-  const buildUnitRows = (p: ProductRow) => {
-    const n = Math.min(200, Math.max(0, toInt(unitCount[p.id])));
-    if (n <= 0) {
-      setMsg("個数を1以上で入力してください");
-      return;
-    }
-    const base = (unitBulkCost[p.id] ?? "").trim();
-    const rows: UnitDraft[] = Array.from({ length: n }, () => ({
-      cost: base,
-      expiry_date: "",
-      expiry_type: "best_before" as const,
-    }));
-    setUnitRows((prev) => ({ ...prev, [p.id]: rows }));
-    setMsg(`${n}個ぶんの入力欄を作りました。原価と期限を入れてください`);
-  };
-
-  const setUnitRow = (pid: number, idx: number, key: keyof UnitDraft, value: string) => {
-    setUnitRows((prev) => {
-      const rows = [...(prev[pid] ?? [])];
-      if (!rows[idx]) return prev;
-      rows[idx] = { ...rows[idx], [key]: value } as UnitDraft;
-      return { ...prev, [pid]: rows };
-    });
-  };
-
-  const removeUnitRow = (pid: number, idx: number) => {
-    setUnitRows((prev) => ({
-      ...prev,
-      [pid]: (prev[pid] ?? []).filter((_, i) => i !== idx),
-    }));
-  };
-
-  // ✅ 入力中の原価を全行にまとめて反映
-  const fillUnitCost = (p: ProductRow) => {
-    const v = (unitBulkCost[p.id] ?? "").trim();
-    setUnitRows((prev) => ({
-      ...prev,
-      [p.id]: (prev[p.id] ?? []).map((r) => ({ ...r, cost: v })),
-    }));
-  };
-
-  // ✅ 1個＝1ロットとしてまとめて保存
-  const saveUnits = async (p: ProductRow) => {
-    if (busy) return;
-
-    const rows = unitRows[p.id] ?? [];
-    if (rows.length === 0) {
-      setMsg("先に個数を入れて「入力欄を作る」を押してください");
-      return;
-    }
-
-    const parsed = rows.map((r) => ({
-      cost: Math.max(0, toInt(r.cost)),
-      expiry_date: r.expiry_date.trim() || null,
-      expiry_type: r.expiry_type === "use_by" ? "use_by" : "best_before",
-    }));
-
-    const info = infoOf(p);
-    const syncAfter = unitSyncStock[p.id] !== false;
-
-    const ok = await appDialog.confirm({
-      message:
-        `「${p.name ?? p.id}」に ${parsed.length}個ぶんのロットを1個ずつ登録します。\n` +
-        (syncAfter
-          ? `登録後の在庫数：${toInt(p.stock)} → ${info.remaining + parsed.length}\n`
-          : "") +
-        "よろしいですか？",
-    });
-    if (!ok) return;
-
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("product_lots").insert(
-        parsed.map((r) => ({
-          product_id: p.id,
-          lot_label: null,
-          cost: r.cost,
-          quantity: 1,
-          remaining: 1,
-          sale_price: null,
-          expiry_date: r.expiry_date,
-          expiry_type: r.expiry_type,
-        }))
-      );
-
-      if (error) {
-        console.error("unit insert error:", error);
-        setMsg("登録に失敗しました: " + error.message);
-        return;
-      }
-
-      if (syncAfter) {
-        const { error: e2 } = await supabase
-          .from("products")
-          .update({ stock: info.remaining + parsed.length })
-          .eq("id", p.id);
-
-        if (e2) {
-          setMsg("ロットは登録しましたが、在庫数の更新に失敗しました: " + e2.message);
-        } else {
-          setMsg(
-            `${parsed.length}個ぶんを1個ずつ登録し、在庫数を ${info.remaining + parsed.length} に更新しました`
-          );
-        }
-      } else {
-        setMsg(`${parsed.length}個ぶんを1個ずつ登録しました（在庫数は変わっていません）`);
-      }
-
-      setUnitRows((prev) => ({ ...prev, [p.id]: [] }));
+      setMsg(`在庫数をロット残数（${info.remaining}）に合わせました`);
       await load();
     } finally {
       setBusy(false);
@@ -575,12 +732,15 @@ export default function AdminCosts() {
 
           <h2 className="admin-costs-title">仕入れ原価・入荷ロット管理</h2>
           <p className="admin-costs-desc">
-            仕入れた単位（ロット）ごとに <b>1個あたりの原価</b> と <b>賞味期限・消費期限</b> を登録できます。
-            同じ商品でも仕入れた回によって原価や期限が違う場合は、ロットを分けて登録してください。
-            複数商品をまとめて仕入れたときは、チェックを付けて一括登録できます。
+            在庫は<b>「ロット」＝入荷したひとかたまり</b>として管理します。
+            <b>在庫を増やすときは、原価と賞味期限（消費期限）の登録が必須</b>です。
+            <b>在庫を減らすときは、理由と対象ロットの指定が必須</b>で、履歴に残ります。
           </p>
 
-          {(alertCounts.expired > 0 || alertCounts.soon > 0) && (
+          {(alertCounts.expired > 0 ||
+            alertCounts.soon > 0 ||
+            alertCounts.missing > 0 ||
+            alertCounts.missingField > 0) && (
             <div className="admin-costs-alertbar">
               {alertCounts.expired > 0 && (
                 <span className="aca-badge is-expired">期限切れ {alertCounts.expired}件</span>
@@ -588,83 +748,45 @@ export default function AdminCosts() {
               {alertCounts.soon > 0 && (
                 <span className="aca-badge is-warn">期限間近 {alertCounts.soon}件</span>
               )}
-              <button
-                className="aca-filter"
-                type="button"
-                onClick={() => setOnlyAlert((v) => !v)}
-              >
+              {alertCounts.missing > 0 && (
+                <span className="aca-badge is-missing">
+                  ロット未作成の在庫 {alertCounts.missing}件
+                </span>
+              )}
+              {alertCounts.missingField > 0 && (
+                <span className="aca-badge is-missing">
+                  原価・期限が未入力のロットあり {alertCounts.missingField}件
+                </span>
+              )}
+              <button className="aca-filter" type="button" onClick={() => setOnlyAlert((v) => !v)}>
                 {onlyAlert ? "すべて表示" : "期限アラートだけ表示"}
               </button>
             </div>
           )}
 
+          {alertCounts.missing > 0 && (
+            <section className="ac-backfill">
+              <div className="ac-backfill-title">
+                在庫があるのにロットが未作成の商品があります
+                <span className="ac-backfill-count">{alertCounts.missing}件</span>
+              </div>
+              <p className="ac-backfill-desc">
+                いまの在庫数をそのままロットとして登録します（在庫は増減しません）。
+                原価0円・期限未設定で作られるので、作成後に各商品を開いて原価と期限を入力してください。
+              </p>
+              <button
+                className="ac-bulk-btn"
+                type="button"
+                disabled={busy}
+                onClick={backfillAll}
+              >
+                {busy ? "処理中..." : "在庫に合わせてロットを一括作成"}
+              </button>
+            </section>
+          )}
+
           {msg && <div className="admin-costs-msg">{msg}</div>}
 
-          {/* ---------- まとめて登録 ---------- */}
-          <section className="ac-bulk">
-            <h3 className="ac-bulk-title">
-              まとめて登録
-              <span className="ac-bulk-count">選択中 {selectedIds.length} 商品</span>
-            </h3>
-
-            <div className="ac-bulk-grid">
-              <label>
-                <span>仕入れ原価（1個・円）</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  placeholder="例: 80"
-                  value={bCost}
-                  onChange={(e) => setBCost(e.target.value)}
-                />
-              </label>
-
-              <label>
-                <span>数量（個）</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  placeholder="例: 10"
-                  value={bQty}
-                  onChange={(e) => setBQty(e.target.value)}
-                />
-              </label>
-
-              <label>
-                <span>賞味期限 / 消費期限</span>
-                <input type="date" value={bExpiry} onChange={(e) => setBExpiry(e.target.value)} />
-              </label>
-
-              <label>
-                <span>期限の種類</span>
-                <select
-                  value={bExpiryType}
-                  onChange={(e) => setBExpiryType(e.target.value as "best_before" | "use_by")}
-                >
-                  <option value="best_before">賞味期限</option>
-                  <option value="use_by">消費期限</option>
-                </select>
-              </label>
-
-              <label>
-                <span>仕入れメモ（任意）</span>
-                <input
-                  type="text"
-                  placeholder="例: ○○商店 9/19仕入れ"
-                  value={bLabel}
-                  onChange={(e) => setBLabel(e.target.value)}
-                />
-              </label>
-            </div>
-
-            <button className="ac-bulk-btn" type="button" disabled={busy} onClick={bulkAdd}>
-              {busy ? "処理中..." : `選択した ${selectedIds.length} 商品に登録`}
-            </button>
-          </section>
-
-          {/* ---------- 検索・全選択 ---------- */}
           <div className="admin-costs-toolbar">
             <input
               className="admin-costs-search"
@@ -673,12 +795,6 @@ export default function AdminCosts() {
               placeholder="商品名 or 商品IDで絞り込み"
               inputMode="search"
             />
-            <button className="ac-mini" type="button" onClick={() => toggleAll(true)}>
-              表示中を全選択
-            </button>
-            <button className="ac-mini" type="button" onClick={() => toggleAll(false)}>
-              選択解除
-            </button>
           </div>
 
           {loading ? (
@@ -690,24 +806,10 @@ export default function AdminCosts() {
               {filtered.map((p) => {
                 const info = infoOf(p);
                 const isOpen = openId === p.id;
-                const checked = !!selected[p.id];
 
                 return (
-                  <div
-                    key={p.id}
-                    className={`admin-costs-row${checked ? " is-selected" : ""}`}
-                  >
+                  <div key={p.id} className="admin-costs-row">
                     <div className="ac-row-head">
-                      <label className="ac-check">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) =>
-                            setSelected((prev) => ({ ...prev, [p.id]: e.target.checked }))
-                          }
-                        />
-                      </label>
-
                       <button
                         className="ac-row-main"
                         type="button"
@@ -724,10 +826,21 @@ export default function AdminCosts() {
                           {p.name || "(名前なし)"}
                           {p.is_visible === false && <span className="ac-tag">非表示</span>}
                           {toInt(p.max_per_order) > 0 && (
-                            <span className="ac-tag limit">
-                              上限{toInt(p.max_per_order)}個
-                            </span>
+                            <span className="ac-tag limit">上限{toInt(p.max_per_order)}個</span>
                           )}
+                          {info.unregistered > 0 && (
+                            <span className="ac-tag warn">ロット未作成 {info.unregistered}個</span>
+                          )}
+                          {info.unregistered === 0 &&
+                            (info.missingCost || info.missingExpiry) && (
+                              <span className="ac-tag warn">
+                                {info.missingCost && info.missingExpiry
+                                  ? "原価・期限が未入力"
+                                  : info.missingCost
+                                  ? "原価が未入力"
+                                  : "期限が未設定"}
+                              </span>
+                            )}
                         </div>
 
                         <div className="ac-row-meta">
@@ -750,9 +863,9 @@ export default function AdminCosts() {
                               {info.status !== "none" ? `（${info.alertDays}日以内で警告）` : ""}
                             </span>
                           )}
-                          {info.remaining !== toInt(p.stock) && (
+                          {info.unregistered > 0 && (
                             <span className="ac-exp-diff">
-                              ⚠ 在庫数とロット残数が一致していません
+                              ⚠ 在庫 {toInt(p.stock)} のうち {info.unregistered}個 がロット未作成
                             </span>
                           )}
                         </div>
@@ -788,7 +901,7 @@ export default function AdminCosts() {
 
                         {info.lots.length === 0 ? (
                           <p className="ac-lots-empty">
-                            まだロットがありません。下の「1件ずつ追加」または上の「まとめて登録」で登録してください。
+                            まだロットがありません。下の「在庫を1個ずつ登録」または「1件ずつ追加」で登録してください。
                           </p>
                         ) : (
                           <div className="ac-lot-list">
@@ -796,9 +909,13 @@ export default function AdminCosts() {
                               const d = drafts[l.id] ?? draftOf(l);
                               const st = expiryStatusOf(d.expiry_date, info.alertDays);
                               const dDays = daysLeftOf(d.expiry_date);
+                              const rem = toInt(l.remaining);
 
                               return (
-                                <div key={l.id} className="ac-lot">
+                                <div
+                                  key={l.id}
+                                  className={`ac-lot${rem <= 0 ? " is-empty" : ""}`}
+                                >
                                   <div className="ac-lot-head">
                                     <span className={`ac-exp ${statusClass(st)}`}>
                                       {expiryStatusLabel(st, dDays)}
@@ -809,11 +926,12 @@ export default function AdminCosts() {
                                     <span className="ac-lot-id">
                                       入荷 {l.received_at ? String(l.received_at).slice(0, 10) : "-"}
                                     </span>
+                                    <span className="ac-lot-id">残り {rem}個</span>
                                   </div>
 
                                   <div className="ac-lot-grid">
                                     <label>
-                                      <span>原価(1個)</span>
+                                      <span>原価(1個) 必須</span>
                                       <input
                                         type="number"
                                         inputMode="numeric"
@@ -829,23 +947,7 @@ export default function AdminCosts() {
                                     </label>
 
                                     <label>
-                                      <span>残数</span>
-                                      <input
-                                        type="number"
-                                        inputMode="numeric"
-                                        min={0}
-                                        value={d.remaining}
-                                        onChange={(e) =>
-                                          setDrafts((prev) => ({
-                                            ...prev,
-                                            [l.id]: { ...d, remaining: e.target.value },
-                                          }))
-                                        }
-                                      />
-                                    </label>
-
-                                    <label>
-                                      <span>期限</span>
+                                      <span>期限 必須</span>
                                       <input
                                         type="date"
                                         value={d.expiry_date}
@@ -891,7 +993,7 @@ export default function AdminCosts() {
 
                                   <div className="ac-lot-foot">
                                     <span className="ac-lot-total">
-                                      このロットの在庫原価：¥{yen(toInt(d.cost) * toInt(d.remaining))}
+                                      このロットの在庫原価：¥{yen(toInt(d.cost) * rem)}
                                     </span>
                                     <button
                                       className="ac-save"
@@ -901,14 +1003,25 @@ export default function AdminCosts() {
                                     >
                                       保存
                                     </button>
-                                    <button
-                                      className="ac-del"
-                                      type="button"
-                                      disabled={busy}
-                                      onClick={() => deleteLot(l)}
-                                    >
-                                      削除
-                                    </button>
+                                    {rem > 0 ? (
+                                      <button
+                                        className="ac-del"
+                                        type="button"
+                                        disabled={busy}
+                                        onClick={() => requestReduce(p, l)}
+                                      >
+                                        在庫を減らす
+                                      </button>
+                                    ) : (
+                                      <button
+                                        className="ac-del"
+                                        type="button"
+                                        disabled={busy}
+                                        onClick={() => deleteEmptyLot(l)}
+                                      >
+                                        削除
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -916,37 +1029,37 @@ export default function AdminCosts() {
                           </div>
                         )}
 
-                        {/* 1件ずつ追加 */}
+                        {/* 1件ずつ追加（既存ロットと同じ原価・期限のまとまりを追加） */}
                         <div className="ac-new">
-                          <div className="ac-new-title">1件ずつ追加（バラ売り在庫の1個単位もここで）</div>
+                          <div className="ac-new-title">1件ずつ追加（原価・期限は必須）</div>
                           <div className="ac-lot-grid">
                             <label>
-                              <span>原価(1個)</span>
+                              <span>原価(1個) 必須</span>
                               <input
                                 type="number"
                                 inputMode="numeric"
                                 min={0}
-                                placeholder="0"
+                                placeholder="例: 80"
                                 value={drafts[`new-${p.id}`]?.cost ?? ""}
                                 onChange={(e) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [`new-${p.id}`]: {
-                                      ...(prev[`new-${p.id}`] ?? {
-                                        cost: "",
-                                        remaining: "1",
-                                        expiry_date: "",
-                                        expiry_type: "best_before",
-                                        lot_label: "",
-                                      }),
-                                      cost: e.target.value,
-                                    },
-                                  }))
+                                  setDrafts((prev) => {
+                                    const cur = prev[`new-${p.id}`] ?? {
+                                      cost: "",
+                                      remaining: "1",
+                                      expiry_date: "",
+                                      expiry_type: "best_before",
+                                      lot_label: "",
+                                    };
+                                    return {
+                                      ...prev,
+                                      [`new-${p.id}`]: { ...cur, cost: e.target.value },
+                                    };
+                                  })
                                 }
                               />
                             </label>
                             <label>
-                              <span>数量</span>
+                              <span>数量 必須</span>
                               <input
                                 type="number"
                                 inputMode="numeric"
@@ -954,41 +1067,41 @@ export default function AdminCosts() {
                                 placeholder="1"
                                 value={drafts[`new-${p.id}`]?.remaining ?? ""}
                                 onChange={(e) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [`new-${p.id}`]: {
-                                      ...(prev[`new-${p.id}`] ?? {
-                                        cost: "",
-                                        remaining: "",
-                                        expiry_date: "",
-                                        expiry_type: "best_before",
-                                        lot_label: "",
-                                      }),
-                                      remaining: e.target.value,
-                                    },
-                                  }))
+                                  setDrafts((prev) => {
+                                    const cur = prev[`new-${p.id}`] ?? {
+                                      cost: "",
+                                      remaining: "",
+                                      expiry_date: "",
+                                      expiry_type: "best_before",
+                                      lot_label: "",
+                                    };
+                                    return {
+                                      ...prev,
+                                      [`new-${p.id}`]: { ...cur, remaining: e.target.value },
+                                    };
+                                  })
                                 }
                               />
                             </label>
                             <label>
-                              <span>期限</span>
+                              <span>期限 必須</span>
                               <input
                                 type="date"
                                 value={drafts[`new-${p.id}`]?.expiry_date ?? ""}
                                 onChange={(e) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [`new-${p.id}`]: {
-                                      ...(prev[`new-${p.id}`] ?? {
-                                        cost: "",
-                                        remaining: "",
-                                        expiry_date: "",
-                                        expiry_type: "best_before",
-                                        lot_label: "",
-                                      }),
-                                      expiry_date: e.target.value,
-                                    },
-                                  }))
+                                  setDrafts((prev) => {
+                                    const cur = prev[`new-${p.id}`] ?? {
+                                      cost: "",
+                                      remaining: "",
+                                      expiry_date: "",
+                                      expiry_type: "best_before",
+                                      lot_label: "",
+                                    };
+                                    return {
+                                      ...prev,
+                                      [`new-${p.id}`]: { ...cur, expiry_date: e.target.value },
+                                    };
+                                  })
                                 }
                               />
                             </label>
@@ -997,19 +1110,19 @@ export default function AdminCosts() {
                               <select
                                 value={drafts[`new-${p.id}`]?.expiry_type ?? "best_before"}
                                 onChange={(e) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [`new-${p.id}`]: {
-                                      ...(prev[`new-${p.id}`] ?? {
-                                        cost: "",
-                                        remaining: "",
-                                        expiry_date: "",
-                                        expiry_type: "best_before",
-                                        lot_label: "",
-                                      }),
-                                      expiry_type: e.target.value,
-                                    },
-                                  }))
+                                  setDrafts((prev) => {
+                                    const cur = prev[`new-${p.id}`] ?? {
+                                      cost: "",
+                                      remaining: "",
+                                      expiry_date: "",
+                                      expiry_type: "best_before",
+                                      lot_label: "",
+                                    };
+                                    return {
+                                      ...prev,
+                                      [`new-${p.id}`]: { ...cur, expiry_type: e.target.value },
+                                    };
+                                  })
                                 }
                               >
                                 <option value="best_before">賞味</option>
@@ -1022,19 +1135,19 @@ export default function AdminCosts() {
                                 type="text"
                                 value={drafts[`new-${p.id}`]?.lot_label ?? ""}
                                 onChange={(e) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [`new-${p.id}`]: {
-                                      ...(prev[`new-${p.id}`] ?? {
-                                        cost: "",
-                                        remaining: "",
-                                        expiry_date: "",
-                                        expiry_type: "best_before",
-                                        lot_label: "",
-                                      }),
-                                      lot_label: e.target.value,
-                                    },
-                                  }))
+                                  setDrafts((prev) => {
+                                    const cur = prev[`new-${p.id}`] ?? {
+                                      cost: "",
+                                      remaining: "",
+                                      expiry_date: "",
+                                      expiry_type: "best_before",
+                                      lot_label: "",
+                                    };
+                                    return {
+                                      ...prev,
+                                      [`new-${p.id}`]: { ...cur, lot_label: e.target.value },
+                                    };
+                                  })
                                 }
                               />
                             </label>
@@ -1045,31 +1158,21 @@ export default function AdminCosts() {
                             disabled={busy}
                             onClick={() => addOneLot(p)}
                           >
-                            この内容で1件追加
+                            この内容で追加（在庫が増えます）
                           </button>
                         </div>
 
-                        {/* ✅ 在庫を1個ずつ登録（同じ商品でも1個ごとに原価・期限） */}
+                        {/* ✅ 在庫を1個ずつ登録 */}
                         <div className="ac-units">
                           <div className="ac-new-title">
                             在庫を1個ずつ登録（同じ商品でも1個ごとに原価・賞味期限を個別設定）
                           </div>
                           <p className="ac-units-desc">
                             商品を開くと、<b>まだロット登録していない在庫の数だけ入力欄が自動で並びます</b>。
-                            それぞれの行に原価・期限を入れて登録すると、<b>1個＝1ロット</b>として保存されます。
-                            {(() => {
-                              const info = infoOf(p);
-                              const unregistered = Math.max(0, toInt(p.stock) - info.remaining);
-                              return (
-                                <>
-                                  （在庫 {toInt(p.stock)}個 ／ うちロット登録済み {info.remaining}個 ／{" "}
-                                  <b>未登録 {unregistered}個</b>）
-                                  {unregistered <= 0 && info.count > 0
-                                    ? " すべて登録済みです。追加で登録する場合は個数を入れて「この個数で作り直す」を押してください。"
-                                    : ""}
-                                </>
-                              );
-                            })()}
+                            それぞれの行に原価・期限を入れて登録すると、<b>1個＝1ロット</b>として保存され、
+                            在庫がその個数だけ増えます。
+                            （在庫 {toInt(p.stock)}個 ／ うちロット登録済み {info.remaining}個 ／{" "}
+                            <b>未登録 {info.unregistered}個</b>）
                           </p>
 
                           <div className="ac-units-top">
@@ -1109,11 +1212,7 @@ export default function AdminCosts() {
                               />
                             </label>
 
-                            <button
-                              className="ac-mini"
-                              type="button"
-                              onClick={() => fillUnitCost(p)}
-                            >
+                            <button className="ac-mini" type="button" onClick={() => fillUnitCost(p)}>
                               表示中の行に反映
                             </button>
                           </div>
@@ -1133,20 +1232,18 @@ export default function AdminCosts() {
                                     <span className="ac-unit-no">{idx + 1}</span>
 
                                     <label>
-                                      <span>原価（1個・円）</span>
+                                      <span>原価（1個・円）必須</span>
                                       <input
                                         type="number"
                                         inputMode="numeric"
                                         min={0}
                                         value={r.cost}
-                                        onChange={(e) =>
-                                          setUnitRow(p.id, idx, "cost", e.target.value)
-                                        }
+                                        onChange={(e) => setUnitRow(p.id, idx, "cost", e.target.value)}
                                       />
                                     </label>
 
                                     <label>
-                                      <span>賞味期限 / 消費期限</span>
+                                      <span>賞味期限 / 消費期限 必須</span>
                                       <input
                                         type="date"
                                         value={r.expiry_date}
@@ -1192,7 +1289,7 @@ export default function AdminCosts() {
                                       }))
                                     }
                                   />
-                                  <span>登録後に在庫数をロット残数に合わせる</span>
+                                  <span>登録後に在庫数へ反映する</span>
                                 </label>
 
                                 <button
@@ -1201,7 +1298,9 @@ export default function AdminCosts() {
                                   disabled={busy}
                                   onClick={() => saveUnits(p)}
                                 >
-                                  {busy ? "処理中..." : `${(unitRows[p.id] ?? []).length}個を1個ずつ登録`}
+                                  {busy
+                                    ? "処理中..."
+                                    : `${(unitRows[p.id] ?? []).length}個を1個ずつ登録（在庫が増えます）`}
                                 </button>
                               </div>
                             </>
@@ -1216,13 +1315,96 @@ export default function AdminCosts() {
           )}
 
           <p className="admin-costs-note">
-            ※ ロットの残数は購入時に「セール分 → 期限が近い順」で自動的に減ります。
-            在庫数（商品の在庫）とロット残数の合計がずれた場合は「在庫数をロット残数に合わせる」で揃えてください。
-            <br />※ 同じ商品でも1個ごとに原価・期限を持たせたいときは「在庫を1個ずつ登録」を使ってください（1個＝1ロットで登録されます）。
+            ※ 在庫を増やすには、原価と賞味期限（消費期限）を入れたロット登録が必要です（在庫が自動で増えます）。
+            <br />※ 在庫を減らすときは「在庫を減らす」から<b>理由</b>と<b>対象ロット</b>を指定してください。履歴が残ります。
+            残数0のロットだけは理由なしで削除できます。
+            <br />※ ロットの残数は購入時に「セール分 → 期限が近い順」で自動的に減ります。
             <br />※ セール（セール価格・セール販売の個数）は<b>商品管理</b>画面で設定します。
           </p>
         </div>
       </div>
+
+      {/* ✅ 在庫を減らすダイアログ */}
+      {adjust && (
+        <div className="ac-modal-back">
+          <div className="ac-modal">
+            <h3 className="ac-modal-title">在庫を減らす</h3>
+            <p className="ac-modal-sub">
+              {adjust.productName}
+              {adjust.lotLabel ? ` ／ ${adjust.lotLabel}` : ""} ／ 残り{adjust.remaining}個
+            </p>
+
+            <div className="ac-modal-grid">
+              <label>
+                <span>減らす数（個）必須</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={adjust.remaining}
+                  value={adjust.qty}
+                  onChange={(e) => setAdjust((prev) => (prev ? { ...prev, qty: e.target.value } : prev))}
+                />
+              </label>
+
+              <label>
+                <span>理由 必須</span>
+                <select
+                  value={adjust.reason}
+                  onChange={(e) =>
+                    setAdjust((prev) =>
+                      prev ? { ...prev, reason: e.target.value as Reason | "" } : prev
+                    )
+                  }
+                >
+                  <option value="">選択してください</option>
+                  {REASONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="ac-modal-wide">
+                <span>
+                  メモ{adjust.reason === "other" ? "（必須）" : "（任意）"}
+                </span>
+                <input
+                  type="text"
+                  placeholder="例: 賞味期限切れのため廃棄"
+                  value={adjust.memo}
+                  onChange={(e) =>
+                    setAdjust((prev) => (prev ? { ...prev, memo: e.target.value } : prev))
+                  }
+                />
+              </label>
+            </div>
+
+            <p className="ac-modal-note">
+              このロットから{toInt(adjust.qty)}個を在庫から減らします
+              {toInt(adjust.qty) >= adjust.remaining ? "（ロットは削除されます）" : ""}。
+              在庫数も同じ数だけ減ります。
+            </p>
+
+            {reduceErr && <p className="ac-modal-err">{reduceErr}</p>}
+
+            <div className="ac-modal-foot">
+              <button
+                className="ac-del"
+                type="button"
+                disabled={busy}
+                onClick={() => setAdjust(null)}
+              >
+                キャンセル
+              </button>
+              <button className="ac-save" type="button" disabled={busy} onClick={confirmReduce}>
+                {busy ? "処理中..." : "在庫を減らす"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

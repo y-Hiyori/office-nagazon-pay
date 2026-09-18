@@ -301,18 +301,30 @@ export default function AdminEdit() {
           </div>
 
           <div className="ae-field">
-            <label className="ae-label">在庫数</label>
+            <label className="ae-label">在庫数（ロット管理で自動計算）</label>
             <div className="ae-input-wrap">
               <input
                 className="ae-input"
                 value={stock}
-                onChange={(e) => setStock(e.target.value)}
                 type="number"
                 inputMode="numeric"
-                placeholder="0"
+                readOnly
               />
               <span className="ae-suffix">個</span>
             </div>
+            <div className="ae-help">
+              在庫はここでは変更できません。<br />
+              <b>増やすとき</b>は「仕入れ原価・入荷ロット管理」で<b>原価と賞味期限を登録</b>して入荷してください。<br />
+              <b>減らすとき</b>は同画面で<b>理由と対象ロット</b>を指定してください。
+            </div>
+            <button
+              type="button"
+              className="ae-input"
+              style={{ marginTop: 8, cursor: "pointer" }}
+              onClick={() => navigate("/admin-costs")}
+            >
+              仕入れ原価・入荷ロット管理を開く
+            </button>
           </div>
 
           <div className="ae-input-wrap">

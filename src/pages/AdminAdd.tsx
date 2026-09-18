@@ -17,6 +17,9 @@ function AdminAdd() {
   const [earnPoints, setEarnPoints] = useState("");
   // ✅ 仕入れ原価（1個あたり・円）
   const [cost, setCost] = useState("");
+  // ✅ 賞味期限（在庫を登録するときは必須）
+  const [expiryDate, setExpiryDate] = useState("");
+  const [expiryType, setExpiryType] = useState<"best_before" | "use_by">("best_before");
   // ✅ 1回のお会計での購入上限・賞味期限アラート日数
   const [maxPerOrder, setMaxPerOrder] = useState("");
   const [alertDays, setAlertDays] = useState("30");
@@ -126,6 +129,28 @@ function AdminAdd() {
       return;
     }
 
+    // ✅ 在庫を登録するときは原価と期限が必須
+    if (stockNum > 0) {
+      if (costRaw === "") {
+        await appDialog.alert({
+          title: "入力エラー",
+          message:
+            "在庫を登録する場合は「仕入れ原価（1個あたり）」が必須です。\n入荷ロットとして登録されます。",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      if (expiryDate.trim() === "") {
+        await appDialog.alert({
+          title: "入力エラー",
+          message:
+            "在庫を登録する場合は「賞味期限 / 消費期限」が必須です。\n入荷ロットとして登録されます。",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const maxPerOrderNum = maxPerOrder.trim() === "" ? null : Math.max(1, Math.floor(Number(maxPerOrder)));
     const alertDaysNum = alertDays.trim() === "" ? 30 : Math.max(1, Math.floor(Number(alertDays)));
 
@@ -157,6 +182,31 @@ function AdminAdd() {
       });
       setIsSubmitting(false);
       return;
+    }
+
+    // ✅ 在庫ぶんの入荷ロットを登録（原価・期限つき）
+    if (stockNum > 0) {
+      const { error: eLot } = await supabase.from("product_lots").insert({
+        product_id: idNum,
+        lot_label: "初回入荷",
+        cost: costNum ?? 0,
+        quantity: stockNum,
+        remaining: stockNum,
+        expiry_date: expiryDate.trim(),
+        expiry_type: expiryType,
+      });
+
+      if (eLot) {
+        await appDialog.alert({
+          title: "注意",
+          message:
+            "商品は追加しましたが、入荷ロットの登録に失敗しました: " +
+            eLot.message +
+            "\n「仕入れ原価・入荷ロット管理」から登録してください。",
+        });
+        navigate("/admin-page");
+        return;
+      }
     }
 
     await appDialog.alert({ title: "完了", message: "商品を追加しました！" });
@@ -232,10 +282,32 @@ function AdminAdd() {
 
       <input
         type="number"
-        placeholder="仕入れ原価（1個あたり・円／任意）"
+        placeholder="仕入れ原価（1個あたり・円）※在庫を入れる場合は必須"
         value={cost}
         onChange={(e) => setCost(e.target.value)}
       />
+
+      <div className="add-lot-box">
+        <div className="add-lot-title">
+          賞味期限 / 消費期限<span className="add-lot-req">在庫を入れる場合は必須</span>
+        </div>
+        <input
+          type="date"
+          value={expiryDate}
+          onChange={(e) => setExpiryDate(e.target.value)}
+        />
+        <select
+          value={expiryType}
+          onChange={(e) => setExpiryType(e.target.value as "best_before" | "use_by")}
+        >
+          <option value="best_before">賞味期限</option>
+          <option value="use_by">消費期限</option>
+        </select>
+        <div className="add-lot-help">
+          在庫を入れると、この期限・原価で「初回入荷」ロットが自動作成されます。
+          その後の入荷は「仕入れ原価・入荷ロット管理」から登録してください。
+        </div>
+      </div>
 
       <input
         type="number"
