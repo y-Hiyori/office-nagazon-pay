@@ -15,7 +15,7 @@ type MenuGroup = {
   items: MenuItem[];
 };
 
-// ✅ v30：項目をグループ分け（ゲーム関連は独立）
+// ✅ v30/v31：項目をグループ分け（ゲーム関連は独立）
 const GROUPS: MenuGroup[] = [
   {
     title: "商品・販売",
@@ -25,6 +25,7 @@ const GROUPS: MenuGroup[] = [
       { label: "クーポン管理", path: "/admin-coupons" },
       { label: "ポイント管理", path: "/admin-points", cls: "is-danger" },
       { label: "売上状況確認", path: "/admin-sales" },
+      { label: "アカウント管理", path: "/admin-users" },
     ],
   },
   {
@@ -34,10 +35,6 @@ const GROUPS: MenuGroup[] = [
       { label: "ゲームスコア管理", path: "/admin-game-scores" },
       { label: "ゲーム報酬設定", path: "/admin-coupon-rewards" },
     ],
-  },
-  {
-    title: "アカウント",
-    items: [{ label: "アカウント管理", path: "/admin-users" }],
   },
 ];
 
