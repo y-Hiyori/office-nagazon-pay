@@ -98,3 +98,62 @@ export const expiryStatusLabel = (s: ExpiryStatus, days: number | null): string 
 
 export const expiryTypeLabel = (t?: string | null) =>
   t === "use_by" ? "消費期限" : "賞味期限";
+
+// ---------- v18：商品ごとのセール（価格と販売個数） ----------
+
+/** セール価格（未設定/0なら null） */
+export function salePriceOf(p: any): number | null {
+  const n = Math.floor(Number(p?.sale_price ?? 0));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** 設定したセール個数 */
+export function saleQtyOf(p: any): number {
+  return Math.max(0, Math.floor(Number(p?.sale_qty ?? 0) || 0));
+}
+
+/** セールの残り個数 */
+export function saleRemainingOf(p: any): number {
+  return Math.max(0, Math.floor(Number(p?.sale_remaining ?? 0) || 0));
+}
+
+/** いまセール中か */
+export function isOnSale(p: any): boolean {
+  return salePriceOf(p) != null && saleRemainingOf(p) > 0;
+}
+
+/**
+ * 商品のセールを設定する（価格0 or 個数0 で解除）
+ * RPCが無い環境（SQL未実行）でも動くよう、直接更新にフォールバックする
+ */
+export async function setProductSale(
+  productId: number,
+  salePrice: number | null,
+  qty: number
+): Promise<{ ok: boolean; error?: string }> {
+  const price = salePrice == null ? 0 : Math.floor(salePrice);
+  const count = Math.max(0, Math.floor(qty));
+
+  const { error } = await supabase.rpc("set_product_sale", {
+    p_product_id: productId,
+    p_sale_price: price,
+    p_qty: count,
+  });
+
+  if (!error) return { ok: true };
+
+  console.warn("set_product_sale rpc failed, fallback to direct update:", error);
+
+  const clearing = price <= 0 || count <= 0;
+  const { error: e2 } = await supabase
+    .from("products")
+    .update(
+      clearing
+        ? { sale_price: null, sale_qty: 0, sale_remaining: 0 }
+        : { sale_price: price, sale_qty: count, sale_remaining: count }
+    )
+    .eq("id", productId);
+
+  if (e2) return { ok: false, error: e2.message };
+  return { ok: true };
+}
