@@ -1,195 +1,263 @@
-/* src/pages/AdminCoupons.css */
+/* src/pages/AdminCoupons.css — v34 カード型に刷新 */
 
-:root{
-  --site-bg: #f5f5f7;
-  --card: #ffffff;
-  --text: #111827;
-  --muted: #64748b;
-  --muted2: #475569;
-  --line: rgba(148, 163, 184, 0.18);
-  --line-strong: rgba(148, 163, 184, 0.35);
-}
-
-.admin-coupons-page{
-  padding: 24px 16px;
-  max-width: 1100px;
+.admin-coupons-page {
+  --ac-wine: #8b1e3f;
+  --ac-wine-soft: #fdf2f5;
+  --ac-ink: #111827;
+  --ac-sub: #64748b;
+  --ac-line: rgba(148, 163, 184, 0.24);
+  padding: 96px 16px 56px;
+  max-width: 1040px;
   margin: 0 auto;
-  color: var(--text);
+  color: var(--ac-ink);
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic, "ヒラギノ角ゴ ProN",
+    "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  box-sizing: border-box;
 }
+.admin-coupons-page * { box-sizing: border-box; }
 
-/* ヘッダー */
-.admin-coupons-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
+/* ---------- ヘッダー ---------- */
+.ac-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
 }
-
-.admin-coupons-head h2{
-  margin: 0;
-  font-size: 20px;
+.ac-title {
+  margin: 0 0 6px;
+  font-size: 22px;
   font-weight: 900;
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
 }
+.ac-title::after {
+  content: "";
+  display: block;
+  width: 34px;
+  height: 2px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--ac-wine);
+}
+.ac-lead {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--ac-sub);
+  line-height: 1.7;
+}
+.ac-head-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
-.admin-coupons-actions{
-  display:flex;
-  gap:10px;
+/* ---------- 統計 ---------- */
+.ac-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 18px 0 14px;
+}
+.ac-stat {
+  background: #fff;
+  border: 1px solid var(--ac-line);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.ac-stat.is-running { background: var(--ac-wine-soft); border-color: rgba(139, 30, 63, 0.2); }
+.ac-stat-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--ac-sub);
+  letter-spacing: 0.04em;
+}
+.ac-stat-value {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 900;
+}
+.ac-stat.is-running .ac-stat-value { color: var(--ac-wine); }
+
+/* ---------- ツールバー ---------- */
+.ac-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 16px;
 }
-
-/* フィルター */
-.admin-coupons-filter{
-  display:flex;
-  gap:12px;
-  align-items:center;
-  margin:14px 0;
-  flex-wrap: wrap;
-}
-
-/* ✅ 共通 input / btn / check */
-.admin-coupons-page .input{
-  width: min(520px, 100%);
-  padding: 10px 12px;
-  border: 1px solid var(--line-strong);
+.admin-coupons-page .input {
+  width: min(360px, 100%);
+  padding: 11px 13px;
+  border: 1px solid var(--ac-line);
   border-radius: 12px;
   background: #fff;
-  color: var(--text);
+  color: var(--ac-ink);
+  font-size: 14px;
   outline: none;
 }
-
-.admin-coupons-page .input:focus{
-  border-color: rgba(79,110,233,.45);
-  box-shadow: 0 0 0 4px rgba(79,110,233,.10);
+.admin-coupons-page .input:focus {
+  border-color: rgba(139, 30, 63, 0.4);
+  box-shadow: 0 0 0 4px rgba(139, 30, 63, 0.08);
 }
-
-.admin-coupons-page .check{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  font-weight: 900;
-  color: var(--text);
-  user-select: none;
-}
-
-.admin-coupons-page .check input{
-  width: 18px;
-  height: 18px;
-}
-
-/* ボタン */
-.admin-coupons-page .btn{
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line-strong);
+.ac-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.ac-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1px solid var(--ac-line);
+  border-radius: 999px;
   background: #fff;
-  font-weight: 900;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #334155;
   cursor: pointer;
-  color: var(--text);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+.ac-chip.active {
+  background: var(--ac-wine);
+  border-color: var(--ac-wine);
+  color: #fff;
+}
+.ac-chip-count {
+  font-size: 11px;
+  font-weight: 900;
+  opacity: 0.75;
 }
 
-.admin-coupons-page .btn:active{
-  transform: translateY(1px);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
-}
-
-.admin-coupons-page .btn.ghost{
-  background: transparent;
-  box-shadow: none;
-}
-
-.admin-coupons-page .btn.tiny{
-  padding: 8px 10px;
-  font-size: 12px;
-  margin-left: 8px;
-  box-shadow: none;
-}
-
-.admin-coupons-page .btn.danger{
-  border-color: rgba(239, 68, 68, .35);
-}
-
-/* テーブル */
-.admin-coupons-tableWrap{
-  overflow:auto;
-  border: 1px solid rgba(148,163,184,.25);
+/* ---------- カード一覧 ---------- */
+.ac-list { display: flex; flex-direction: column; gap: 12px; }
+.ac-card {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid var(--ac-line);
   border-radius: 16px;
-  background: var(--card);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+  padding: 16px 18px;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
 }
-
-.admin-coupons-table{
-  width:100%;
-  border-collapse: collapse;
-  min-width: 900px;
-  background:#fff;
+.ac-card-body { flex: 1 1 auto; min-width: 0; }
+.ac-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-
-.admin-coupons-table th,
-.admin-coupons-table td{
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--line);
-  text-align: left;
-  vertical-align: middle;
-}
-
-.admin-coupons-table th{
-  background: #f7f7fb;
-  font-size: 13px;
-  font-weight: 900;
-  color: #0f172a;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.mono{
+.ac-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 17px;
   font-weight: 900;
-  letter-spacing: .02em;
+  letter-spacing: 0.04em;
+  word-break: break-all;
 }
-
-.small{
-  font-size: 12px;
-  color: var(--muted2);
-}
-
-.right{
-  text-align: right;
+.ac-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
   white-space: nowrap;
 }
-
-.empty{
-  text-align: center;
-  padding: 18px;
-  color: var(--muted);
-}
-
-/* ON/OFF */
-.pill{
-  padding: 8px 10px;
+.ac-pill.running { background: #059669; color: #fff; }
+.ac-pill.wait { background: #f59e0b; color: #fff; }
+.ac-pill.stopped { background: #e2e8f0; color: #475569; }
+.ac-tag {
+  padding: 3px 9px;
   border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  background: #fff;
+  background: var(--ac-wine-soft);
+  color: var(--ac-wine);
+  font-size: 11px;
   font-weight: 900;
+  white-space: nowrap;
+}
+.ac-tag.is-soft { background: #f1f5f9; color: #475569; }
+
+.ac-discount {
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--ac-wine);
+}
+
+.ac-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #475569;
+}
+.ac-meta > span { white-space: nowrap; }
+
+.ac-usage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+}
+.ac-usage-limit { font-weight: 700; color: var(--ac-sub); }
+.ac-bar {
+  flex: 1 1 auto;
+  max-width: 220px;
+  height: 6px;
+  border-radius: 999px;
+  background: #eef2f7;
+  overflow: hidden;
+}
+.ac-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ac-wine);
+}
+
+/* ---------- ボタン ---------- */
+.ac-card-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.admin-coupons-page .btn {
+  padding: 10px 15px;
+  border-radius: 11px;
+  border: 1px solid var(--ac-line);
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ac-ink);
   cursor: pointer;
+  white-space: nowrap;
 }
-
-.pill.on{
-  background: #111827;
+.admin-coupons-page .btn:disabled { opacity: 0.45; cursor: default; }
+.admin-coupons-page .btn.primary {
+  background: var(--ac-wine);
+  border-color: var(--ac-wine);
   color: #fff;
-  border-color: rgba(17,24,39,.35);
 }
+.admin-coupons-page .btn.ghost { background: transparent; }
+.admin-coupons-page .btn.tiny { padding: 8px 12px; font-size: 12px; min-width: 96px; }
+.admin-coupons-page .btn.danger { border-color: rgba(220, 38, 38, 0.4); color: #b91c1c; background: #fff; }
+.admin-coupons-page .btn.danger:hover { background: #fef2f2; }
 
-.pill.off{
-  background: transparent;
-  color: #111827;
-  opacity: .55;
-}
+.ac-empty { padding: 22px 4px; color: var(--ac-sub); font-size: 13.5px; }
 
-.admin-coupons-titleRow{
-  display:flex;
-  align-items:center;
-  gap:10px;
+/* ---------- スマホ ---------- */
+@media (max-width: 720px) {
+  .admin-coupons-page { padding: 88px 14px 48px; }
+  .ac-card { flex-direction: column; gap: 12px; padding: 15px; }
+  .ac-card-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .admin-coupons-page .btn.tiny { flex: 1 1 auto; min-width: 0; }
+  .ac-head-actions { width: 100%; }
+  .ac-head-actions .btn { flex: 1 1 auto; }
 }

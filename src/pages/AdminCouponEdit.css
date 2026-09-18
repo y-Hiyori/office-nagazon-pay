@@ -1,212 +1,312 @@
-/* src/pages/AdminCouponEdit.css */
+/* src/pages/AdminCouponEdit.css — v34 セクション分け＋追従保存バー */
 
-:root{
-  --site-bg: #f5f5f7;
-  --card: #ffffff;
-  --text: #111827;
-  --muted: #64748b;
-  --line: rgba(148, 163, 184, 0.18);
-  --line-strong: rgba(148, 163, 184, 0.35);
-}
-
-.admin-coupon-edit{
-  padding: 24px 16px;
-  max-width: 900px;
+.admin-coupon-edit {
+  --ce-wine: #8b1e3f;
+  --ce-wine-soft: #fdf2f5;
+  --ce-line: rgba(148, 163, 184, 0.24);
+  --ce-sub: #64748b;
+  padding: 96px 16px 140px;
+  max-width: 880px;
   margin: 0 auto;
-  color: var(--text);
+  color: #111827;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic, "ヒラギノ角ゴ ProN",
+    "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
 }
+.admin-coupon-edit * { box-sizing: border-box; }
 
-.top{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
+.ac-loading { padding: 100px 20px 40px; text-align: center; color: #64748b; }
+
+/* ---------- ヘッダー ---------- */
+.ce-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
 }
+.ce-title { margin: 0 0 6px; font-size: 22px; font-weight: 900; letter-spacing: 0.02em; }
+.ce-title::after {
+  content: "";
+  display: block;
+  width: 34px;
+  height: 2px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--ce-wine);
+}
+.ce-lead { margin: 12px 0 0; font-size: 12.5px; color: var(--ce-sub); line-height: 1.7; }
 
-.top h2{
-  margin: 0;
-  font-size: 20px;
+/* ---------- プレビュー ---------- */
+.ce-preview {
+  margin: 18px 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 30, 63, 0.18);
+  background: var(--ce-wine-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ce-preview-label {
+  font-size: 11px;
   font-weight: 900;
-  letter-spacing: .02em;
+  letter-spacing: 0.08em;
+  color: var(--ce-wine);
 }
+.ce-preview-text { font-size: 13.5px; font-weight: 800; line-height: 1.6; word-break: break-word; }
 
-.card{
+/* ---------- カード ---------- */
+.ce-card {
   margin-top: 14px;
-  border: 1px solid rgba(148,163,184,.25);
-  border-radius: 16px;
+  padding: 16px 18px 18px;
   background: #fff;
-  padding: 16px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--ce-line);
+  border-radius: 16px;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+}
+.ce-card-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 900;
+}
+.ce-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--ce-wine);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
 }
 
-.grid{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
+.ce-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
-
-@media (max-width: 720px){
-  .grid{ grid-template-columns: 1fr; }
-}
-
-/* ラベル */
-.lab{
-  font-weight: 900;
-  margin-bottom: 6px;
-}
-
-/* ✅ 共通 input / btn / check */
-.admin-coupon-edit .input{
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: #fff;
-  color: var(--text);
-  outline: none;
-}
-
-.admin-coupon-edit .input:focus{
-  border-color: rgba(79,110,233,.45);
-  box-shadow: 0 0 0 4px rgba(79,110,233,.10);
-}
-
-.hint{
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 6px;
-  line-height: 1.4;
-}
-
-.check{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  font-weight: 900;
-  margin-top: 6px;
-  user-select: none;
-}
-
-.check input{
-  width: 18px;
-  height: 18px;
-}
-
-.actions{
-  display:flex;
-  justify-content:flex-end;
-  margin-top: 14px;
-}
-
-/* ボタン */
-.admin-coupon-edit .btn{
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line-strong);
-  background: #fff;
-  font-weight: 900;
-  cursor: pointer;
-  color: var(--text);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-}
-
-.admin-coupon-edit .btn:active{
-  transform: translateY(1px);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
-}
-
-.admin-coupon-edit .btn.ghost{
-  background: transparent;
-  box-shadow: none;
-}
-
-/* ✅ 追記：はみ出し防止 */
-.admin-coupon-edit,
-.admin-coupon-edit * {
-  box-sizing: border-box;
-}
-
-.grid > label {
-  min-width: 0; /* gridの子要素がはみ出すのを防ぐ */
-}
-
-.admin-coupon-edit .input {
-  display: block;
-  max-width: 100%;
-}
-/* ---------- v33：対象商品の選択 ---------- */
-.admin-coupon-edit .target {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
-}
-.admin-coupon-edit .target .lab {
-  font-size: 12px;
-  font-weight: 800;
-  color: #334155;
-  margin-bottom: 8px;
-}
-.admin-coupon-edit .target-modes {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-.admin-coupon-edit .radio {
+.ce-field { display: flex; flex-direction: column; min-width: 0; }
+.lab {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 13px;
-  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 900;
   color: #334155;
 }
-.admin-coupon-edit .target-bar {
+.req {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 10px;
+  font-weight: 900;
+}
+.hint { margin-top: 6px; font-size: 11.5px; color: var(--ce-sub); line-height: 1.6; }
+
+.admin-coupon-edit .input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--ce-line);
+  border-radius: 11px;
+  background: #fff;
+  color: #111827;
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+}
+.admin-coupon-edit .input:focus {
+  border-color: rgba(139, 30, 63, 0.4);
+  box-shadow: 0 0 0 4px rgba(139, 30, 63, 0.08);
+}
+.admin-coupon-edit .input:disabled { background: #f1f5f9; color: #64748b; }
+.admin-coupon-edit .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.05em;
+  font-weight: 900;
+}
+
+/* ---------- ラジオ（カード型） ---------- */
+.ce-radios {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.ce-radios.is-inline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ce-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 13px;
+  border: 1px solid var(--ce-line);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ce-radio:hover { border-color: rgba(139, 30, 63, 0.35); }
+.ce-radio.is-on {
+  border-color: var(--ce-wine);
+  background: var(--ce-wine-soft);
+  box-shadow: 0 0 0 2px rgba(139, 30, 63, 0.08);
+}
+.ce-radio input { margin-top: 3px; width: 17px; height: 17px; flex: 0 0 auto; }
+.ce-radio-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ce-radio-body b { font-size: 13.5px; font-weight: 900; }
+.ce-radio-body i {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--ce-sub);
+  line-height: 1.5;
+}
+
+/* ---------- チェック ---------- */
+.ce-switch {
+  padding: 11px 12px;
+  border: 1px solid var(--ce-line);
+  border-radius: 11px;
+  background: #f8fafc;
+}
+.check { display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 800; cursor: pointer; }
+.check input { width: 18px; height: 18px; }
+
+/* ---------- クイック期間 ---------- */
+.ce-quick { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* ---------- 対象商品 ---------- */
+.ce-target { margin-top: 4px; }
+.ce-target-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
-.admin-coupon-edit .target-count {
+.ce-target-bar .input { width: min(280px, 100%); }
+.ce-target-count {
   margin-left: auto;
   font-size: 12px;
-  font-weight: 800;
-  color: #8b1e3f;
+  font-weight: 900;
+  color: var(--ce-wine);
 }
-.admin-coupon-edit .target-list {
-  max-height: 280px;
+.ce-target-list {
+  max-height: 320px;
   overflow: auto;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 10px;
+  border: 1px solid var(--ce-line);
+  border-radius: 12px;
   padding: 6px;
-  background: #fff;
+  background: #fbfcfe;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.admin-coupon-edit .target-row {
+.ce-target-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
-  border-radius: 8px;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: #fff;
   font-size: 13px;
   cursor: pointer;
 }
-.admin-coupon-edit .target-row:hover { background: #f8fafc; }
-.admin-coupon-edit .target-id { font-weight: 800; color: #64748b; font-size: 11.5px; }
-.admin-coupon-edit .target-name { flex: 1 1 auto; min-width: 0; }
-.admin-coupon-edit .target-off {
-  font-size: 10.5px;
-  font-weight: 800;
-  padding: 2px 7px;
+.ce-target-row:hover { background: #f8fafc; }
+.ce-target-row.is-on { border-color: rgba(139, 30, 63, 0.3); background: var(--ce-wine-soft); }
+.ce-target-row input { width: 17px; height: 17px; flex: 0 0 auto; }
+.ce-target-id { font-size: 11.5px; font-weight: 900; color: #64748b; flex: 0 0 auto; }
+.ce-target-name { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+.ce-target-off {
+  flex: 0 0 auto;
+  padding: 2px 8px;
   border-radius: 999px;
   background: #e2e8f0;
   color: #475569;
+  font-size: 10.5px;
+  font-weight: 900;
 }
-.admin-coupon-edit .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.admin-coupon-edit .btn.danger {
+
+/* ---------- エラー ---------- */
+.ce-err {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 11px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* ---------- ボタン ---------- */
+.admin-coupon-edit .btn {
+  padding: 11px 16px;
+  border-radius: 11px;
+  border: 1px solid var(--ce-line);
   background: #fff;
-  border: 1px solid #dc2626;
-  color: #dc2626;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #111827;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.admin-coupon-edit .btn:disabled { opacity: 0.5; cursor: default; }
+.admin-coupon-edit .btn.primary { background: var(--ce-wine); border-color: var(--ce-wine); color: #fff; }
+.admin-coupon-edit .btn.ghost { background: transparent; }
+.admin-coupon-edit .btn.tiny { padding: 8px 12px; font-size: 12px; }
+.admin-coupon-edit .btn.danger { background: #fff; border-color: rgba(220, 38, 38, 0.4); color: #b91c1c; }
+.admin-coupon-edit .btn.danger:hover { background: #fef2f2; }
+
+/* ---------- 追従する保存バー ---------- */
+.ce-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin-top: 18px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--ce-line);
+  border-radius: 14px;
+  box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.08);
+}
+.ce-savebar-text {
+  flex: 1 1 220px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.ce-savebar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- スマホ ---------- */
+@media (max-width: 720px) {
+  .admin-coupon-edit { padding: 88px 14px 150px; }
+  .ce-grid { grid-template-columns: minmax(0, 1fr); }
+  .ce-radios,
+  .ce-radios.is-inline { grid-template-columns: minmax(0, 1fr); }
+  .ce-savebar { flex-direction: column; align-items: stretch; }
+  .ce-savebar-actions { justify-content: stretch; }
+  .ce-savebar-actions .btn { flex: 1 1 auto; }
+  .ce-target-count { margin-left: 0; }
 }
