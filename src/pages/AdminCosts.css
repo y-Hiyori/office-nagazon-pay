@@ -798,3 +798,23 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- v20：期限なし ---------- */
+.ac-noexp {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ac-noexp input {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  margin: 0;
+}

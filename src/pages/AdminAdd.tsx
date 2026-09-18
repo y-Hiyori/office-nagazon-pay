@@ -20,6 +20,7 @@ function AdminAdd() {
   // ✅ 賞味期限（在庫を登録するときは必須）
   const [expiryDate, setExpiryDate] = useState("");
   const [expiryType, setExpiryType] = useState<"best_before" | "use_by">("best_before");
+  const [noExpiry, setNoExpiry] = useState(false);
   // ✅ 1回のお会計での購入上限・賞味期限アラート日数
   const [maxPerOrder, setMaxPerOrder] = useState("");
   const [alertDays, setAlertDays] = useState("30");
@@ -140,11 +141,11 @@ function AdminAdd() {
         setIsSubmitting(false);
         return;
       }
-      if (expiryDate.trim() === "") {
+      if (!noExpiry && expiryDate.trim() === "") {
         await appDialog.alert({
           title: "入力エラー",
           message:
-            "在庫を登録する場合は「賞味期限 / 消費期限」が必須です。\n入荷ロットとして登録されます。",
+            "在庫を登録する場合は「賞味期限 / 消費期限」の入力（または「期限なし」の選択）が必須です。\n入荷ロットとして登録されます。",
         });
         setIsSubmitting(false);
         return;
@@ -192,8 +193,9 @@ function AdminAdd() {
         cost: costNum ?? 0,
         quantity: stockNum,
         remaining: stockNum,
-        expiry_date: expiryDate.trim(),
+        expiry_date: noExpiry ? null : expiryDate.trim(),
         expiry_type: expiryType,
+        no_expiry: noExpiry,
       });
 
       if (eLot) {
@@ -293,9 +295,21 @@ function AdminAdd() {
         </div>
         <input
           type="date"
-          value={expiryDate}
+          value={noExpiry ? "" : expiryDate}
+          disabled={noExpiry}
           onChange={(e) => setExpiryDate(e.target.value)}
         />
+        <label className="add-lot-noexp">
+          <input
+            type="checkbox"
+            checked={noExpiry}
+            onChange={(e) => {
+              setNoExpiry(e.target.checked);
+              if (e.target.checked) setExpiryDate("");
+            }}
+          />
+          <span>期限なし（賞味期限・消費期限の設定がない商品）</span>
+        </label>
         <select
           value={expiryType}
           onChange={(e) => setExpiryType(e.target.value as "best_before" | "use_by")}

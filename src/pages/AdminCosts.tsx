@@ -31,6 +31,7 @@ type Lot = {
   remaining: number;
   expiry_date: string | null;
   expiry_type: string;
+  no_expiry?: boolean | null;
   received_at: string | null;
 };
 
@@ -39,6 +40,7 @@ type LotDraft = {
   expiry_date: string;
   expiry_type: string;
   lot_label: string;
+  no_expiry: boolean;
   remaining?: string; // 「1件ずつ追加」フォーム用
 };
 
@@ -47,6 +49,7 @@ type UnitDraft = {
   cost: string;
   expiry_date: string;
   expiry_type: "best_before" | "use_by";
+  no_expiry: boolean;
 };
 
 // ✅ 在庫を減らすときの理由（必須）
@@ -88,12 +91,14 @@ const draftOf = (l: Lot): LotDraft => ({
   expiry_date: l.expiry_date ? String(l.expiry_date).slice(0, 10) : "",
   expiry_type: l.expiry_type === "use_by" ? "use_by" : "best_before",
   lot_label: l.lot_label ?? "",
+  no_expiry: !!l.no_expiry,
 });
 
-const emptyUnit = (cost: string): UnitDraft => ({
+const emptyUnit = (cost: string, noExpiry = false): UnitDraft => ({
   cost,
   expiry_date: "",
   expiry_type: "best_before",
+  no_expiry: noExpiry,
 });
 
 export default function AdminCosts() {
@@ -121,6 +126,8 @@ export default function AdminCosts() {
   // ✅ 在庫を減らすダイアログ
   const [adjust, setAdjust] = useState<AdjustState | null>(null);
   const [reduceErr, setReduceErr] = useState("");
+  // 「期限なし」機能が使えるか（v20のSQL実行済みか）
+  const [noExpiryReady, setNoExpiryReady] = useState(true);
 
   useEffect(() => {
     document.body.classList.add("adminmenu-whitebg");
@@ -137,7 +144,7 @@ export default function AdminCosts() {
         .order("id", { ascending: true }),
       supabase
         .from("product_lots")
-        .select("id,product_id,lot_label,cost,quantity,remaining,expiry_date,expiry_type,received_at")
+        .select("*")
         .order("created_at", { ascending: false }),
     ]);
 
@@ -155,6 +162,10 @@ export default function AdminCosts() {
           "（先に supabase_v17_lots.sql を実行してください）"
       );
     }
+
+    // 「期限なし」列の有無を確認（未実行でも画面が壊れないように）
+    const probe = await supabase.from("product_lots").select("no_expiry").limit(1);
+    setNoExpiryReady(!probe.error);
 
     setProducts((pRes.data ?? []) as ProductRow[]);
     const ls = (lRes.data ?? []) as Lot[];
@@ -197,7 +208,7 @@ export default function AdminCosts() {
       remaining += rem;
       costSum += toInt(l.cost) * rem;
       if (rem > 0 && toInt(l.cost) <= 0) missingCost = true;
-      if (rem > 0 && !l.expiry_date) missingExpiry = true;
+      if (rem > 0 && !l.expiry_date && !l.no_expiry) missingExpiry = true;
       if (rem > 0 && l.expiry_date) {
         const d = String(l.expiry_date).slice(0, 10);
         if (!nearest || d < nearest) nearest = d;
@@ -349,7 +360,16 @@ export default function AdminCosts() {
     setUnitRows((prev) => {
       const rows = [...(prev[pid] ?? [])];
       if (!rows[idx]) return prev;
-      rows[idx] = { ...rows[idx], [key]: value } as unknown as UnitDraft;
+      const row = { ...rows[idx] };
+      if (key === "no_expiry") {
+        row.no_expiry = value === "1";
+        if (value === "1") row.expiry_date = "";
+      } else if (key === "expiry_type") {
+        row.expiry_type = value === "use_by" ? "use_by" : "best_before";
+      } else {
+        row[key] = value;
+      }
+      rows[idx] = row;
       return { ...prev, [pid]: rows };
     });
   };
@@ -380,16 +400,26 @@ export default function AdminCosts() {
       return;
     }
 
-    const missing = rows.some((r) => r.cost.trim() === "" || r.expiry_date.trim() === "");
-    if (missing) {
-      setMsg("原価と賞味期限（消費期限）は全行に入力してください（在庫を増やすときは必須です）");
+    if (rows.some((r) => r.cost.trim() === "")) {
+      setMsg("原価は全行に入力してください（在庫を増やすときは必須です）");
+      return;
+    }
+    if (rows.some((r) => !r.no_expiry && r.expiry_date.trim() === "")) {
+      setMsg(
+        "賞味期限（消費期限）を入力するか、「期限なし」にチェックしてください（在庫を増やすときは必須です）"
+      );
+      return;
+    }
+    if (rows.some((r) => r.no_expiry) && !noExpiryReady) {
+      setMsg("「期限なし」を使うには supabase_v20_no_expiry.sql を実行してください");
       return;
     }
 
     const parsed = rows.map((r) => ({
       cost: Math.max(0, toInt(r.cost)),
-      expiry_date: r.expiry_date.trim(),
+      expiry_date: r.no_expiry ? null : r.expiry_date.trim(),
       expiry_type: r.expiry_type === "use_by" ? "use_by" : "best_before",
+      no_expiry: r.no_expiry,
     }));
 
     const syncAfter = unitSyncStock[p.id] !== false;
@@ -414,6 +444,7 @@ export default function AdminCosts() {
           remaining: 1,
           expiry_date: r.expiry_date,
           expiry_type: r.expiry_type,
+          no_expiry: r.no_expiry,
         }))
       );
 
@@ -453,8 +484,16 @@ export default function AdminCosts() {
     const d = drafts[l.id];
     if (!d) return;
 
-    if (d.cost.trim() === "" || d.expiry_date.trim() === "") {
-      setMsg("原価と賞味期限（消費期限）を入力してください");
+    if (d.cost.trim() === "") {
+      setMsg("原価を入力してください");
+      return;
+    }
+    if (!d.no_expiry && d.expiry_date.trim() === "") {
+      setMsg("賞味期限（消費期限）を入力するか、「期限なし」にチェックしてください");
+      return;
+    }
+    if (d.no_expiry && !noExpiryReady) {
+      setMsg("「期限なし」を使うには supabase_v20_no_expiry.sql を実行してください");
       return;
     }
 
@@ -464,8 +503,9 @@ export default function AdminCosts() {
         .from("product_lots")
         .update({
           cost: Math.max(0, toInt(d.cost)),
-          expiry_date: d.expiry_date.trim(),
+          expiry_date: d.no_expiry ? null : d.expiry_date.trim(),
           expiry_type: d.expiry_type === "use_by" ? "use_by" : "best_before",
+          no_expiry: d.no_expiry,
           lot_label: d.lot_label.trim() || null,
           updated_at: new Date().toISOString(),
         })
@@ -620,10 +660,21 @@ export default function AdminCosts() {
     const d = drafts[`new-${p.id}`];
     const costRaw = d ? d.cost.trim() : "";
     const qty = d ? Math.max(1, toInt(d.remaining)) : 1;
-    const expiry = d ? d.expiry_date.trim() : "";
+    const noExpiry = !!d?.no_expiry;
+    const expiry = noExpiry ? "" : d ? d.expiry_date.trim() : "";
 
-    if (costRaw === "" || expiry === "") {
-      setMsg("原価と賞味期限（消費期限）を入力してください（在庫を増やすときは必須です）");
+    if (costRaw === "") {
+      setMsg("原価を入力してください（在庫を増やすときは必須です）");
+      return;
+    }
+    if (!noExpiry && expiry === "") {
+      setMsg(
+        "賞味期限（消費期限）を入力するか、「期限なし」にチェックしてください（在庫を増やすときは必須です）"
+      );
+      return;
+    }
+    if (noExpiry && !noExpiryReady) {
+      setMsg("「期限なし」を使うには supabase_v20_no_expiry.sql を実行してください");
       return;
     }
 
@@ -645,8 +696,9 @@ export default function AdminCosts() {
         cost: Math.max(0, toInt(costRaw)),
         quantity: qty,
         remaining: qty,
-        expiry_date: expiry,
+        expiry_date: noExpiry ? null : expiry,
         expiry_type: d?.expiry_type === "use_by" ? "use_by" : "best_before",
+        no_expiry: noExpiry,
       });
       if (error) {
         setMsg("追加に失敗しました: " + error.message);
@@ -733,7 +785,8 @@ export default function AdminCosts() {
           <h2 className="admin-costs-title">仕入れ原価・入荷ロット管理</h2>
           <p className="admin-costs-desc">
             在庫は<b>「ロット」＝入荷したひとかたまり</b>として管理します。
-            <b>在庫を増やすときは、原価と賞味期限（消費期限）の登録が必須</b>です。
+            <b>在庫を増やすときは、原価と賞味期限（消費期限）の登録が必須</b>です
+            （期限がない商品は「期限なし」を選べます）。
             <b>在庫を減らすときは、理由と対象ロットの指定が必須</b>で、履歴に残ります。
           </p>
 
@@ -783,6 +836,12 @@ export default function AdminCosts() {
                 {busy ? "処理中..." : "在庫に合わせてロットを一括作成"}
               </button>
             </section>
+          )}
+
+          {!noExpiryReady && (
+            <div className="admin-costs-msg">
+              「期限なし」を使うには supabase_v20_no_expiry.sql を実行してください。
+            </div>
           )}
 
           {msg && <div className="admin-costs-msg">{msg}</div>}
@@ -910,6 +969,7 @@ export default function AdminCosts() {
                               const st = expiryStatusOf(d.expiry_date, info.alertDays);
                               const dDays = daysLeftOf(d.expiry_date);
                               const rem = toInt(l.remaining);
+                              const isNoExpiry = !!d.no_expiry;
 
                               return (
                                 <div
@@ -917,8 +977,8 @@ export default function AdminCosts() {
                                   className={`ac-lot${rem <= 0 ? " is-empty" : ""}`}
                                 >
                                   <div className="ac-lot-head">
-                                    <span className={`ac-exp ${statusClass(st)}`}>
-                                      {expiryStatusLabel(st, dDays)}
+                                    <span className={`ac-exp ${isNoExpiry ? "is-none" : statusClass(st)}`}>
+                                      {isNoExpiry ? "期限なし" : expiryStatusLabel(st, dDays)}
                                     </span>
                                     {l.lot_label && (
                                       <span className="ac-lot-label">{l.lot_label}</span>
@@ -947,10 +1007,11 @@ export default function AdminCosts() {
                                     </label>
 
                                     <label>
-                                      <span>期限 必須</span>
+                                      <span>期限（または期限なし）</span>
                                       <input
                                         type="date"
-                                        value={d.expiry_date}
+                                        value={d.no_expiry ? "" : d.expiry_date}
+                                        disabled={d.no_expiry}
                                         onChange={(e) =>
                                           setDrafts((prev) => ({
                                             ...prev,
@@ -958,6 +1019,19 @@ export default function AdminCosts() {
                                           }))
                                         }
                                       />
+                                      <span className="ac-noexp">
+                                        <input
+                                          type="checkbox"
+                                          checked={d.no_expiry}
+                                          onChange={(e) =>
+                                            setDrafts((prev) => ({
+                                              ...prev,
+                                              [l.id]: { ...d, no_expiry: e.target.checked },
+                                            }))
+                                          }
+                                        />
+                                        期限なし
+                                      </span>
                                     </label>
 
                                     <label>
@@ -1084,10 +1158,15 @@ export default function AdminCosts() {
                               />
                             </label>
                             <label>
-                              <span>期限 必須</span>
+                              <span>期限（または期限なし）</span>
                               <input
                                 type="date"
-                                value={drafts[`new-${p.id}`]?.expiry_date ?? ""}
+                                value={
+                                  drafts[`new-${p.id}`]?.no_expiry
+                                    ? ""
+                                    : drafts[`new-${p.id}`]?.expiry_date ?? ""
+                                }
+                                disabled={!!drafts[`new-${p.id}`]?.no_expiry}
                                 onChange={(e) =>
                                   setDrafts((prev) => {
                                     const cur = prev[`new-${p.id}`] ?? {
@@ -1104,6 +1183,33 @@ export default function AdminCosts() {
                                   })
                                 }
                               />
+                              <span className="ac-noexp">
+                                <input
+                                  type="checkbox"
+                                  checked={!!drafts[`new-${p.id}`]?.no_expiry}
+                                  onChange={(e) =>
+                                    setDrafts((prev) => {
+                                      const cur = prev[`new-${p.id}`] ?? {
+                                        cost: "",
+                                        remaining: "",
+                                        expiry_date: "",
+                                        expiry_type: "best_before",
+                                        lot_label: "",
+                                        no_expiry: false,
+                                      };
+                                      return {
+                                        ...prev,
+                                        [`new-${p.id}`]: {
+                                          ...cur,
+                                          no_expiry: e.target.checked,
+                                          expiry_date: e.target.checked ? "" : cur.expiry_date,
+                                        },
+                                      };
+                                    })
+                                  }
+                                />
+                                期限なし
+                              </span>
                             </label>
                             <label>
                               <span>種類</span>
@@ -1215,6 +1321,23 @@ export default function AdminCosts() {
                             <button className="ac-mini" type="button" onClick={() => fillUnitCost(p)}>
                               表示中の行に反映
                             </button>
+
+                            <button
+                              className="ac-mini"
+                              type="button"
+                              onClick={() =>
+                                setUnitRows((prev) => ({
+                                  ...prev,
+                                  [p.id]: (prev[p.id] ?? []).map((r) => ({
+                                    ...r,
+                                    no_expiry: true,
+                                    expiry_date: "",
+                                  })),
+                                }))
+                              }
+                            >
+                              表示中の行をすべて期限なし
+                            </button>
                           </div>
 
                           {unitRows[p.id] !== undefined && (unitRows[p.id] ?? []).length === 0 && (
@@ -1243,14 +1366,30 @@ export default function AdminCosts() {
                                     </label>
 
                                     <label>
-                                      <span>賞味期限 / 消費期限 必須</span>
+                                      <span>賞味期限 / 消費期限（または期限なし）</span>
                                       <input
                                         type="date"
-                                        value={r.expiry_date}
+                                        value={r.no_expiry ? "" : r.expiry_date}
+                                        disabled={r.no_expiry}
                                         onChange={(e) =>
                                           setUnitRow(p.id, idx, "expiry_date", e.target.value)
                                         }
                                       />
+                                      <span className="ac-noexp">
+                                        <input
+                                          type="checkbox"
+                                          checked={r.no_expiry}
+                                          onChange={(e) =>
+                                            setUnitRow(
+                                              p.id,
+                                              idx,
+                                              "no_expiry",
+                                              e.target.checked ? "1" : ""
+                                            )
+                                          }
+                                        />
+                                        期限なし
+                                      </span>
                                     </label>
 
                                     <label>
@@ -1315,7 +1454,7 @@ export default function AdminCosts() {
           )}
 
           <p className="admin-costs-note">
-            ※ 在庫を増やすには、原価と賞味期限（消費期限）を入れたロット登録が必要です（在庫が自動で増えます）。
+            ※ 在庫を増やすには、原価と「賞味期限（消費期限）または期限なし」を入れたロット登録が必要です（在庫が自動で増えます）。
             <br />※ 在庫を減らすときは「在庫を減らす」から<b>理由</b>と<b>対象ロット</b>を指定してください。履歴が残ります。
             残数0のロットだけは理由なしで削除できます。
             <br />※ ロットの残数は購入時に「セール分 → 期限が近い順」で自動的に減ります。

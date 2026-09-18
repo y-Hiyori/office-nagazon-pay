@@ -31,6 +31,7 @@ type LotRow = {
   cost: number | null;
   remaining: number | null;
   expiry_date: string | null;
+  no_expiry?: boolean | null;
 };
 
 type Row = ProductBase & {
@@ -48,6 +49,7 @@ type Row = ProductBase & {
   days: number | null;
   alertDays: number;
   hasSale: boolean;
+  noExpiryOnly: boolean;
   salePrice: number | null;
   saleQtyN: number;
   saleRemainingN: number;
@@ -101,7 +103,7 @@ function AdminPage() {
 
     const lRes = await supabase
       .from("product_lots")
-      .select("product_id,cost,remaining,expiry_date");
+      .select("product_id,cost,remaining,expiry_date,no_expiry");
 
     if (pRes.error) {
       console.error("商品取得エラー:", pRes.error);
@@ -255,15 +257,19 @@ function AdminPage() {
       let lotRemaining = 0;
       let costTotal = 0;
       let nearest: string | null = null;
+      let hasDated = false;
+      let hasNoExpiry = false;
 
       for (const l of ls) {
         const rem = Math.max(0, toInt(l.remaining));
         lotRemaining += rem;
         costTotal += toInt(l.cost) * rem;
         if (rem > 0 && l.expiry_date) {
+          hasDated = true;
           const d = String(l.expiry_date).slice(0, 10);
           if (!nearest || d < nearest) nearest = d;
         }
+        if (rem > 0 && !l.expiry_date && l.no_expiry) hasNoExpiry = true;
       }
 
       const status = expiryStatusOf(nearest, alertDays);
@@ -291,6 +297,7 @@ function AdminPage() {
         days: daysLeftOf(nearest),
         alertDays,
         hasSale,
+        noExpiryOnly: !hasDated && hasNoExpiry,
         salePrice: salePriceNum,
         saleQtyN,
         saleRemainingN,
@@ -534,7 +541,7 @@ function AdminPage() {
         {/* ✅ 期限アラート */}
                     <div className="admin-exp-line">
                       <span className={`admin-exp ${statusClass(p.status)}`}>
-                        {expiryStatusLabel(p.status, p.days)}
+                        {p.noExpiryOnly ? "期限なし" : expiryStatusLabel(p.status, p.days)}
                       </span>
                       {p.nearest && <span className="admin-exp-date">{p.nearest}</span>}
                       {p.status !== "none" && p.status !== "ok" && (
