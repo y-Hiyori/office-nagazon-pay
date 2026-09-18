@@ -1668,28 +1668,52 @@
 .ac-lot-pick-cost { font-weight: 800; color: #334155; }
 .ac-lot-pick-rem { color: #64748b; }
 
-/* ---------- v27：操作パネル／編集画面のスクロール修正 ---------- */
+
+/* ---------- v28：操作パネルを確実にスクロールできるようにする ---------- */
+/* 高さを確定させ、本文だけがスクロールする（min-height:auto による切れを解消） */
+.ap-modal-back {
+  overflow: hidden;
+}
+.ap-modal {
+  height: 92dvh !important;
+  max-height: 92dvh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+@media (max-width: 759px) {
+  .ap-modal {
+    height: 94dvh !important;
+    max-height: 94dvh !important;
+  }
+}
+.ap-modal-head {
+  flex: 0 0 auto !important;
+}
 .ap-modal-body {
-  flex: 1 1 auto !important;
+  flex: 1 1 0% !important;
   min-height: 0 !important;
   overflow-y: auto !important;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding-bottom: 110px !important;
+  padding-bottom: max(140px, env(safe-area-inset-bottom)) !important;
 }
-.ap-modal {
-  height: auto;
-  max-height: 92dvh;
-}
-@media (max-width: 759px) {
-  .ap-modal { max-height: 94dvh; }
-}
-.ap-edit { overflow: visible !important; }
-.ap-edit-id[open] { padding-bottom: 14px; }
 .ap-modal-body input,
 .ap-modal-body select,
 .ap-modal-body textarea {
-  scroll-margin-bottom: 150px;
+  scroll-margin-bottom: 170px;
 }
-.ap-modal-body .ap-edit-grid { row-gap: 12px; }
+.ap-edit, .ap-acc, .ap-units { overflow: visible !important; }
+.ap-acc-body, .ap-edit-id[open] { padding-bottom: 16px; }
+
+/* 狭い画面では入力欄を1列にして潰れを防ぐ */
+@media (max-width: 620px) {
+  .ap-form,
+  .ap-lot-fields,
+  .ac-unit-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+.ap-form label, .ap-lot-fields label, .ap-edit-grid label { min-width: 0; }
+.ap-form input, .ap-form select { box-sizing: border-box; width: 100%; }
