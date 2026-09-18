@@ -406,6 +406,10 @@ app.post("/api/confirm-paypay-payment", async (req, res) => {
         const { data: oi } = await sb.from("order_items").select("product_id,quantity").eq("order_id", orderId);
         for (const it of oi || []) {
           await sb.rpc("decrement_stock", { p_product_id: Number(it.product_id), p_qty: Number(it.quantity) });
+      // ✅ 入荷ロットも消費（失敗しても購入は止めない・冪等）
+      try {
+        await sb.rpc("consume_lots_for_order", { p_order_id: orderId });
+      } catch (eLot) { console.error("[LOT_CONSUME_ERR]", eLot && eLot.message); }
         }
       } catch (eStock) {
         console.error("[STOCK_DEDUCT_ERR]", eStock && eStock.message);

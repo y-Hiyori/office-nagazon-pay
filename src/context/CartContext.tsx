@@ -31,8 +31,13 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  const clampQty = (qty: number, stock: number) =>
-    Math.min(Math.max(qty, 1), stock);
+  // ✅ 在庫と「1会計あたりの購入上限」の小さい方でクランプ
+  const clampQty = (qty: number, stock: number, maxPerOrder?: number | null) => {
+    const s = Math.max(0, Math.floor(Number(stock) || 0));
+    const lim = Math.floor(Number(maxPerOrder ?? 0));
+    const cap = Number.isFinite(lim) && lim > 0 ? Math.min(s, lim) : s;
+    return Math.min(Math.max(qty, 1), Math.max(1, cap));
+  };
 
   // ✅ 発送商品とその場受け取り商品の混在は禁止
   //   戻り値: "ok"（追加成功） / "mixed"（受渡方法が混在して追加不可）
@@ -46,7 +51,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         prev.map((i) => {
           if (i.id !== product.id) return i;
           const stock = Number(i.product.stock) || 0;
-          return { ...i, quantity: clampQty(i.quantity + qty, stock) };
+          return {
+            ...i,
+            quantity: clampQty(i.quantity + qty, stock, (i.product as any).max_per_order),
+          };
         })
       );
       return "ok";
@@ -60,7 +68,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     setCart((prev) => [
       ...prev,
-      { id: product.id, product, quantity: clampQty(qty, Number(product.stock) || 0) },
+      {
+        id: product.id,
+        product,
+        quantity: clampQty(qty, Number(product.stock) || 0, (product as any).max_per_order),
+      },
     ]);
     return "ok";
   };
@@ -70,7 +82,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       prev.map((item) => {
         if (item.id !== id) return item;
         const stock = Number(item.product.stock) || 0;
-        return { ...item, quantity: clampQty(qty, stock) };
+        return {
+          ...item,
+          quantity: clampQty(qty, stock, (item.product as any).max_per_order),
+        };
       })
     );
   };

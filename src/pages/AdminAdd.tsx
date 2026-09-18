@@ -17,6 +17,9 @@ function AdminAdd() {
   const [earnPoints, setEarnPoints] = useState("");
   // ✅ 仕入れ原価（1個あたり・円）
   const [cost, setCost] = useState("");
+  // ✅ 1回のお会計での購入上限・賞味期限アラート日数
+  const [maxPerOrder, setMaxPerOrder] = useState("");
+  const [alertDays, setAlertDays] = useState("30");
   const [isShipping, setIsShipping] = useState(false);
   // ✅ 発送目安（任意）: 最短〜最長＋単位（営業日/日）
   const [shippingLeadMin, setShippingLeadMin] = useState("");
@@ -123,11 +126,16 @@ function AdminAdd() {
       return;
     }
 
+    const maxPerOrderNum = maxPerOrder.trim() === "" ? null : Math.max(1, Math.floor(Number(maxPerOrder)));
+    const alertDaysNum = alertDays.trim() === "" ? 30 : Math.max(1, Math.floor(Number(alertDays)));
+
     const payload: Record<string, unknown> = {
       id: idNum,
       name,
       price: priceNum,
       cost: costNum,
+      max_per_order: maxPerOrderNum,
+      expiry_alert_days: alertDaysNum,
       stock: stockNum,
       member_price: Number.isFinite(memberPriceNum) ? memberPriceNum : null,
       earn_points: earnNum,
@@ -227,6 +235,20 @@ function AdminAdd() {
         placeholder="仕入れ原価（1個あたり・円／任意）"
         value={cost}
         onChange={(e) => setCost(e.target.value)}
+      />
+
+      <input
+        type="number"
+        placeholder="1回のお会計での購入上限（個・空欄=無制限）"
+        value={maxPerOrder}
+        onChange={(e) => setMaxPerOrder(e.target.value)}
+      />
+
+      <input
+        type="number"
+        placeholder="賞味期限アラートの日数（既定30）"
+        value={alertDays}
+        onChange={(e) => setAlertDays(e.target.value)}
       />
 
       <label className="add-shipping-toggle">

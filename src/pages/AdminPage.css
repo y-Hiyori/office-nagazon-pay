@@ -265,3 +265,146 @@
     font-size: 14px;
   }
 }
+
+/* ---------- v17：統合商品管理（期限・原価・上限） ---------- */
+.admin-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.admin-alertbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.admin-alert-chip {
+  border: none;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-alert-chip.is-expired {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.admin-alert-chip.is-warn {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.admin-alert-chip.is-sale {
+  background: #fde68a;
+  color: #92400e;
+}
+
+.admin-search {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  margin-bottom: 10px;
+}
+
+.admin-tag {
+  margin-left: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.admin-tag.sale {
+  background: #fde68a;
+  color: #92400e;
+}
+
+.admin-tag.limit {
+  background: #e7f0ff;
+  color: #1e6fd9;
+}
+
+.admin-item-expired {
+  border-color: #fecaca !important;
+}
+
+.admin-exp-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.admin-exp {
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.admin-exp.is-expired {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.admin-exp.is-urgent {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.admin-exp.is-warn {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.admin-exp.is-ok {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.admin-exp.is-none {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.admin-exp-date {
+  font-size: 11.5px;
+  color: #8a9099;
+}
+
+.admin-exp-note {
+  font-size: 11px;
+  font-weight: 800;
+  color: #b45309;
+}
+
+.admin-cost-line {
+  display: flex;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #5b6472;
+  font-feature-settings: "tnum" 1;
+}
+
+.admin-cost-warn {
+  font-weight: 800;
+  color: #b45309;
+}

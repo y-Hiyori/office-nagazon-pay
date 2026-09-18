@@ -868,3 +868,16 @@
 /* ✅ スマホでバッジ（SALE/NEW/発送）が隠れないよう折り返し対応 */
 .plist-badges{flex-wrap:wrap;gap:4px;max-width:calc(100% - 6px);}
 .plist-badges .sale-label,.plist-badges .new-label,.plist-badges .shipping-label{white-space:nowrap;line-height:1.1;}
+
+
+/* ---------- v17：セールロット（一部だけセール） ---------- */
+.plist-lotSaleTag {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #ffe4e6;
+  color: #be123c;
+  font-size: 11px;
+  font-weight: 800;
+  margin-right: 6px;
+}

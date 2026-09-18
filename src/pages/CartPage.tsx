@@ -59,7 +59,7 @@ function CartPage() {
       // products の最新在庫・公開状態を取得
       const { data, error } = await supabase
         .from("products")
-        .select("id,name,stock,is_visible")
+        .select("id,name,stock,is_visible,max_per_order")
         .in("id", productIds);
 
       if (error || !data) {
@@ -69,11 +69,12 @@ function CartPage() {
       }
 
       // id -> 最新情報Map
-      const latest = new Map<number, { name: string; stock: number; is_visible: boolean }>();
+      const latest = new Map<number, { name: string; stock: number; is_visible: boolean; max_per_order: number }>();
       data.forEach((p: any) => {
         latest.set(Number(p.id), {
           name: String(p.name ?? ""),
           stock: Number(p.stock ?? 0) || 0,
+          max_per_order: Math.max(0, Math.floor(Number((p as any).max_per_order ?? 0)) || 0),
           is_visible: p.is_visible !== false,
         });
       });
@@ -119,6 +120,15 @@ function CartPage() {
             reason: `在庫不足（在庫 ${now.stock} / カート ${item.quantity}）`,
           });
         }
+
+        // ✅ 1回のお会計での購入上限
+        if (now.max_per_order > 0 && item.quantity > now.max_per_order) {
+          foundIssues.push({
+            id: item.id,
+            name: now.name || item.product.name,
+            reason: `1回のお会計で${now.max_per_order}個まで（カート ${item.quantity}）`,
+          });
+        }
       }
 
       if (foundIssues.length > 0) {
@@ -146,7 +156,9 @@ function CartPage() {
             <p className="cart-empty">カートは空です</p>
           ) : (
             cart.map((item) => {
-              const max = Number(item.product.stock) || 0;
+              const maxStock = Number(item.product.stock) || 0;
+              const maxOrder = Math.floor(Number((item.product as any).max_per_order ?? 0));
+              const max = maxOrder > 0 ? Math.min(maxStock, maxOrder) : maxStock;
 
               return (
                 <div key={item.id} className="cart-item">

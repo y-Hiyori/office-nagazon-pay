@@ -71,6 +71,16 @@ export default function PayPayReturn() {
         if (r.ok && isPaid(j)) {
           try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
           const resolvedId = String(j?.orderDbId || orderId || "");
+
+          // ✅ 入荷ロットを消費（冪等：二重に減りません）
+          if (resolvedId) {
+            try {
+              const { supabase } = await import("../lib/supabase");
+              await supabase.rpc("consume_lots_for_order", { p_order_id: resolvedId });
+            } catch (eLot) {
+              console.error("consume_lots_for_order failed:", eLot);
+            }
+          }
           navigate(`/purchase-complete/${resolvedId}?orderId=${encodeURIComponent(resolvedId)}&token=${encodeURIComponent(token)}&paid=1`, {
             replace: true,
           });

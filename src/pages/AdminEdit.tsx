@@ -26,6 +26,9 @@ export default function AdminEdit() {
   const [earnPoints, setEarnPoints] = useState("");
   // ✅ 仕入れ原価（1個あたり・円）
   const [cost, setCost] = useState("");
+  // ✅ 1回のお会計での購入上限・賞味期限アラート日数
+  const [maxPerOrder, setMaxPerOrder] = useState("");
+  const [alertDays, setAlertDays] = useState("30");
   const [isShipping, setIsShipping] = useState(false);
   // ✅ 発送目安（任意）
   const [shippingLeadMin, setShippingLeadMin] = useState("");
@@ -47,7 +50,7 @@ export default function AdminEdit() {
 
     const { data, error } = await supabase
       .from("products")
-        .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping, shipping_lead_min, shipping_lead_max, shipping_lead_unit, cost")
+        .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping, shipping_lead_min, shipping_lead_max, shipping_lead_unit, cost, max_per_order, expiry_alert_days")
 
       .eq("id", urlId)
       .maybeSingle();
@@ -85,6 +88,10 @@ export default function AdminEdit() {
     setEarnPoints(dbEarn > 0 ? String(dbEarn) : "");
     const dbCost = (data as any).cost;
     setCost(dbCost != null && Number(dbCost) > 0 ? String(Math.floor(Number(dbCost))) : "");
+    const dbMax = (data as any).max_per_order;
+    setMaxPerOrder(dbMax != null && Number(dbMax) > 0 ? String(Math.floor(Number(dbMax))) : "");
+    const dbAlert = (data as any).expiry_alert_days;
+    setAlertDays(dbAlert != null && Number(dbAlert) > 0 ? String(Math.floor(Number(dbAlert))) : "30");
     setIsShipping(!!(data as any).is_shipping);
     const dbLeadMin = (data as any).shipping_lead_min;
     const dbLeadMax = (data as any).shipping_lead_max;
@@ -218,6 +225,8 @@ export default function AdminEdit() {
         member_price: memberPrice.trim() === "" ? null : Math.floor(Number(memberPrice)),
         earn_points: Math.max(0, Math.floor(Number(earnPoints || 0) || 0)),
         cost: cost.trim() === "" ? null : Math.max(0, Math.floor(Number(cost))),
+        max_per_order: maxPerOrder.trim() === "" ? null : Math.max(1, Math.floor(Number(maxPerOrder))),
+        expiry_alert_days: alertDays.trim() === "" ? 30 : Math.max(1, Math.floor(Number(alertDays))),
         is_shipping: isShipping,
         shipping_lead_min: isShipping ? leadMinNum : null,
         shipping_lead_max: isShipping ? leadMaxNum : null,
@@ -339,6 +348,30 @@ export default function AdminEdit() {
               placeholder="例: 80"
               value={cost}
               onChange={(e) => setCost(e.target.value)}
+            />
+          </div>
+
+          <div className="ae-input-wrap">
+            <label>1回のお会計での購入上限（個・空欄=無制限）</label>
+            <input
+              className="ae-input"
+              type="number"
+              inputMode="numeric"
+              placeholder="例: 3"
+              value={maxPerOrder}
+              onChange={(e) => setMaxPerOrder(e.target.value)}
+            />
+          </div>
+
+          <div className="ae-input-wrap">
+            <label>賞味期限アラートの日数（既定30日）</label>
+            <input
+              className="ae-input"
+              type="number"
+              inputMode="numeric"
+              placeholder="30"
+              value={alertDays}
+              onChange={(e) => setAlertDays(e.target.value)}
             />
           </div>
 

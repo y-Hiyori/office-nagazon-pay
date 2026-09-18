@@ -896,3 +896,31 @@
     display: grid;
   }
 }
+
+
+/* ---------- v17：セールロット・購入上限 ---------- */
+.pdetail-lotInfo {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.pdetail-lotSale {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.pdetail-lotLimit {
+  background: #eef7ff;
+  border: 1px dashed #b8d8f0;
+  color: #1c4e7c;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 800;
+}

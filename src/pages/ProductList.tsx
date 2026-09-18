@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIsMember } from "../lib/useIsMember";
 import { memberPriceOf } from "../lib/pricing";
+import { fetchSaleLots } from "../lib/lots";
 import { supabase } from "../lib/supabase";
 import "./ProductList.css";
 import { findProductImage } from "../data/products";
@@ -16,6 +17,8 @@ type ProductRow = {
   name: string;
   price: number;
   memberPrice: number | null;
+  salePrice: number | null;
+  saleRemaining: number;
   originalPrice: number | null;
   stock: number;
   imageData: string | null;
@@ -76,6 +79,8 @@ function ProductList() {
           name: String(p.name ?? ""),
           price: Number(p.price ?? 0),
           memberPrice: memberPriceOf(p),
+          salePrice: null,
+          saleRemaining: 0,
           originalPrice:
             Number.isFinite(originalPriceNum) && originalPriceNum > Number(p.price ?? 0)
               ? originalPriceNum
@@ -88,6 +93,20 @@ function ProductList() {
           isVisible,
         };
       });
+
+      // ✅ セール中ロット（一部だけセール価格）を反映
+      try {
+        const saleMap = await fetchSaleLots();
+        for (const r of rows) {
+          const sl = saleMap.get(r.id);
+          if (sl) {
+            r.salePrice = sl.sale_price;
+            r.saleRemaining = sl.remaining;
+          }
+        }
+      } catch (eSale) {
+        console.error("sale lot load failed:", eSale);
+      }
 
       // ✅ 並び順：在庫あり → NEW優先 → 新しい順 → 最後に売り切れ
       const visibleRows = rows
@@ -174,12 +193,15 @@ function ProductList() {
             {filtered.map((p) => {
               const soldOut = (p.stock ?? 0) <= 0;
               const originalPrice = getOriginalPrice(p);
-              const isSale = !!originalPrice;
-              const shownPrice = isMember && p.memberPrice ? p.memberPrice : p.price;
-              const discountYen = isSale ? originalPrice! - p.price : 0;
-              const discountRate = isSale
-                ? Math.round((discountYen / originalPrice!) * 100)
-                : 0;
+              const saleLotPrice = p.salePrice != null && p.salePrice > 0 ? p.salePrice : null;
+              const basePrice = isMember && p.memberPrice ? p.memberPrice : p.price;
+              const shownPrice = saleLotPrice != null ? saleLotPrice : basePrice;
+              const isSale = !!originalPrice || saleLotPrice != null;
+              const discountYen = originalPrice
+                ? originalPrice - p.price
+                : Math.max(0, basePrice - shownPrice);
+              const discountRate =
+                isSale && originalPrice ? Math.round((discountYen / originalPrice) * 100) : 0;
 
               // ✅ SALE時は on-sale クラスを付与（価格がワインレッドに）
               const cardClass = [
@@ -208,7 +230,9 @@ function ProductList() {
                   {/* ✅ 通常バッジ（SALE / NEW）は左上に配置 */}
                   <div className="plist-badges">
                     {!soldOut && isSale ? (
-                      <div className="sale-label">SALE {discountRate}%OFF</div>
+                      <div className="sale-label">
+                        {discountRate > 0 ? `SALE ${discountRate}%OFF` : "SALE"}
+                      </div>
                     ) : null}
                     {!soldOut && p.isNew ? (
                       <div className="new-label">NEW</div>
@@ -231,6 +255,9 @@ function ProductList() {
   ) : null}
 
   <div className="plist-price-row">
+    {saleLotPrice != null ? (
+      <span className="plist-lotSaleTag">セール残{p.saleRemaining}</span>
+    ) : null}
     {isMember && p.memberPrice ? (
       <span className="plist-memberTag">会員</span>
     ) : null}

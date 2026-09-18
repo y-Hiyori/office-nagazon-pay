@@ -319,7 +319,7 @@ function Checkout() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id,name,stock,is_visible")
+      .select("id,name,stock,is_visible,max_per_order")
       .in("id", ids);
 
     if (error) {
@@ -327,12 +327,16 @@ function Checkout() {
       throw error;
     }
 
-    const map = new Map<number, { name: string; stock: number; is_visible: boolean }>();
+    const map = new Map<
+      number,
+      { name: string; stock: number; is_visible: boolean; max_per_order: number }
+    >();
     (data ?? []).forEach((p: any) => {
       map.set(Number(p.id), {
         name: String(p.name ?? ""),
         stock: Number(p.stock ?? 0),
         is_visible: p.is_visible !== false,
+        max_per_order: Math.max(0, Math.floor(Number((p as any).max_per_order ?? 0)) || 0),
       });
     });
 
@@ -345,6 +349,9 @@ function Checkout() {
       const qty = Number(it?.quantity ?? 0);
 
       if (!row || row.is_visible === false || (row.stock ?? 0) < qty) ngNames.push(name);
+      else if ((row.max_per_order ?? 0) > 0 && qty > (row.max_per_order as number)) {
+        ngNames.push(`${name}（1回のお会計で${row.max_per_order}個まで）`);
+      }
     }
     return { ok: ngNames.length === 0, ngNames };
   };
@@ -595,6 +602,13 @@ function Checkout() {
             });
             return;
           }
+        }
+
+        // ✅ 入荷ロットも消費（セール分 → 期限が近い順／失敗しても購入は止めない）
+        try {
+          await supabase.rpc("consume_lots_for_order", { p_order_id: orderRow.id });
+        } catch (eLot) {
+          console.error("consume_lots_for_order failed:", eLot);
         }
 
         await supabase

@@ -10,6 +10,7 @@ import { supabase } from "../lib/supabase";
 import { findProductImage } from "../data/products";
 import type { Product } from "../types/Product";
 import { findProductDetailImage } from "../data/productDetailImages";
+import { fetchSaleLots, maxPerOrderOf, purchaseLimitOf, type SaleLot } from "../lib/lots";
 
 import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
@@ -36,6 +37,8 @@ function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const isMember = useIsMember();
   const [detailImage, setDetailImage] = useState<string | null>(null);
+  // ✅ セール中ロット（同じ商品の一部だけセール価格で売る）
+  const [saleLot, setSaleLot] = useState<SaleLot | null>(null);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -86,6 +89,13 @@ function ProductDetail() {
       });
 
       setDetailImage(detailImg);
+      try {
+        const saleMap = await fetchSaleLots();
+        setSaleLot(saleMap.get(productId) ?? null);
+      } catch (eSale) {
+        console.error("sale lot load failed:", eSale);
+        setSaleLot(null);
+      }
       setQuantity(1);
       setLoading(false);
     };
@@ -108,13 +118,23 @@ function ProductDetail() {
   const stockNum = Number(product?.stock ?? 0) || 0;
   const isSoldOut = stockNum <= 0;
 
+  // ✅ 1回の会計で買える上限（在庫と購入上限の小さい方）
+  const maxPerOrder = maxPerOrderOf(product);
+  const purchaseLimit = purchaseLimitOf(product);
+
   const isHidden = product?.is_visible === false;
 
   const canPurchase = !isHidden && !isSoldOut;
 
   const isNew = isNewRaw && canPurchase;
 
-  const priceNum = effectivePrice(product, isMember);
+  const basePriceNum = effectivePrice(product, isMember);
+  // ✅ セールロットの残数内なら、そのロットのセール価格を使う
+  const lotSalePrice =
+    saleLot && saleLot.sale_price > 0 && quantity <= saleLot.remaining
+      ? saleLot.sale_price
+      : null;
+  const priceNum = lotSalePrice != null ? lotSalePrice : basePriceNum;
   const memberPriceNum = isMember ? memberPriceOf(product) : null;
   const earnPoints = Math.max(0, Math.floor(Number((product as any)?.earn_points ?? 0)));
   const originalPriceNum =
@@ -149,7 +169,7 @@ function ProductDetail() {
     setQuantity((prev) => {
       const next = prev + delta;
       if (next < 1) return 1;
-      if (next > stockNum) return stockNum;
+      if (next > purchaseLimit) return purchaseLimit;
       return next;
     });
   };
@@ -179,7 +199,7 @@ function ProductDetail() {
     const currentQty = existing ? existing.quantity : 0;
     const totalQty = currentQty + quantity;
 
-    if (totalQty > stockNum) return showCannotPurchase();
+    if (totalQty > purchaseLimit) return showCannotPurchase();
 
     const result = cart.addToCart({ ...product, price: priceNum }, quantity);
 
@@ -305,6 +325,19 @@ function ProductDetail() {
         )
       ) : null}
 
+      {(lotSalePrice != null || maxPerOrder != null) && (
+        <div className="pdetail-lotInfo">
+          {lotSalePrice != null && (
+            <div className="pdetail-lotSale">
+              いまだけセール価格 ¥{formatYen(lotSalePrice)}（セール残り{saleLot?.remaining}個）
+            </div>
+          )}
+          {maxPerOrder != null && (
+            <div className="pdetail-lotLimit">1回のお会計で {maxPerOrder} 個まで</div>
+          )}
+        </div>
+      )}
+
       <div className="pdetail-qtyRow">
         <div className="pdetail-qtyLabel">数量</div>
         <div className="pdetail-qtyControls">
@@ -323,7 +356,7 @@ function ProductDetail() {
           <button
             className="pdetail-qtyBtn"
             onClick={() => handleChangeQty(1)}
-            disabled={quantity >= stockNum || !canPurchase}
+            disabled={quantity >= purchaseLimit || !canPurchase}
             aria-label="数量を増やす"
             type="button"
           >
