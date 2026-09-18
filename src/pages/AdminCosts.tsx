@@ -410,6 +410,32 @@ export default function AdminCosts() {
     }
   };
 
+  // ✅ 商品を開いたら、未登録の在庫ぶんの入力欄を自動で用意する
+  const ensureUnitRows = (p: ProductRow) => {
+    // すでに入力欄があるなら触らない（入力中の内容を消さないため）
+    if (unitRows[p.id] !== undefined) return;
+
+    const info = infoOf(p);
+    const n = Math.max(0, toInt(p.stock) - info.remaining);
+    if (n <= 0) {
+      setUnitCount((prev) => ({ ...prev, [p.id]: "0" }));
+      setUnitRows((prev) => ({ ...prev, [p.id]: [] }));
+      return;
+    }
+
+    const unit = Math.min(200, n);
+    const base = info.avgCost > 0 ? String(info.avgCost) : "";
+    setUnitCount((prev) => ({ ...prev, [p.id]: String(unit) }));
+    setUnitRows((prev) => ({
+      ...prev,
+      [p.id]: Array.from({ length: unit }, () => ({
+        cost: base,
+        expiry_date: "",
+        expiry_type: "best_before" as const,
+      })),
+    }));
+  };
+
   // ✅ 在庫を1個ずつ登録：個数ぶんの入力欄を作る
   const buildUnitRows = (p: ProductRow) => {
     const n = Math.min(200, Math.max(0, toInt(unitCount[p.id])));
@@ -685,7 +711,14 @@ export default function AdminCosts() {
                       <button
                         className="ac-row-main"
                         type="button"
-                        onClick={() => setOpenId(isOpen ? null : p.id)}
+                        onClick={() => {
+                          if (isOpen) {
+                            setOpenId(null);
+                          } else {
+                            ensureUnitRows(p);
+                            setOpenId(p.id);
+                          }
+                        }}
                       >
                         <div className="ac-row-name">
                           {p.name || "(名前なし)"}
@@ -1022,13 +1055,26 @@ export default function AdminCosts() {
                             在庫を1個ずつ登録（同じ商品でも1個ごとに原価・賞味期限を個別設定）
                           </div>
                           <p className="ac-units-desc">
-                            個数を入れて「入力欄を作る」を押すと、その個数ぶんの行ができます。
+                            商品を開くと、<b>まだロット登録していない在庫の数だけ入力欄が自動で並びます</b>。
                             それぞれの行に原価・期限を入れて登録すると、<b>1個＝1ロット</b>として保存されます。
+                            {(() => {
+                              const info = infoOf(p);
+                              const unregistered = Math.max(0, toInt(p.stock) - info.remaining);
+                              return (
+                                <>
+                                  （在庫 {toInt(p.stock)}個 ／ うちロット登録済み {info.remaining}個 ／{" "}
+                                  <b>未登録 {unregistered}個</b>）
+                                  {unregistered <= 0 && info.count > 0
+                                    ? " すべて登録済みです。追加で登録する場合は個数を入れて「この個数で作り直す」を押してください。"
+                                    : ""}
+                                </>
+                              );
+                            })()}
                           </p>
 
                           <div className="ac-units-top">
                             <label>
-                              <span>個数</span>
+                              <span>個数（作り直すとき）</span>
                               <input
                                 type="number"
                                 inputMode="numeric"
@@ -1046,7 +1092,7 @@ export default function AdminCosts() {
                               type="button"
                               onClick={() => buildUnitRows(p)}
                             >
-                              入力欄を作る
+                              この個数で作り直す
                             </button>
 
                             <label>
@@ -1071,6 +1117,13 @@ export default function AdminCosts() {
                               表示中の行に反映
                             </button>
                           </div>
+
+                          {unitRows[p.id] !== undefined && (unitRows[p.id] ?? []).length === 0 && (
+                            <p className="ac-units-empty">
+                              未登録の在庫がないため入力欄はありません。追加で登録する場合は個数を入れて
+                              「この個数で作り直す」を押してください。
+                            </p>
+                          )}
 
                           {(unitRows[p.id] ?? []).length > 0 && (
                             <>
