@@ -371,7 +371,7 @@ function ProductDetail() {
 
           <aside className="pdetail-right">
             {/* PC：右カラムに購入カード（ボタン付き） */}
-            <div className="pdetail-summaryCard only-desktop">
+            <div className="pdetail-summaryCard">
               {SummaryCardContent}
 
               <div className="pdetail-actions">

@@ -507,7 +507,7 @@
 
 .pdetail-actions {
   margin-top: 20px;
-  display: grid;
+  display: none;
   gap: 10px;
 }
 
@@ -887,5 +887,12 @@
 
   .pdetail-bottomValue {
     font-size: 18px;
+  }
+}
+
+/* PCのみ：購入カード内のボタン（スマホは下固定バーを使う） */
+@media (min-width: 900px) {
+  .pdetail-actions {
+    display: grid;
   }
 }
