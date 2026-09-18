@@ -44,8 +44,6 @@ import AuthCallback from "./pages/AuthCallback";
 import AdminMenu from "./pages/AdminMenu";
 import AdminPage from "./pages/AdminPage";
 import AdminAdd from "./pages/AdminAdd";
-import AdminDetail from "./pages/AdminDetail";
-import AdminEdit from "./pages/AdminEdit";
 import AdminUsers from "./pages/AdminUsers";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminUserOrders from "./pages/AdminUserOrders";
@@ -188,22 +186,6 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminAdd />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "admin-detail/:id",
-        element: (
-          <AdminRoute>
-            <AdminDetail />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "admin-edit/:id",
-        element: (
-          <AdminRoute>
-            <AdminEdit />
           </AdminRoute>
         ),
       },

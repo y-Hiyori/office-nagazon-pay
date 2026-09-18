@@ -1433,3 +1433,119 @@
   color: #fff;
   vertical-align: middle;
 }
+
+/* ---------- v24：商品設定（編集・削除） ---------- */
+.ap-edit-open {
+  flex: 1 1 220px;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #4338ca;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ap-edit-open:disabled { opacity: .5; }
+
+.ap-edit {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.ap-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.ap-edit-grid label,
+.ap-edit-wide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ap-edit-grid label > span,
+.ap-edit-wide > span {
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+}
+.ap-edit-grid input,
+.ap-edit-grid select,
+.ap-edit-id input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  font-size: 14px;
+  background: #fff;
+}
+.ap-edit-wide { grid-column: 1 / -1; }
+.ap-edit-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  padding: 9px 10px;
+}
+.ap-edit-check input { width: auto; }
+.ap-edit-id {
+  margin-top: 12px;
+  border: 1px dashed #f59e0b;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fffbeb;
+}
+.ap-edit-id summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  color: #b45309;
+}
+.ap-edit-id label { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.ap-edit-id label > span { font-size: 12px; font-weight: 800; color: #334155; }
+.ap-edit-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.ap-edit-save {
+  padding: 11px 18px;
+  border: none;
+  border-radius: 10px;
+  background: #4338ca;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ap-edit-save:disabled { opacity: .5; }
+
+.ap-danger {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  background: #fef2f2;
+}
+.ap-danger > b { font-size: 12px; color: #b91c1c; }
+.ap-danger-btn {
+  margin-top: 8px;
+  padding: 10px 16px;
+  border: 1px solid #dc2626;
+  border-radius: 10px;
+  background: #fff;
+  color: #dc2626;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ap-danger-btn:disabled { opacity: .5; }

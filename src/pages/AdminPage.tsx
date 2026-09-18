@@ -34,6 +34,12 @@ type ProductRow = {
   sale_qty?: number | null;
   sale_remaining?: number | null;
   member_price?: number | null;
+  cost?: number | null;
+  earn_points?: number | null;
+  is_shipping?: boolean | null;
+  shipping_lead_min?: number | null;
+  shipping_lead_max?: number | null;
+  shipping_lead_unit?: string | null;
 };
 
 type Lot = {
@@ -87,6 +93,22 @@ type AdjustState = {
   qty: string;
   reason: "" | Reason;
   memo: string;
+};
+
+type ProductEdit = {
+  name: string;
+  price: string;
+  memberPrice: string;
+  earnPoints: string;
+  cost: string;
+  maxPerOrder: string;
+  alertDays: string;
+  isShipping: boolean;
+  leadMin: string;
+  leadMax: string;
+  leadUnit: "business_days" | "days";
+  isVisible: boolean;
+  newId: string;
 };
 
 type AddForm = {
@@ -210,10 +232,16 @@ function AdminPage() {
   const [addForm, setAddForm] = useState<AddForm>(emptyAddForm);
   const [addErr, setAddErr] = useState("");
 
+  // ✅ v24：この画面で商品情報の編集・削除まで行う
+  const [editOpen, setEditOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<ProductEdit | null>(null);
+  const [editErr, setEditErr] = useState("");
+
   const load = async () => {
     setLoading(true);
 
-    const baseCols = "id,name,price,stock,is_visible,max_per_order,expiry_alert_days,member_price";
+    const baseCols = "id,name,price,stock,is_visible,max_per_order,expiry_alert_days,member_price,cost,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let pRes: any = await supabase
       .from("products")
@@ -849,6 +877,172 @@ function AdminPage() {
       }
       setMsg(`「${p.name ?? p.id}」のセールを解除しました`);
       setSaleOpen(false);
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ---------- 商品情報の編集（v24：admin-edit を統合） ----------
+  const openEditPanel = (p: ProductRow) => {
+    if (editOpen && editId === p.id) {
+      setEditOpen(false);
+      setEditId(null);
+      return;
+    }
+    setEditErr("");
+    setEditDraft({
+      name: p.name ?? "",
+      price: p.price == null ? "" : String(toInt(p.price)),
+      memberPrice: p.member_price == null ? "" : String(toInt(p.member_price)),
+      earnPoints: p.earn_points == null ? "" : String(toInt(p.earn_points)),
+      cost: p.cost == null ? "" : String(toInt(p.cost)),
+      maxPerOrder: p.max_per_order == null ? "" : String(toInt(p.max_per_order)),
+      alertDays: p.expiry_alert_days == null ? "30" : String(toInt(p.expiry_alert_days)),
+      isShipping: !!p.is_shipping,
+      leadMin: p.shipping_lead_min == null ? "" : String(toInt(p.shipping_lead_min)),
+      leadMax: p.shipping_lead_max == null ? "" : String(toInt(p.shipping_lead_max)),
+      leadUnit: p.shipping_lead_unit === "days" ? "days" : "business_days",
+      isVisible: p.is_visible !== false,
+      newId: String(p.id),
+    });
+    setEditId(p.id);
+    setEditOpen(true);
+  };
+
+  const patchEdit = (patch: Partial<ProductEdit>) =>
+    setEditDraft((d) => (d ? { ...d, ...patch } : d));
+
+  const closeEditPanel = () => {
+    setEditOpen(false);
+    setEditId(null);
+    setEditDraft(null);
+    setEditErr("");
+  };
+
+  const saveProductEdit = async (p: ProductRow, lotsCount: number) => {
+    if (busy || !editDraft) return;
+    setEditErr("");
+
+    const name = editDraft.name.trim();
+    if (!name) {
+      setEditErr("商品名を入力してください");
+      return;
+    }
+    if (editDraft.price.trim() === "") {
+      setEditErr("販売価格を入力してください（0円も設定できます）");
+      return;
+    }
+    const priceNum = toInt(editDraft.price);
+    if (priceNum < 0) {
+      setEditErr("販売価格は0円以上で入力してください");
+      return;
+    }
+
+    const leadMinNum = editDraft.leadMin.trim() === "" ? null : toInt(editDraft.leadMin);
+    const leadMaxNum = editDraft.leadMax.trim() === "" ? null : toInt(editDraft.leadMax);
+    if (editDraft.isShipping) {
+      if (leadMinNum == null || leadMinNum < 0) {
+        setEditErr("発送商品では発送目安（最短）を入力してください");
+        return;
+      }
+      if (leadMaxNum == null || leadMaxNum < 0) {
+        setEditErr("発送商品では発送目安（最長）を入力してください");
+        return;
+      }
+      if (leadMinNum > leadMaxNum) {
+        setEditErr("発送目安は「最短 ≦ 最長」で入力してください");
+        return;
+      }
+    }
+
+    const newId = toInt(editDraft.newId);
+    const idChanged = newId > 0 && newId !== p.id;
+    if (idChanged) {
+      if (lotsCount > 0) {
+        setEditErr("在庫ロットがあるため商品IDは変更できません（在庫を整理してから変更してください）");
+        return;
+      }
+      const dup = products.some((x) => x.id === newId);
+      if (dup) {
+        setEditErr(`商品ID ${newId} はすでに使われています`);
+        return;
+      }
+    }
+
+    const ok = await appDialog.confirm({
+      message: `「${p.name ?? p.id}」の商品情報を保存しますか？${
+        idChanged ? `\n（商品IDを ${p.id} → ${newId} に変更します）` : ""
+      }`,
+    });
+    if (!ok) return;
+
+    const payload: Record<string, any> = {
+      name,
+      price: priceNum,
+      member_price: editDraft.memberPrice.trim() === "" ? null : Math.max(0, toInt(editDraft.memberPrice)),
+      earn_points: Math.max(0, toInt(editDraft.earnPoints || 0)),
+      cost: editDraft.cost.trim() === "" ? null : Math.max(0, toInt(editDraft.cost)),
+      max_per_order:
+        editDraft.maxPerOrder.trim() === "" ? null : Math.max(1, toInt(editDraft.maxPerOrder)),
+      expiry_alert_days:
+        editDraft.alertDays.trim() === "" ? 30 : Math.max(1, toInt(editDraft.alertDays)),
+      is_shipping: editDraft.isShipping,
+      shipping_lead_min: editDraft.isShipping ? leadMinNum : null,
+      shipping_lead_max: editDraft.isShipping ? leadMaxNum : null,
+      shipping_lead_unit: editDraft.isShipping ? editDraft.leadUnit : "business_days",
+      is_visible: editDraft.isVisible,
+    };
+    if (idChanged) payload.id = newId;
+
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("products").update(payload).eq("id", p.id);
+      if (error) {
+        setEditErr("保存に失敗しました: " + error.message);
+        return;
+      }
+      setMsg(
+        `「${name}」の商品情報を保存しました${idChanged ? `（商品ID: ${newId}）` : ""}`
+      );
+      closeEditPanel();
+      setOpenId(idChanged ? newId : p.id);
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteProduct = async (p: ProductRow, lotsCount: number) => {
+    if (busy) return;
+    const ok = await appDialog.confirm({
+      title: "商品を削除",
+      message:
+        `「${p.name ?? p.id}」を完全に削除します。元に戻せません。\n` +
+        (lotsCount > 0 ? `在庫ロット ${lotsCount}件も一緒に削除されます。\n` : "") +
+        "（過去の注文履歴は残ります）\n\n本当に削除しますか？",
+      okText: "削除する",
+      cancelText: "キャンセル",
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      if (lotsCount > 0) {
+        const { error: eLot } = await supabase.from("product_lots").delete().eq("product_id", p.id);
+        if (eLot) {
+          setEditErr("在庫ロットの削除に失敗しました: " + eLot.message);
+          return;
+        }
+      }
+      const { error } = await supabase.from("products").delete().eq("id", p.id);
+      if (error) {
+        setEditErr("商品の削除に失敗しました: " + error.message);
+        return;
+      }
+      setMsg(`「${p.name ?? p.id}」を削除しました`);
+      closeEditPanel();
+      setOpenId(null);
       await load();
     } finally {
       setBusy(false);
@@ -1593,30 +1787,230 @@ function AdminPage() {
                 </section>
               )}
 
-              {/* ---- 商品設定 ---- */}
+              {/* ---- 商品設定（v24：編集・削除までこの画面で完結） ---- */}
               <section className="ap-section">
                 <h3 className="ap-section-title">商品設定</h3>
-                <div className="ap-links">
-                  <button
-                    className="ap-secondary"
-                    type="button"
-                    onClick={() => navigate(`/admin-edit/${openRow.p.id}`)}
-                  >
-                    価格・購入上限・発送を編集
-                  </button>
-                  <button
-                    className="ap-secondary"
-                    type="button"
-                    onClick={() => navigate(`/admin-detail/${openRow.p.id}`)}
-                  >
-                    商品ページを確認
-                  </button>
-                </div>
-                <p className="ap-hint">
-                  1会計の購入上限：
-                  {openRow.info.limit != null ? `${openRow.info.limit}個` : "無制限"}
-                  ／ 期限アラート：{openRow.info.alertDays}日以内
-                </p>
+
+                {!(editOpen && editId === openRow.p.id) ? (
+                  <>
+                    <div className="ap-links">
+                      <button
+                        className="ap-edit-open"
+                        type="button"
+                        onClick={() => openEditPanel(openRow.p)}
+                      >
+                        商品情報を編集（名前・価格・発送など）
+                      </button>
+                      <button
+                        className="ap-secondary"
+                        type="button"
+                        onClick={() => navigate(`/products/${openRow.p.id}`)}
+                      >
+                        商品ページを確認
+                      </button>
+                    </div>
+                    <p className="ap-hint">
+                      1会計の購入上限：
+                      {openRow.info.limit != null ? `${openRow.info.limit}個` : "無制限"}
+                      ／ 期限アラート：{openRow.info.alertDays}日以内
+                      ／ 販売状態：{openRow.p.is_visible === false ? "非表示" : "表示中"}
+                    </p>
+                  </>
+                ) : editDraft ? (
+                  <div className="ap-edit">
+                    <div className="ap-edit-grid">
+                      <label className="ap-edit-wide">
+                        <span>商品名 必須</span>
+                        <input
+                          type="text"
+                          value={editDraft.name}
+                          onChange={(e) => patchEdit({ name: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>販売価格（円）必須</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={editDraft.price}
+                          onChange={(e) => patchEdit({ price: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>会員価格（円・空欄=通常価格）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="例: 130"
+                          value={editDraft.memberPrice}
+                          onChange={(e) => patchEdit({ memberPrice: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>購入時付与ポイント（pt）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="例: 10"
+                          value={editDraft.earnPoints}
+                          onChange={(e) => patchEdit({ earnPoints: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>仕入れ原価（1個・円／入荷時の既定値）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="例: 80"
+                          value={editDraft.cost}
+                          onChange={(e) => patchEdit({ cost: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>1会計の購入上限（個・空欄=無制限）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="例: 3"
+                          value={editDraft.maxPerOrder}
+                          onChange={(e) => patchEdit({ maxPerOrder: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>期限アラート日数（既定30日）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="30"
+                          value={editDraft.alertDays}
+                          onChange={(e) => patchEdit({ alertDays: e.target.value })}
+                        />
+                      </label>
+
+                      <div className="ap-edit-wide">
+                        <span>販売状態</span>
+                        <label className="ap-edit-check">
+                          <input
+                            type="checkbox"
+                            checked={editDraft.isVisible}
+                            onChange={(e) => patchEdit({ isVisible: e.target.checked })}
+                          />
+                          <span>商品一覧に表示する（オフで非表示）</span>
+                        </label>
+                      </div>
+
+                      <div className="ap-edit-wide">
+                        <span>受渡方法</span>
+                        <label className="ap-edit-check">
+                          <input
+                            type="checkbox"
+                            checked={editDraft.isShipping}
+                            onChange={(e) => patchEdit({ isShipping: e.target.checked })}
+                          />
+                          <span>発送商品（購入時に配送先の住所・電話番号が必要）</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {editDraft.isShipping && (
+                      <div className="ap-edit-grid">
+                        <label>
+                          <span>発送目安（最短）必須</span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            placeholder="例: 3"
+                            value={editDraft.leadMin}
+                            onChange={(e) => patchEdit({ leadMin: e.target.value })}
+                          />
+                        </label>
+                        <label>
+                          <span>発送目安（最長）必須</span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            placeholder="例: 5"
+                            value={editDraft.leadMax}
+                            onChange={(e) => patchEdit({ leadMax: e.target.value })}
+                          />
+                        </label>
+                        <label>
+                          <span>単位</span>
+                          <select
+                            value={editDraft.leadUnit}
+                            onChange={(e) =>
+                              patchEdit({ leadUnit: e.target.value as "business_days" | "days" })
+                            }
+                          >
+                            <option value="business_days">営業日</option>
+                            <option value="days">日</option>
+                          </select>
+                        </label>
+                      </div>
+                    )}
+
+                    <details className="ap-edit-id">
+                      <summary>商品ID変更（注意）</summary>
+                      <label>
+                        <span>商品ID</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={editDraft.newId}
+                          onChange={(e) => patchEdit({ newId: e.target.value })}
+                        />
+                      </label>
+                      <p className="ap-hint">
+                        在庫ロットが登録されている商品はIDを変更できません。変更するとリンク切れの原因になります。
+                      </p>
+                    </details>
+
+                    {editErr && <p className="ac-modal-err">{editErr}</p>}
+
+                    <div className="ap-edit-foot">
+                      <button
+                        className="ap-secondary"
+                        type="button"
+                        disabled={busy}
+                        onClick={closeEditPanel}
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        className="ap-edit-save"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => saveProductEdit(openRow.p, openRow.info.count)}
+                      >
+                        {busy ? "処理中..." : "この商品の設定を保存"}
+                      </button>
+                    </div>
+
+                    <div className="ap-danger">
+                      <b>危険な操作</b>
+                      <p className="ap-hint">
+                        商品と在庫ロット（{openRow.info.count}件）をまとめて削除します。元に戻せません。
+                      </p>
+                      <button
+                        className="ap-danger-btn"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => deleteProduct(openRow.p, openRow.info.count)}
+                      >
+                        この商品を削除する
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </section>
             </div>
           </div>
