@@ -220,6 +220,8 @@ app.post("/api/create-paypay-order", async (req, res) => {
     const subtotal = toIntYen(req.body?.subtotal);
     const discountYen = toIntYen(req.body?.discountYen);
     const coupon = (req.body?.coupon ?? null) ? String(req.body.coupon) : null;
+    // ✅ ポイント使用額（PayPay併用時も必ず orders に保存する）
+    const pointsUsed = Math.max(0, Math.min(toIntYen(req.body?.pointsUsed), Math.max(subtotal - discountYen, 0)));
 
     const buyerEmail = (req.body?.buyerEmail ?? null) ? String(req.body.buyerEmail) : null;
     const buyerName = (req.body?.buyerName ?? null) ? String(req.body.buyerName) : null;
@@ -246,6 +248,8 @@ app.post("/api/create-paypay-order", async (req, res) => {
         subtotal: subtotal || null,
         discount_amount: discountYen || 0,
         coupon_code: coupon,
+        points_used: pointsUsed,
+        points_applied: pointsUsed > 0,
         paypay_return_token: token,
         paypay_merchant_payment_id: merchantPaymentId,
         email: buyerEmail,

@@ -19,6 +19,9 @@ type SalesItem = {
   points_orders_count: number;
   couponYen: number;
   pointsYen: number;
+  cost_unit: number;
+  cost_total: number;
+  profit: number;
 };
 
 type RangeMode = "day" | "week" | "month" | "year";
@@ -33,7 +36,7 @@ type OrderRow = {
   discount_amount: number | null;
   coupon_code: string | null;
   points_used: number | null;
-  points_applied: number | null;
+  points_applied: number | boolean | null;
 
   // ✅ Excel（注文一覧）用
   email?: string | null;
@@ -43,6 +46,7 @@ type OrderRow = {
 
 type OrderItemRow = {
   order_id: string;
+  product_id: number | null;
   product_name: string | null;
   quantity: number | null;
   price: number | null;
@@ -56,6 +60,8 @@ type Summary = {
   pointsTotal: number; // ポイント充当額（売上に含めない）
   couponOrderCount: number;
   pointsOrderCount: number;
+  costTotal: number;
+  profitTotal: number;
 };
 
 const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
@@ -147,6 +153,8 @@ export default function AdminSales() {
     pointsTotal: 0,
     couponOrderCount: 0,
     pointsOrderCount: 0,
+    costTotal: 0,
+    profitTotal: 0,
   });
   const [prev, setPrev] = useState<PrevData | null>(null);
   const [items, setItems] = useState<SalesItem[]>([]);
@@ -164,6 +172,12 @@ export default function AdminSales() {
 
   // ✅ レースコンディション防止（古い応答が新しい応答を上書きしない）
   const loadIdRef = useRef(0);
+
+  // ✅ 商品の仕入れ原価（products.cost）を product_id / 商品名 で引けるように保持
+  const costRef = useRef<{ byId: Map<number, number>; byName: Map<string, number> }>({
+    byId: new Map(),
+    byName: new Map(),
+  });
 
   // ✅ 週の開始（日曜始まり）。JST 00:00 を UTC メソッドで扱う
   const getWeekStartDate = (dateStr: string) => {
@@ -190,14 +204,18 @@ export default function AdminSales() {
   };
 
   const isPointsUsed = (o: OrderRow) => {
-    return round0(o.points_used) > 0 || round0(o.points_applied) > 0;
+    if (round0(o.points_used) > 0) return true;
+    const ap = o.points_applied as unknown;
+    if (typeof ap === "boolean") return ap;
+    return round0(ap) > 0;
   };
 
   const splitDiscount = (o: OrderRow, itemsSum: number) => {
     const sub = round0(o.subtotal) > 0 ? round0(o.subtotal) : round0(itemsSum);
     const tot = round0(o.total);
     const combined = Math.max(0, sub - tot);
-    const pts = Math.min(Math.max(round0(o.points_used), round0(o.points_applied)), combined);
+    const ap = typeof o.points_applied === "boolean" ? 0 : round0(o.points_applied);
+    const pts = Math.min(Math.max(round0(o.points_used), ap), combined);
     return { sub, tot, combined, pts, coupon: combined - pts };
   };
 
@@ -223,6 +241,8 @@ export default function AdminSales() {
       pointsTotal: 0,
       couponOrderCount: 0,
       pointsOrderCount: 0,
+      costTotal: 0,
+      profitTotal: 0,
     });
 
     try {
@@ -282,6 +302,33 @@ export default function AdminSales() {
       const ordersArr = (d?.orders ?? []) as unknown as OrderRow[];
       const itemsRows = (d?.items ?? []) as unknown as OrderItemRow[];
 
+      // ✅ 仕入れ原価を取得（products.cost）
+      const costById = new Map<number, number>();
+      const costByName = new Map<string, number>();
+      try {
+        const { data: prodRows, error: prodErr } = await supabase
+          .from("products")
+          .select("id,name,cost");
+        if (prodErr) {
+          console.error("products cost load error:", prodErr);
+        } else {
+          for (const pr of (prodRows ?? []) as any[]) {
+            const c = Math.max(0, Math.round(Number(pr?.cost ?? 0) || 0));
+            if (pr?.id != null) costById.set(Number(pr.id), c);
+            if (pr?.name != null) costByName.set(String(pr.name), c);
+          }
+        }
+      } catch (eCost) {
+        console.error("products cost load failed:", eCost);
+      }
+      costRef.current = { byId: costById, byName: costByName };
+
+      const costOf = (row: OrderItemRow) => {
+        const byId = row.product_id != null ? costById.get(Number(row.product_id)) : undefined;
+        if (byId != null) return byId;
+        return costByName.get(String(row.product_name ?? "")) ?? 0;
+      };
+
       if (loadId !== loadIdRef.current) return;
       if (!ordersArr || ordersArr.length === 0) return;
 
@@ -294,8 +341,11 @@ export default function AdminSales() {
 
       const byOrderProduct = new Map<
         string,
-        { orderId: string; productName: string; qty: number; rawSub: number }
+        { orderId: string; productName: string; qty: number; rawSub: number; costUnit: number }
       >();
+
+      // ✅ 注文ごとの仕入れ原価合計
+      const orderCostById = new Map<string, number>();
 
       for (const row of itemsRows) {
         const orderId = String(row.order_id || "");
@@ -311,13 +361,18 @@ export default function AdminSales() {
           (orderSubtotalFromItems.get(orderId) || 0) + rawSub
         );
 
+        const costUnit = costOf(row);
+
         const key = `${orderId}__${productName}`;
         if (!byOrderProduct.has(key)) {
-          byOrderProduct.set(key, { orderId, productName, qty: 0, rawSub: 0 });
+          byOrderProduct.set(key, { orderId, productName, qty: 0, rawSub: 0, costUnit });
         }
         const cur = byOrderProduct.get(key)!;
         cur.qty += qty;
         cur.rawSub += rawSub;
+        cur.costUnit = costUnit;
+
+        orderCostById.set(orderId, (orderCostById.get(orderId) || 0) + costUnit * qty);
       }
 
       const productAgg = new Map<
@@ -330,10 +385,11 @@ export default function AdminSales() {
           pointsOrders: Set<string>;
           couponYen: number;
           pointsYen: number;
+          cost_total: number;
         }
       >();
 
-      for (const { orderId, productName, qty, rawSub } of byOrderProduct.values()) {
+      for (const { orderId, productName, qty, rawSub, costUnit } of byOrderProduct.values()) {
         const o = orderMap.get(orderId);
         if (!o) continue;
 
@@ -367,6 +423,7 @@ export default function AdminSales() {
             pointsOrders: new Set<string>(),
             couponYen: 0,
             pointsYen: 0,
+            cost_total: 0,
           });
         }
 
@@ -376,6 +433,7 @@ export default function AdminSales() {
         p.subtotal_after_discount += after;
         p.couponYen += couponYenShare;
         p.pointsYen += pointsYenShare;
+        p.cost_total += costUnit * qty;
 
         if (isCouponUsed(o)) p.couponOrders.add(orderId);
         if (isPointsUsed(o)) p.pointsOrders.add(orderId);
@@ -395,6 +453,9 @@ export default function AdminSales() {
             points_orders_count: v.pointsOrders.size,
             couponYen: Math.round(v.couponYen),
             pointsYen: Math.round(v.pointsYen),
+            cost_unit: quantity > 0 ? Math.round(v.cost_total / quantity) : 0,
+            cost_total: Math.round(v.cost_total),
+            profit: Math.round(v.subtotal_after_discount - v.cost_total),
           };
         })
         .sort((a, b) => b.subtotal_after_discount - a.subtotal_after_discount);
@@ -405,12 +466,14 @@ export default function AdminSales() {
       let ctotal = 0;
       let cCnt = 0;
       let pCnt = 0;
+      let costSum = 0;
       for (const o of ordersArr) {
         const s = splitDiscount(o, orderSubtotalFromItems.get(o.id) || 0);
         cash += round0(o.total);
         gross += s.sub;
         ptotal += s.pts;
         ctotal += s.coupon;
+        costSum += Math.round(orderCostById.get(o.id) || 0);
         if (isCouponUsed(o)) cCnt++;
         if (isPointsUsed(o)) pCnt++;
       }
@@ -425,6 +488,8 @@ export default function AdminSales() {
         pointsTotal: ptotal,
         couponOrderCount: cCnt,
         pointsOrderCount: pCnt,
+        costTotal: Math.round(costSum),
+        profitTotal: Math.round(cash - costSum),
       });
 
       // ✅ 比較期間（前日/前週/前月/前年）も取得 → Excel の「期間比較」シート用
@@ -569,8 +634,19 @@ export default function AdminSales() {
         );
       }
 
+      const orderCost = new Map<string, number>();
+      for (const it of itemRows) {
+        if (!it.order_id) continue;
+        const c =
+          (it.product_id != null ? costRef.current.byId.get(Number(it.product_id)) : undefined) ??
+          costRef.current.byName.get(String(it.product_name ?? "")) ??
+          0;
+        orderCost.set(it.order_id, (orderCost.get(it.order_id) || 0) + c * round0(it.quantity));
+      }
+
       const orderData = orderRows.map((o) => {
         const s = splitDiscount(o, itemSumByOrder.get(o.id) || 0);
+        const cost = Math.round(orderCost.get(o.id) || 0);
         return {
           id: o.id,
           created_at: formatJst(o.created_at),
@@ -583,6 +659,8 @@ export default function AdminSales() {
           coupon: s.coupon,
           points: s.pts,
           total: round0(o.total),
+          cost,
+          profit: round0(o.total) - cost,
         };
       });
 
@@ -720,9 +798,25 @@ export default function AdminSales() {
             <>
               <div className="as-cards">
                 <div className="as-card as-card-main">
-                  <div className="as-label">利益</div>
-                  <div className="as-value">{summary.cashSales.toLocaleString("ja-JP")} 円</div>
-                  <div className="as-sub">＝入金売上（実際にいただいた金額）</div>
+                  <div className="as-label">粗利（利益）</div>
+                  <div className="as-value">{summary.profitTotal.toLocaleString("ja-JP")} 円</div>
+                  <div className="as-sub">
+                    ＝ 入金売上 {summary.cashSales.toLocaleString("ja-JP")} 円 − 仕入れ原価{" "}
+                    {summary.costTotal.toLocaleString("ja-JP")} 円
+                  </div>
+                </div>
+
+                <div className="as-card as-card-cost">
+                  <div className="as-label">仕入れ原価</div>
+                  <div className="as-value as-minus">
+                    -{summary.costTotal.toLocaleString("ja-JP")} 円
+                  </div>
+                  <div className="as-sub">
+                    粗利率{" "}
+                    {summary.cashSales > 0
+                      ? `${Math.round((summary.profitTotal / summary.cashSales) * 100)}%`
+                      : "-"}
+                  </div>
                 </div>
 
                 <div className="as-card">
@@ -754,7 +848,8 @@ export default function AdminSales() {
               </div>
 
               <p className="as-note">
-                利益＝お客様から実際にいただいた金額（入金売上）です。クーポン割引・ポイント充当は売上に含みません。
+                粗利（利益）＝ 入金売上 − 仕入れ原価 です。クーポン割引・ポイント充当は売上に含みません。
+                仕入れ原価は管理画面の「仕入れ原価の登録」で商品ごとに設定してください（未登録の商品は原価0円で計算されます）。
               </p>
 
               <div className="as-excel-row">
@@ -850,6 +945,18 @@ export default function AdminSales() {
                               )}
                             </div>
                           )}
+
+                          <div className="sales-item-cost">
+                            <span className="sales-cost-raw">
+                              原価 {item.cost_total.toLocaleString("ja-JP")} 円
+                              <span className="sales-cost-unit">
+                                （@{item.cost_unit.toLocaleString("ja-JP")}円 × {item.quantity}）
+                              </span>
+                            </span>
+                            <span className="sales-profit">
+                              粗利 {item.profit.toLocaleString("ja-JP")} 円
+                            </span>
+                          </div>
 
                           <div className="sales-item-bottom">
                             <span className="sales-subtotal-raw">

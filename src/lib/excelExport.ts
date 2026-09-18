@@ -188,6 +188,8 @@ function styledSheet(XLSX: XlsxApi, opts: StyledOptions): any {
 }
 
 export type SalesSummaryData = {
+  costTotal: number;
+  profitTotal: number;
   cashSales: number;
   orderCount: number;
   grossSubtotal: number;
@@ -207,6 +209,9 @@ export type SalesProductData = {
   points_orders_count: number;
   couponYen: number;
   pointsYen: number;
+  cost_unit?: number;
+  cost_total?: number;
+  profit?: number;
 };
 
 export type SalesOrderData = {
@@ -221,6 +226,8 @@ export type SalesOrderData = {
   coupon: number;
   points: number;
   total: number;
+  cost?: number;
+  profit?: number;
 };
 
 export type SalesRangeData = {
@@ -236,12 +243,13 @@ export type PrevData = {
 
 function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
   const BAR_CELLS = 8;
-  const nCols = 8 + BAR_CELLS * 2;
+  const DATA_COLS = 12;
+  const nCols = DATA_COLS + BAR_CELLS * 2;
   const totalSales = Math.max(1, products.reduce((sum, p) => sum + p.subtotal_after_discount, 0));
   const maxSales = Math.max(1, ...products.map((p) => p.subtotal_after_discount), 1);
   const maxQty = Math.max(1, ...products.map((p) => p.quantity), 1);
 
-  const aoa: unknown[][] = [["商品別売上（商品ごとの売上と数量がひと目で分かる一覧）"]];
+  const aoa: unknown[][] = [["商品別売上（売上・仕入れ原価・粗利がひと目で分かる一覧）"]];
   aoa.push([
     "商品名",
     "売価(平均・円)",
@@ -250,6 +258,10 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
     "クーポン割引(円)",
     "ポイント充当(円)",
     "入金売上(割引後・円)",
+    "仕入れ原価(単価・円)",
+    "売上原価(円)",
+    "粗利(円)",
+    "粗利率",
     "売上構成比",
     "売上棒 ▶",
     ...Array.from({ length: BAR_CELLS - 1 }, () => ""),
@@ -258,6 +270,9 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
   ]);
 
   for (const p of products) {
+    const costUnit = Math.round(Number(p.cost_unit ?? 0) || 0);
+    const costTotal = costUnit * p.quantity;
+    const profit = p.subtotal_after_discount - costTotal;
     aoa.push([
       p.product_name,
       p.avg_unit_price,
@@ -266,18 +281,23 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
       p.couponYen,
       p.pointsYen,
       p.subtotal_after_discount,
+      costUnit,
+      costTotal,
+      profit,
+      p.subtotal_after_discount > 0 ? profit / p.subtotal_after_discount : 0,
       p.subtotal_after_discount / totalSales,
       ...Array.from({ length: BAR_CELLS * 2 }, () => ""),
     ]);
   }
 
-  aoa.push(["合計", 0, 0, 0, 0, 0, 0, 1, ...Array.from({ length: BAR_CELLS * 2 }, () => "")]);
+  aoa.push(["合計", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, ...Array.from({ length: BAR_CELLS * 2 }, () => "")]);
   aoa.push(["※ 入金売上(割引後) ＝ 売上計算(割引前) − クーポン割引 − ポイント充当 です。"]);
-  aoa.push(["※ ブラウザ生成版では右側に簡易バー、サーバー生成版では本物のExcelグラフが入ります。"]);
+  aoa.push(["※ 粗利 ＝ 入金売上(割引後) − 売上原価（仕入れ原価 × 数量）です。"]);
+  aoa.push(["※ 仕入れ原価が未登録の商品は原価0円として計算されます。"]);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [30, 14, 9, 16, 14, 14, 16, 11, ...Array.from({ length: BAR_CELLS * 2 }, () => 2.2)].map((w) => ({ wch: w }));
-  ws["!rows"] = [{ hpt: 32 }, { hpt: 26 }, ...Array.from({ length: products.length + 1 }, () => ({ hpt: 20 })), { hpt: 18 }, { hpt: 18 }];
+  ws["!cols"] = [30, 14, 9, 16, 14, 14, 16, 15, 13, 13, 10, 12, ...Array.from({ length: BAR_CELLS * 2 }, () => 2.2)].map((w) => ({ wch: w }));
+  ws["!rows"] = [{ hpt: 32 }, { hpt: 26 }, ...Array.from({ length: products.length + 1 }, () => ({ hpt: 20 })), { hpt: 18 }, { hpt: 18 }, { hpt: 18 }];
   ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: nCols - 1 } }];
 
   applyCell(ws, encode(XLSX, 0, 0), {
@@ -299,14 +319,17 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
   for (let i = 0; i < products.length; i++) {
     const rowIdx = 2 + i;
     const p = products[i];
+    const costUnit = Math.round(Number(p.cost_unit ?? 0) || 0);
+    const costTotal = costUnit * p.quantity;
+    const profit = p.subtotal_after_discount - costTotal;
     const salesCells = Math.max(p.subtotal_after_discount > 0 ? 1 : 0, Math.round((p.subtotal_after_discount / maxSales) * BAR_CELLS));
     const qtyCells = Math.max(p.quantity > 0 ? 1 : 0, Math.round((p.quantity / maxQty) * BAR_CELLS));
 
-    for (let c = 0; c < 8; c++) {
-      const fmt = c === 2 ? COUNT : c === 7 ? PCT : c >= 1 ? YEN : undefined;
+    for (let c = 0; c < DATA_COLS; c++) {
+      const fmt = c === 2 ? COUNT : c === 10 || c === 11 ? PCT : c >= 1 ? YEN : undefined;
       const a: Align = c === 0 ? "left" : c === 2 ? "center" : "right";
       applyCell(ws, encode(XLSX, rowIdx, c), {
-        font: { name: "メイリオ", sz: 10, ...(c === 6 ? { bold: true } : {}) },
+        font: { name: "メイリオ", sz: 10, ...(c === 6 || c === 9 ? { bold: true } : {}) },
         fill: i % 2 === 1 ? { patternType: "solid", fgColor: { rgb: ZEBRA_BG } } : undefined,
         alignment: { horizontal: a, vertical: "center" },
         border: BORDER,
@@ -316,14 +339,17 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
 
     ws[encode(XLSX, rowIdx, 3)] = { t: "n", f: `B${rowIdx + 1}*C${rowIdx + 1}`, v: p.subtotal_raw, s: ws[encode(XLSX, rowIdx, 3)]?.s };
     ws[encode(XLSX, rowIdx, 6)] = { t: "n", f: `D${rowIdx + 1}-E${rowIdx + 1}-F${rowIdx + 1}`, v: p.subtotal_after_discount, s: ws[encode(XLSX, rowIdx, 6)]?.s };
-    ws[encode(XLSX, rowIdx, 7)] = { t: "n", f: `IF($G$${totalRowNumber}=0,0,G${rowIdx + 1}/$G$${totalRowNumber})`, v: p.subtotal_after_discount / totalSales, s: ws[encode(XLSX, rowIdx, 7)]?.s };
+    ws[encode(XLSX, rowIdx, 8)] = { t: "n", f: `H${rowIdx + 1}*C${rowIdx + 1}`, v: costTotal, s: ws[encode(XLSX, rowIdx, 8)]?.s };
+    ws[encode(XLSX, rowIdx, 9)] = { t: "n", f: `G${rowIdx + 1}-I${rowIdx + 1}`, v: profit, s: ws[encode(XLSX, rowIdx, 9)]?.s };
+    ws[encode(XLSX, rowIdx, 10)] = { t: "n", f: `IF(G${rowIdx + 1}=0,0,J${rowIdx + 1}/G${rowIdx + 1})`, v: p.subtotal_after_discount > 0 ? profit / p.subtotal_after_discount : 0, s: ws[encode(XLSX, rowIdx, 10)]?.s };
+    ws[encode(XLSX, rowIdx, 11)] = { t: "n", f: `IF($G$${totalRowNumber}=0,0,G${rowIdx + 1}/$G$${totalRowNumber})`, v: p.subtotal_after_discount / totalSales, s: ws[encode(XLSX, rowIdx, 11)]?.s };
 
     for (let b = 0; b < BAR_CELLS; b++) {
-      applyCell(ws, encode(XLSX, rowIdx, 8 + b), {
+      applyCell(ws, encode(XLSX, rowIdx, DATA_COLS + b), {
         fill: { patternType: "solid", fgColor: { rgb: b < salesCells ? BAR_COLOR : BAR_EMPTY } },
         border: BORDER,
       });
-      applyCell(ws, encode(XLSX, rowIdx, 8 + BAR_CELLS + b), {
+      applyCell(ws, encode(XLSX, rowIdx, DATA_COLS + BAR_CELLS + b), {
         fill: { patternType: "solid", fgColor: { rgb: b < qtyCells ? BAR_SUB_COLOR : BAR_EMPTY } },
         border: BORDER,
       });
@@ -342,7 +368,7 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
       fill: { patternType: "solid", fgColor: { rgb: TOTAL_BG } },
       alignment: { horizontal: c === 0 ? "left" : c === 2 ? "center" : "right", vertical: "center" },
       border: BORDER,
-      ...(c === 2 ? { numFmt: COUNT } : c === 7 ? { numFmt: PCT } : c >= 1 && c <= 6 ? { numFmt: YEN } : {}),
+      ...(c === 2 ? { numFmt: COUNT } : c === 10 || c === 11 ? { numFmt: PCT } : c >= 1 && c <= 9 ? { numFmt: YEN } : {}),
     });
   }
 
@@ -353,16 +379,19 @@ function productSheet(XLSX: XlsxApi, products: SalesProductData[]): any {
   setFormula(4, `SUM(E3:E${lastDataRow})`);
   setFormula(5, `SUM(F3:F${lastDataRow})`);
   setFormula(6, `SUM(G3:G${lastDataRow})`);
-  setFormula(7, `IF(G${totalRowNumber}=0,0,G${totalRowNumber}/G${totalRowNumber})`, 1);
+  setFormula(7, `IF(C${totalRowNumber}=0,0,I${totalRowNumber}/C${totalRowNumber})`);
+  setFormula(8, `SUM(I3:I${lastDataRow})`);
+  setFormula(9, `G${totalRowNumber}-I${totalRowNumber}`);
+  setFormula(10, `IF(G${totalRowNumber}=0,0,J${totalRowNumber}/G${totalRowNumber})`, 1);
 
-  for (let c = 8; c < nCols; c++) {
+  for (let c = DATA_COLS; c < nCols; c++) {
     applyCell(ws, encode(XLSX, totalRowIdx, c), {
       fill: { patternType: "solid", fgColor: { rgb: TOTAL_BG } },
       border: BORDER,
     });
   }
 
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const rIdx = totalRowIdx + 1 + i;
     ws["!merges"].push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: nCols - 1 } });
     applyCell(ws, encode(XLSX, rIdx, 0), {
@@ -388,6 +417,9 @@ function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummar
       ["入金売上", summary.cashSales, "＝ 商品売上 − クーポン割引 − ポイント充当"],
       ["総値引額", 0, "＝ クーポン割引 ＋ ポイント充当"],
       ["実収率", 0, "＝ 入金売上 ÷ 商品売上（割引前）"],
+      ["売上原価（仕入れ）", summary.costTotal, "＝ Σ（仕入れ原価 × 販売数量）"],
+      ["粗利（利益）", 0, "＝ 入金売上 − 売上原価（仕入れ）"],
+      ["粗利率", 0, "＝ 粗利 ÷ 入金売上"],
     ],
     rowFormats: [
       [null, null, null],
@@ -398,17 +430,23 @@ function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummar
       [null, YEN, null],
       [null, YEN, null],
       [null, PCT, null],
+      [null, YEN, null],
+      [null, YEN, null],
+      [null, PCT, null],
     ],
     align: ["left", "right", "left"],
     formulas: [
       { addr: "B8", f: "B5-B6-B7", v: summary.cashSales, highlight: true, numFmt: YEN },
       { addr: "B9", f: "B6+B7", v: summary.couponDiscount + summary.pointsTotal, numFmt: YEN },
       { addr: "B10", f: "IF(B5=0,0,B8/B5)", v: summary.grossSubtotal ? summary.cashSales / summary.grossSubtotal : 0, numFmt: PCT },
+      { addr: "B12", f: "B8-B11", v: summary.profitTotal, highlight: true, numFmt: YEN },
+      { addr: "B13", f: "IF(B8=0,0,B12/B8)", v: summary.cashSales ? summary.profitTotal / summary.cashSales : 0, numFmt: PCT },
     ],
     widths: [24, 18, 56],
     note: [
       "入金売上 ＝ お客様から実際にいただいた金額です。",
-      "商品別売上シートには商品別の売上グラフ、数量グラフ、売上構成比グラフを追加しています。",
+      "粗利（利益）＝ 入金売上 − 売上原価（仕入れ）です。仕入れ原価は管理画面の「仕入れ原価の登録」で設定できます。",
+      "商品別売上シートには売上・粗利・数量・売上構成比のグラフを追加しています。",
       "期間比較シートには今期 vs 比較期間の棒グラフと、増減率の折れ線グラフを追加しています。",
     ],
     freeze: true,
@@ -448,15 +486,15 @@ function compareSheet(XLSX: XlsxApi, currentLabel: string, prev: PrevData | null
 function orderSheet(XLSX: XlsxApi, orders: SalesOrderData[]): any {
   return styledSheet(XLSX, {
     title: "注文一覧",
-    headers: ["注文ID", "注文日時", "購入者名", "メール", "支払方法", "商品内訳", "小計(円)", "クーポンコード", "クーポン割引(円)", "ポイント充当(円)", "入金額(円)"],
-    rows: orders.map((o) => [o.id, o.created_at, o.name, o.email, o.payment_method, o.itemsText, o.subtotal, o.couponCode, o.coupon, o.points, o.total]),
-    rowFormats: orders.map(() => [null, null, null, null, null, null, YEN, null, YEN, YEN, YEN]),
-    align: ["left", "left", "left", "left", "center", "left", "right", "left", "right", "right", "right"],
+    headers: ["注文ID", "注文日時", "購入者名", "メール", "支払方法", "商品内訳", "小計(円)", "クーポンコード", "クーポン割引(円)", "ポイント充当(円)", "入金額(円)", "売上原価(円)", "粗利(円)"],
+    rows: orders.map((o) => [o.id, o.created_at, o.name, o.email, o.payment_method, o.itemsText, o.subtotal, o.couponCode, o.coupon, o.points, o.total, o.cost ?? 0, (o.total ?? 0) - (o.cost ?? 0)]),
+    rowFormats: orders.map(() => [null, null, null, null, null, null, YEN, null, YEN, YEN, YEN, YEN, YEN]),
+    align: ["left", "left", "left", "left", "center", "left", "right", "left", "right", "right", "right", "right", "right"],
     footerRows: [{
-      values: ["合計", "", "", "", "", "", `=SUM(G3:G${orders.length + 2})`, "", `=SUM(I3:I${orders.length + 2})`, `=SUM(J3:J${orders.length + 2})`, `=SUM(K3:K${orders.length + 2})`],
-      formats: [null, null, null, null, null, null, YEN, null, YEN, YEN, YEN],
+      values: ["合計", "", "", "", "", "", `=SUM(G3:G${orders.length + 2})`, "", `=SUM(I3:I${orders.length + 2})`, `=SUM(J3:J${orders.length + 2})`, `=SUM(K3:K${orders.length + 2})`, `=SUM(L3:L${orders.length + 2})`, `=SUM(M3:M${orders.length + 2})`],
+      formats: [null, null, null, null, null, null, YEN, null, YEN, YEN, YEN, YEN, YEN],
     }],
-    widths: [30, 17, 15, 26, 12, 38, 14, 14, 15, 15, 14],
+    widths: [30, 17, 15, 26, 12, 38, 14, 14, 15, 15, 14, 14, 14],
     freeze: true,
   });
 }

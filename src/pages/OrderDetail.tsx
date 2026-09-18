@@ -129,7 +129,24 @@ function OrderDetail() {
     const discount = Math.max(0, subtotal - total);
     const hasDiscount = discount > 0;
 
-    return { total, subtotal, discount, hasDiscount };
+    const couponCode = String((order as any)?.coupon_code ?? "").trim();
+    const rawPoints = Number((order as any)?.points_used ?? 0) || 0;
+    const rawCoupon = Number((order as any)?.discount_amount ?? 0) || 0;
+
+    // ✅ ポイント使用額がDBにある場合はそれを優先（無い場合は推定）
+    const pointsUsed = Math.max(0, Math.floor(rawPoints));
+    const couponDiscount =
+      pointsUsed > 0 ? Math.max(0, rawCoupon) : Math.max(0, rawCoupon > 0 ? rawCoupon : discount);
+
+    return {
+      total,
+      subtotal,
+      discount,
+      hasDiscount,
+      pointsUsed,
+      couponDiscount,
+      couponCode,
+    };
   }, [order, items]);
 
   return (
@@ -175,12 +192,27 @@ function OrderDetail() {
                 <strong>小計：</strong> {formatPrice(summary.subtotal)}円
               </p>
 
-              {/* ✅ 割引がある時だけ表示 */}
-              {summary.hasDiscount && (
+              {/* ✅ 割引の内訳（クーポン / ポイント） */}
+              {summary.couponDiscount > 0 && (
                 <p>
-                  <strong>割引：</strong> -{formatPrice(summary.discount)}円
+                  <strong>クーポン値引き：</strong> -{formatPrice(summary.couponDiscount)}円
+                  {summary.couponCode ? `（${summary.couponCode}）` : ""}
                 </p>
               )}
+
+              {summary.pointsUsed > 0 && (
+                <p>
+                  <strong>ポイント使用：</strong> -{formatPrice(summary.pointsUsed)}円
+                </p>
+              )}
+
+              {summary.hasDiscount &&
+                summary.couponDiscount <= 0 &&
+                summary.pointsUsed <= 0 && (
+                  <p>
+                    <strong>割引：</strong> -{formatPrice(summary.discount)}円
+                  </p>
+                )}
 
               <p>
                 <strong>支払合計：</strong> {formatPrice(summary.total)}円

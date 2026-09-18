@@ -59,6 +59,8 @@ import AdminHomeSlideEdit from "./pages/AdminHomeSlideEdit";
 import AdminNotices from "./pages/AdminNotices";
 import AdminNoticeEdit from "./pages/AdminNoticeEdit";
 import AdminPoints from "./pages/AdminPoints";
+// ✅ 追加：仕入れ原価の登録
+import AdminCosts from "./pages/AdminCosts";
 
 // 追加 import
 import AdminCouponRewardsPage from "./pages/AdminCouponRewardsPage";
@@ -327,6 +329,16 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminNoticeEdit mode="edit" />
+          </AdminRoute>
+        ),
+      },
+
+      // ✅ 仕入れ原価の登録
+      {
+        path: "admin-costs",
+        element: (
+          <AdminRoute>
+            <AdminCosts />
           </AdminRoute>
         ),
       },

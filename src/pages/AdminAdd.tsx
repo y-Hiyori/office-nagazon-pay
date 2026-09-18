@@ -15,6 +15,8 @@ function AdminAdd() {
   const [stock, setStock] = useState("");
   const [memberPrice, setMemberPrice] = useState("");
   const [earnPoints, setEarnPoints] = useState("");
+  // ✅ 仕入れ原価（1個あたり・円）
+  const [cost, setCost] = useState("");
   const [isShipping, setIsShipping] = useState(false);
   // ✅ 発送目安（任意）: 最短〜最長＋単位（営業日/日）
   const [shippingLeadMin, setShippingLeadMin] = useState("");
@@ -109,10 +111,23 @@ function AdminAdd() {
       }
     }
 
+    const costRaw = cost.trim();
+    const costNum = costRaw === "" ? null : Math.floor(Number(costRaw));
+
+    if (costRaw !== "" && (costNum == null || Number.isNaN(costNum) || costNum < 0)) {
+      await appDialog.alert({
+        title: "入力エラー",
+        message: "仕入れ原価は0以上の数字で入力してください",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     const payload: Record<string, unknown> = {
       id: idNum,
       name,
       price: priceNum,
+      cost: costNum,
       stock: stockNum,
       member_price: Number.isFinite(memberPriceNum) ? memberPriceNum : null,
       earn_points: earnNum,
@@ -205,6 +220,13 @@ function AdminAdd() {
         placeholder="購入時付与ポイント（pt・購入後にアカウントへ付与）"
         value={earnPoints}
         onChange={(e) => setEarnPoints(e.target.value)}
+      />
+
+      <input
+        type="number"
+        placeholder="仕入れ原価（1個あたり・円／任意）"
+        value={cost}
+        onChange={(e) => setCost(e.target.value)}
       />
 
       <label className="add-shipping-toggle">

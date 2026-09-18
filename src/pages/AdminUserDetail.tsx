@@ -17,6 +17,16 @@ type WalletRow = {
   balance: number;
 };
 
+type PointTx = {
+  id: string;
+  type: string;
+  amount: number;
+  balance_after: number;
+  order_id: string | null;
+  description: string | null;
+  created_at: string;
+};
+
 export default function AdminUserDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -26,6 +36,11 @@ export default function AdminUserDetail() {
   const [loading, setLoading] = useState(true);
 
   const [sending, setSending] = useState(false);
+
+  // ✅ ポイント履歴（管理者用RPC）
+  const [pointTxs, setPointTxs] = useState<PointTx[]>([]);
+  const [pointErr, setPointErr] = useState("");
+  const [pointLoading, setPointLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -61,6 +76,27 @@ export default function AdminUserDetail() {
         });
       } else {
         setWallet({ user_id: id, balance: 0 });
+      }
+
+      // ✅ ポイント履歴を取得（管理者のみ実行できるRPC）
+      try {
+        const { data: hist, error: histErr } = await supabase.rpc("admin_point_history", {
+          p_user_id: id,
+          p_limit: 200,
+        });
+
+        if (histErr) {
+          console.error("admin_point_history error:", histErr);
+          setPointErr("ポイント履歴の取得に失敗しました: " + histErr.message);
+        } else {
+          const h: any = hist;
+          setPointTxs(Array.isArray(h?.transactions) ? (h.transactions as PointTx[]) : []);
+        }
+      } catch (eHist) {
+        console.error(eHist);
+        setPointErr("ポイント履歴の取得に失敗しました");
+      } finally {
+        setPointLoading(false);
       }
 
       setLoading(false);
@@ -163,6 +199,67 @@ const handleSendResetMail = async () => {
                     {Number(wallet?.balance ?? 0).toLocaleString("ja-JP")} pt
                   </div>
                 </div>
+              </section>
+
+              {/* ✅ ポイント履歴（管理者がユーザーの増減を確認できる） */}
+              <section className="admin-user-detail-card">
+                <div className="admin-user-detail-history-head">
+                  <h3>ポイント履歴</h3>
+                  <span>{pointTxs.length} 件</span>
+                </div>
+
+                {pointLoading ? (
+                  <p className="admin-user-detail-loading">読み込み中...</p>
+                ) : pointErr ? (
+                  <p className="admin-user-detail-error">{pointErr}</p>
+                ) : pointTxs.length === 0 ? (
+                  <p className="admin-user-detail-loading">ポイント履歴はありません</p>
+                ) : (
+                  <div className="admin-user-detail-history">
+                    {pointTxs.map((t) => {
+                      const label =
+                        t.type === "earn"
+                          ? "獲得"
+                          : t.type === "use"
+                          ? "使用"
+                          : t.type === "expire"
+                          ? "失効"
+                          : "調整";
+                      const amount = Number(t.amount || 0);
+                      const cls = amount > 0 ? "plus" : "minus";
+
+                      return (
+                        <div className="admin-user-detail-history-row" key={t.id}>
+                          <div className="admin-user-detail-history-main">
+                            <span className={`admin-user-detail-history-type ${cls}`}>{label}</span>
+                            <span className="admin-user-detail-history-desc">
+                              {t.description || "-"}
+                            </span>
+                          </div>
+
+                          <div className="admin-user-detail-history-right">
+                            <span className={`admin-user-detail-history-amount ${cls}`}>
+                              {amount > 0 ? "+" : ""}
+                              {amount.toLocaleString("ja-JP")} pt
+                            </span>
+                            <span className="admin-user-detail-history-date">
+                              {t.created_at
+                                ? new Date(t.created_at).toLocaleString("ja-JP", {
+                                    timeZone: "Asia/Tokyo",
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "-"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
 
               {/* ✅ 追加：再設定メール送信 */}

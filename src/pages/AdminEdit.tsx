@@ -24,6 +24,8 @@ export default function AdminEdit() {
   const [stock, setStock] = useState("");
   const [memberPrice, setMemberPrice] = useState("");
   const [earnPoints, setEarnPoints] = useState("");
+  // ✅ 仕入れ原価（1個あたり・円）
+  const [cost, setCost] = useState("");
   const [isShipping, setIsShipping] = useState(false);
   // ✅ 発送目安（任意）
   const [shippingLeadMin, setShippingLeadMin] = useState("");
@@ -45,7 +47,7 @@ export default function AdminEdit() {
 
     const { data, error } = await supabase
       .from("products")
-        .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping, shipping_lead_min, shipping_lead_max, shipping_lead_unit")
+        .select("id, name, price, original_price, stock, member_price, earn_points, is_shipping, shipping_lead_min, shipping_lead_max, shipping_lead_unit, cost")
 
       .eq("id", urlId)
       .maybeSingle();
@@ -81,6 +83,8 @@ export default function AdminEdit() {
     setMemberPrice(dbMember != null && Number(dbMember) > 0 ? String(dbMember) : "");
     const dbEarn = Number((data as any).earn_points ?? 0);
     setEarnPoints(dbEarn > 0 ? String(dbEarn) : "");
+    const dbCost = (data as any).cost;
+    setCost(dbCost != null && Number(dbCost) > 0 ? String(Math.floor(Number(dbCost))) : "");
     setIsShipping(!!(data as any).is_shipping);
     const dbLeadMin = (data as any).shipping_lead_min;
     const dbLeadMax = (data as any).shipping_lead_max;
@@ -213,6 +217,7 @@ export default function AdminEdit() {
         stock: stockNum,
         member_price: memberPrice.trim() === "" ? null : Math.floor(Number(memberPrice)),
         earn_points: Math.max(0, Math.floor(Number(earnPoints || 0) || 0)),
+        cost: cost.trim() === "" ? null : Math.max(0, Math.floor(Number(cost))),
         is_shipping: isShipping,
         shipping_lead_min: isShipping ? leadMinNum : null,
         shipping_lead_max: isShipping ? leadMaxNum : null,
@@ -322,6 +327,18 @@ export default function AdminEdit() {
               placeholder="例: 10"
               value={earnPoints}
               onChange={(e) => setEarnPoints(e.target.value)}
+            />
+          </div>
+
+          <div className="ae-input-wrap">
+            <label>仕入れ原価（1個あたり・円／任意）</label>
+            <input
+              className="ae-input"
+              type="number"
+              inputMode="numeric"
+              placeholder="例: 80"
+              value={cost}
+              onChange={(e) => setCost(e.target.value)}
             />
           </div>
 

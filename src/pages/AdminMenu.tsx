@@ -48,6 +48,10 @@ function AdminMenu() {
               アカウント管理
             </button>
 
+            <button className="admin-menu-btn" onClick={() => navigate("/admin-costs")}>
+              仕入れ原価の登録
+            </button>
+
             <button className="admin-menu-btn" onClick={() => navigate("/admin-sales")}>
               売上状況確認
             </button>

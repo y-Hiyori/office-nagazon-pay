@@ -114,6 +114,10 @@ function AdminPage() {
 
       <div className="admin-page" style={{ paddingTop: 80 }}>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <button className="admin-add" onClick={() => navigate("/admin-costs")}>
+            仕入れ原価の登録
+          </button>
+
           <button className="admin-add" onClick={() => navigate("/admin-add")}>
             ＋追加
           </button>

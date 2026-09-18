@@ -683,6 +683,21 @@ function Checkout() {
 
       const data = await res.json();
 
+      // ✅ PayPay併用時：ポイント使用額を確実に注文へ記録する
+      //    VPS側の注文作成に依存せず、トークン検証付きRPCで保存する
+      if (pointsUsed > 0 && data?.orderId && data?.token) {
+        try {
+          const { error: ptsErr } = await supabase.rpc("set_order_points_used", {
+            p_order_id: String(data.orderId),
+            p_token: String(data.token),
+            p_points: Number(pointsUsed),
+          });
+          if (ptsErr) console.error("set_order_points_used error:", ptsErr);
+        } catch (ePts) {
+          console.error("set_order_points_used failed:", ePts);
+        }
+      }
+
       // ✅ PayPayへ飛ぶURLはここ（redirectUrlじゃない）
       const paypayUrl: string | null = data?.paypay?.url ?? data?.redirectUrl ?? null;
 
