@@ -564,10 +564,10 @@ export default function AdminSales() {
           for (const pr of (prodRaw ?? []) as any[]) nameById.set(Number(pr.id), String(pr.name ?? ""));
 
           disposalRows = adjRaw
-            .filter((r: any) => round0(r.qty) < 0)
+            .filter((r: any) => toNumber(r.qty) < 0)
             .map((r: any) => {
-              const qty = Math.abs(round0(r.qty));
-              const cost = Math.max(0, round0(r.cost));
+              const qty = Math.abs(Math.round(toNumber(r.qty)));
+              const cost = Math.max(0, Math.round(toNumber(r.cost)));
               return {
                 id: String(r.id),
                 created_at: r.created_at ?? null,
