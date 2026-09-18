@@ -298,7 +298,9 @@ function AdminPage() {
     const status: ExpiryStatus = expiryStatusOf(nearest, alertDays);
     const stockNum = Math.max(0, toInt(p.stock));
 
-    const salePriceNum = toInt(p.sale_price) > 0 ? toInt(p.sale_price) : null;
+    // 0円セールも有効（null のときだけセールなし）
+    const salePriceNum =
+      p.sale_price == null || p.sale_price === undefined ? null : Math.max(0, toInt(p.sale_price));
     const saleQtyN = Math.max(0, toInt(p.sale_qty));
     const saleRemainingN = Math.max(0, toInt(p.sale_remaining));
     const limitNum = toInt(p.max_per_order);
@@ -791,8 +793,16 @@ function AdminPage() {
     const price = toInt(saleDraft.price);
     const qty = toInt(saleDraft.qty);
 
-    if (price <= 0 || qty <= 0) {
-      setMsg("セール価格（1円以上）とセール個数（1個以上）を入力してください");
+    if (saleDraft.price.trim() === "") {
+      setMsg("セール価格を入力してください（0円も設定できます）");
+      return;
+    }
+    if (price < 0) {
+      setMsg("セール価格は0円以上で入力してください");
+      return;
+    }
+    if (qty <= 0) {
+      setMsg("セール個数は1個以上で入力してください");
       return;
     }
     if (stockNum > 0 && qty > stockNum) {
@@ -801,7 +811,8 @@ function AdminPage() {
     }
 
     const ok = await appDialog.confirm({
-      message: `「${p.name ?? p.id}」を セール価格 ¥${yen(price)} × ${qty}個 で販売しますか？`,
+      message:
+        `「${p.name ?? p.id}」を セール価格 ¥${yen(price)}${price === 0 ? "（無料）" : ""} × ${qty}個 で販売しますか？`,
     });
     if (!ok) return;
 
@@ -812,7 +823,9 @@ function AdminPage() {
         setMsg("セール設定に失敗しました: " + res.error);
         return;
       }
-      setMsg(`セールを設定しました（${p.name ?? p.id}：¥${yen(price)} × ${qty}個）`);
+      setMsg(
+        `セールを設定しました（${p.name ?? p.id}：¥${yen(price)}${price === 0 ? "（無料）" : ""} × ${qty}個）`
+      );
       setSaleOpen(false);
       await load();
     } finally {
@@ -1503,6 +1516,7 @@ function AdminPage() {
                       <div>
                         <div className="ap-sale-price">
                           ¥{yen(openRow.info.salePrice ?? 0)}
+                          {openRow.info.salePrice === 0 && <span className="ap-sale-free">無料</span>}
                           <span className="ap-sale-orig">（通常 ¥{yen(openRow.p.price)}）</span>
                         </div>
                         <div className="ap-sale-sub">
@@ -1540,12 +1554,12 @@ function AdminPage() {
                   {saleOpen && (
                     <div className="ap-sale-form">
                       <label>
-                        <span>セール価格（円）</span>
+                        <span>セール価格（円・0で無料）</span>
                         <input
                           type="number"
                           inputMode="numeric"
-                          min={1}
-                          placeholder="例: 100"
+                          min={0}
+                          placeholder="0（無料）"
                           value={saleDraft.price}
                           onChange={(e) => setSaleDraft((d) => ({ ...d, price: e.target.value }))}
                         />
@@ -1571,6 +1585,7 @@ function AdminPage() {
                       </button>
                       <p className="ap-hint">
                         在庫 {openRow.info.stockNum}個のうち、指定した個数をセール価格で販売します。
+                        価格は<b>0円（無料）</b>も設定できます。
                         売り切れると通常価格（¥{yen(openRow.p.price)}）に戻ります。
                       </p>
                     </div>

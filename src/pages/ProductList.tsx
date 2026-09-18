@@ -193,7 +193,8 @@ function ProductList() {
             {filtered.map((p) => {
               const soldOut = (p.stock ?? 0) <= 0;
               const originalPrice = getOriginalPrice(p);
-              const saleLotPrice = p.salePrice != null && p.salePrice > 0 ? p.salePrice : null;
+              // 0円セールも有効
+              const saleLotPrice = p.salePrice != null && p.salePrice >= 0 ? p.salePrice : null;
               const basePrice = isMember && p.memberPrice ? p.memberPrice : p.price;
               const shownPrice = saleLotPrice != null ? saleLotPrice : basePrice;
               const isSale = !!originalPrice || saleLotPrice != null;

@@ -130,8 +130,9 @@ function ProductDetail() {
 
   const basePriceNum = effectivePrice(product, isMember);
   // ✅ セールロットの残数内なら、そのロットのセール価格を使う
+  // 0円セール（無料）も有効
   const lotSalePrice =
-    saleLot && saleLot.sale_price > 0 && quantity <= saleLot.remaining
+    saleLot && saleLot.sale_price >= 0 && quantity <= saleLot.remaining
       ? saleLot.sale_price
       : null;
   const priceNum = lotSalePrice != null ? lotSalePrice : basePriceNum;
@@ -329,7 +330,8 @@ function ProductDetail() {
         <div className="pdetail-lotInfo">
           {lotSalePrice != null && (
             <div className="pdetail-lotSale">
-              いまだけセール価格 ¥{formatYen(lotSalePrice)}（セール残り{saleLot?.remaining}個）
+              いまだけセール価格 {lotSalePrice === 0 ? "¥0（無料）" : `¥${formatYen(lotSalePrice)}`}
+              （セール残り{saleLot?.remaining}個）
             </div>
           )}
           {maxPerOrder != null && (

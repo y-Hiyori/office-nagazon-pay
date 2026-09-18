@@ -4,7 +4,7 @@ import { supabase } from "./supabase";
 
 export type SaleLot = {
   product_id: number;
-  sale_price: number;
+  sale_price: number; // 0 = 0円セール（無料）
   remaining: number;
 };
 
@@ -25,7 +25,8 @@ export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
       const id = Number(r?.product_id);
       const price = Math.floor(Number(r?.sale_price) || 0);
       const rem = Math.max(0, Math.floor(Number(r?.remaining) || 0));
-      if (!Number.isFinite(id) || price <= 0 || rem <= 0) continue;
+      // 0円セールも有効（0円は無料販売）
+      if (!Number.isFinite(id) || price < 0 || rem <= 0) continue;
 
       const cur = map.get(id);
       if (!cur) {
@@ -101,10 +102,12 @@ export const expiryTypeLabel = (t?: string | null) =>
 
 // ---------- v18：商品ごとのセール（価格と販売個数） ----------
 
-/** セール価格（未設定/0なら null） */
+/** セール価格（未設定=null／0円はそのまま0を返す） */
 export function salePriceOf(p: any): number | null {
-  const n = Math.floor(Number(p?.sale_price ?? 0));
-  return Number.isFinite(n) && n > 0 ? n : null;
+  const v = p?.sale_price;
+  if (v == null || v === "") return null;
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 /** 設定したセール個数 */
@@ -131,7 +134,8 @@ export async function setProductSale(
   salePrice: number | null,
   qty: number
 ): Promise<{ ok: boolean; error?: string }> {
-  const price = salePrice == null ? 0 : Math.floor(salePrice);
+  // 0円は「無料セール」として有効。解除は salePrice=null か qty=0 で行う
+  const price = salePrice == null ? null : Math.max(0, Math.floor(salePrice));
   const count = Math.max(0, Math.floor(qty));
 
   const { error } = await supabase.rpc("set_product_sale", {
@@ -144,7 +148,7 @@ export async function setProductSale(
 
   console.warn("set_product_sale rpc failed, fallback to direct update:", error);
 
-  const clearing = price <= 0 || count <= 0;
+  const clearing = price == null || count <= 0;
   const { error: e2 } = await supabase
     .from("products")
     .update(
