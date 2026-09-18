@@ -130,7 +130,11 @@ function Checkout() {
     return (items as any[]).map((it) => {
       const id = Number(it?.product?.id);
       const qty = Math.max(0, Math.floor(Number(it?.quantity) || 0));
-      const normal = Math.max(0, Math.floor(Number(it?.product?.price) || 0));
+      // セール価格が product.price に入っていても壊れないよう normalPrice を優先
+      const normal = Math.max(
+        0,
+        Math.floor(Number((it?.product as any)?.normalPrice ?? it?.product?.price) || 0)
+      );
       const s = Number.isFinite(id) ? saleMap.get(id) ?? null : null;
       const { saleQty, normalQty } = splitSaleQty(qty, s);
       const salePrice = s ? Math.max(0, Math.floor(s.sale_price)) : 0;

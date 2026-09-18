@@ -205,7 +205,11 @@ function ProductDetail() {
 
     if (totalQty > purchaseLimit) return showCannotPurchase();
 
-    const result = cart.addToCart({ ...product, price: priceNum }, quantity);
+    // ✅ カートには通常価格で入れる（セール割引は購入手続きで数量ぶんだけ適用）
+    const result = cart.addToCart(
+      { ...product, price: basePriceNum, normalPrice: basePriceNum } as any,
+      quantity
+    );
 
     if (result === "mixed") {
       await appDialog.alert({
@@ -226,7 +230,12 @@ function ProductDetail() {
     if (isSoldOut) return showCannotPurchase();
 
     navigate("/checkout", {
-      state: { buyNow: { product: { ...product, price: priceNum }, quantity } },
+      state: {
+        buyNow: {
+          product: { ...product, price: basePriceNum, normalPrice: basePriceNum } as any,
+          quantity,
+        },
+      },
     });
   };
 

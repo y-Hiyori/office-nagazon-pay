@@ -1667,3 +1667,29 @@
 .ac-lot-pick-row input[type="checkbox"] { width: 16px; height: 16px; }
 .ac-lot-pick-cost { font-weight: 800; color: #334155; }
 .ac-lot-pick-rem { color: #64748b; }
+
+/* ---------- v27：操作パネル／編集画面のスクロール修正 ---------- */
+.ap-modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 110px !important;
+}
+.ap-modal {
+  height: auto;
+  max-height: 92dvh;
+}
+@media (max-width: 759px) {
+  .ap-modal { max-height: 94dvh; }
+}
+.ap-edit { overflow: visible !important; }
+.ap-edit-id[open] { padding-bottom: 14px; }
+.ap-modal-body input,
+.ap-modal-body select,
+.ap-modal-body textarea {
+  scroll-margin-bottom: 150px;
+}
+.ap-modal-body .ap-edit-grid { row-gap: 12px; }
