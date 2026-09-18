@@ -200,6 +200,14 @@ serve(async (req: Request) => {
       }
     }
 
+    // ✅ v36：入荷ロットも消費（ゲスト購入でも在庫とロットを一致させる）
+    try {
+      const { error: lotErr } = await sb.rpc("consume_lots_for_order", { p_order_id: orderId });
+      if (lotErr) console.error("consume_lots_for_order failed:", lotErr);
+    } catch (eLot) {
+      console.error("consume_lots_for_order exception:", eLot);
+    }
+
     return json({ ok: true, orderId, token });
   } catch (e: unknown) {
     return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);

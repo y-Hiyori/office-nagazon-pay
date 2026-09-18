@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { fetchOrderLotCosts } from "../lib/lots";
 import AdminHeader from "../components/AdminHeader";
 import { exportSalesXlsx, type PrevData } from "../lib/excelExport";
 import "./AdminSales.css";
@@ -129,6 +130,12 @@ const paymentMethodLabel = (m: string | null | undefined) => {
   if (v === "guest") return "ゲスト";
   return v || "";
 };
+
+// ✅ v36：消費したロットの実際の原価（ファイル内で共有）
+const lotCostStore: {
+  byOrderProduct: Map<string, number>;
+  byOrder: Map<string, number>;
+} = { byOrderProduct: new Map(), byOrder: new Map() };
 
 export default function AdminSales() {
   const navigate = useNavigate();
@@ -356,6 +363,23 @@ export default function AdminSales() {
       }
       costRef.current = { byId: costById, byName: costByName };
 
+      // ✅ v36：実際に消費したロット原価（同じ商品でもロットごとに原価が違う場合に対応）
+      try {
+        const res = await fetchOrderLotCosts(ordersArr.map((o) => String(o.id)));
+        lotCostStore.byOrderProduct = res.byOrderProduct;
+        lotCostStore.byOrder = res.byOrder;
+      } catch (eLotCost) {
+        console.warn("lot cost load failed:", eLotCost);
+      }
+
+      // 注文×商品ごとの数量（ロット原価を行ごとに按分するため）
+      const lotQtyByOrderProduct = new Map<string, number>();
+      for (const row of itemsRows) {
+        if (!row.order_id || row.product_id == null) continue;
+        const k = `${row.order_id}__${Number(row.product_id)}`;
+        lotQtyByOrderProduct.set(k, (lotQtyByOrderProduct.get(k) || 0) + round0(row.quantity));
+      }
+
       const costOf = (row: OrderItemRow) => {
         const byId = row.product_id != null ? costById.get(Number(row.product_id)) : undefined;
         if (byId != null) return byId;
@@ -394,7 +418,15 @@ export default function AdminSales() {
           (orderSubtotalFromItems.get(orderId) || 0) + rawSub
         );
 
-        const costUnit = costOf(row);
+        // ✅ v36：ロット原価があればそれを按分、無ければ商品の標準原価
+        const lotKey = row.product_id != null ? `${orderId}__${Number(row.product_id)}` : "";
+        const lotTotal = lotKey ? lotCostStore.byOrderProduct.get(lotKey) : undefined;
+        const lotQty = lotKey ? lotQtyByOrderProduct.get(lotKey) || 0 : 0;
+        const rowCost =
+          lotTotal != null && lotQty > 0
+            ? Math.round((lotTotal * qty) / lotQty)
+            : costOf(row) * qty;
+        const costUnit = qty > 0 ? Math.round(rowCost / qty) : 0;
 
         const key = `${orderId}__${productName}`;
         if (!byOrderProduct.has(key)) {
@@ -405,7 +437,7 @@ export default function AdminSales() {
         cur.rawSub += rawSub;
         cur.costUnit = costUnit;
 
-        orderCostById.set(orderId, (orderCostById.get(orderId) || 0) + costUnit * qty);
+        orderCostById.set(orderId, (orderCostById.get(orderId) || 0) + rowCost);
       }
 
       const productAgg = new Map<
@@ -730,14 +762,19 @@ export default function AdminSales() {
         );
       }
 
+      // ✅ v36：実際に消費したロット原価を優先（無ければ商品の標準原価）
       const orderCost = new Map<string, number>();
       for (const it of itemRows) {
         if (!it.order_id) continue;
+        const k = it.product_id != null ? `${it.order_id}__${Number(it.product_id)}` : "";
+        const lotTotal = k ? lotCostStore.byOrderProduct.get(k) : undefined;
         const c =
-          (it.product_id != null ? costRef.current.byId.get(Number(it.product_id)) : undefined) ??
-          costRef.current.byName.get(String(it.product_name ?? "")) ??
-          0;
-        orderCost.set(it.order_id, (orderCost.get(it.order_id) || 0) + c * round0(it.quantity));
+          lotTotal != null
+            ? lotTotal
+            : ((it.product_id != null ? costRef.current.byId.get(Number(it.product_id)) : undefined) ??
+                costRef.current.byName.get(String(it.product_name ?? "")) ??
+                0) * round0(it.quantity);
+        orderCost.set(it.order_id, (orderCost.get(it.order_id) || 0) + c);
       }
 
       const orderData = orderRows.map((o) => {

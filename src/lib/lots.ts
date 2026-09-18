@@ -87,6 +87,47 @@ export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
 }
 
 /**
+ * v36：注文で実際に消費したロット原価を集計して返す
+ *   byOrderProduct: "orderId__productId" → 実際の原価合計
+ *   byOrder:        orderId → 実際の原価合計
+ */
+export async function fetchOrderLotCosts(orderIds: string[]): Promise<{
+  byOrderProduct: Map<string, number>;
+  byOrder: Map<string, number>;
+}> {
+  const byOrderProduct = new Map<string, number>();
+  const byOrder = new Map<string, number>();
+  const ids = (orderIds ?? []).filter(Boolean).map((s) => String(s));
+  if (ids.length === 0) return { byOrderProduct, byOrder };
+
+  try {
+    const { data, error } = await supabase
+      .from("order_lot_consumptions")
+      .select("order_id,product_id,cost,qty")
+      .in("order_id", ids);
+    if (error) {
+      console.warn("order_lot_consumptions error:", error);
+      return { byOrderProduct, byOrder };
+    }
+    for (const c of ((data ?? []) as any[])) {
+      const cost = Math.max(0, Math.floor(Number(c?.cost) || 0));
+      const qty = Math.max(0, Math.floor(Number(c?.qty) || 0));
+      if (qty <= 0) continue;
+      const total = cost * qty;
+      const oid = String(c?.order_id ?? "");
+      byOrderProduct.set(
+        `${oid}__${Number(c?.product_id)}`,
+        (byOrderProduct.get(`${oid}__${Number(c?.product_id)}`) || 0) + total
+      );
+      byOrder.set(oid, (byOrder.get(oid) || 0) + total);
+    }
+  } catch (e) {
+    console.warn("fetchOrderLotCosts failed:", e);
+  }
+  return { byOrderProduct, byOrder };
+}
+
+/**
  * v25：在庫とロットの件数を一致させる
  *   ・ロットを1個＝1件に正規化
  *   ・足りない分は「在庫調整」ロットを自動作成／多い分は削除

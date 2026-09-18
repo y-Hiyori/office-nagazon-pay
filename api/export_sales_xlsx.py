@@ -260,6 +260,8 @@ def build_summary_sheet(wb, range_label, now_jst, summary):
         ("総値引額", None, "＝ クーポン割引 ＋ ポイント充当"),
         ("実収率", None, "＝ 入金売上 ÷ 商品売上（割引前）"),
         ("売上原価（仕入れ）", to_int(summary.get("costTotal", 0)), "＝ Σ（仕入れ原価 × 販売数量）"),
+        ("廃棄ロス（処分原価）", to_int(summary.get("disposalCost", 0)),
+         "＝ Σ（処分した原価）／処分 {0} 個（引く）".format(to_int(summary.get("disposalQty", 0)))),
         ("粗利（利益）", None, "＝ 入金売上 − 売上原価（仕入れ）"),
         ("粗利率", None, "＝ 粗利 ÷ 入金売上"),
     ]
@@ -270,26 +272,26 @@ def build_summary_sheet(wb, range_label, now_jst, summary):
             ws.cell(row=i, column=2, value=val)
         ws.cell(row=i, column=3, value=note)
 
-    style_range(ws, 3, 13, {2: "yen"})
+    style_range(ws, 3, 14, {2: "yen"})
     ws["B8"] = "=B5-B6-B7"
     ws["B9"] = "=B6+B7"
     ws["B10"] = "=IF(B5=0,0,B8/B5)"
-    ws["B12"] = "=B8-B11"
-    ws["B13"] = "=IF(B8=0,0,B12/B8)"
-    for addr, fmt in [("B8", YEN), ("B9", YEN), ("B10", PCT), ("B11", YEN), ("B12", YEN), ("B13", PCT)]:
+    ws["B13"] = "=B8-B11-B12"
+    ws["B14"] = "=IF(B8=0,0,B13/B8)"
+    for addr, fmt in [("B8", YEN), ("B9", YEN), ("B10", PCT), ("B11", YEN), ("B12", YEN), ("B13", YEN), ("B14", PCT)]:
         ws[addr].number_format = fmt
         ws[addr].alignment = RIGHT
-        ws[addr].font = Font(name="メイリオ", size=11 if addr in ("B8", "B12") else 10, bold=True)
+        ws[addr].font = Font(name="メイリオ", size=11 if addr in ("B8", "B13") else 10, bold=True)
     ws["B8"].fill = HIGHLIGHT_FILL
-    ws["B12"].fill = HIGHLIGHT_FILL
+    ws["B13"].fill = HIGHLIGHT_FILL
 
     notes = [
         "入金売上 ＝ お客様から実際にいただいた金額です。",
-        "粗利（利益）＝ 入金売上 − 売上原価（仕入れ）です。仕入れ原価は管理画面の「仕入れ原価の登録」で商品ごとに設定できます。",
+        "粗利（利益）＝ 入金売上 − 売上原価（仕入れ） − 廃棄ロス（処分した原価）です。仕入れ原価は商品ごと・入荷ロットごとに管理画面で設定できます。廃棄ロスは「処分履歴」シートで理由と商品名を確認できます。",
         "商品別売上シートには売上・粗利・数量・売上構成比のグラフを追加しています。",
         "期間比較シートには今期 vs 比較期間の棒グラフと、増減率の折れ線グラフを追加しています。",
     ]
-    for i, txt in enumerate(notes, start=15):
+    for i, txt in enumerate(notes, start=16):
         ws.merge_cells(start_row=i, start_column=1, end_row=i, end_column=3)
         c = ws.cell(row=i, column=1, value=txt)
         c.font = NOTE_FONT
@@ -404,6 +406,29 @@ def build_order_sheet(wb, orders):
     ws.freeze_panes = "A3"
 
 
+def build_disposal_sheet(wb, rows):
+    ws = wb.create_sheet("処分履歴")
+    headers = ["日時", "商品名", "商品ID", "数量", "処分理由", "メモ", "ロット", "原価(1個)", "処分原価(円)"]
+    write_headers(ws, 1, headers)
+    for i, r in enumerate(rows, start=2):
+        ws.cell(row=i, column=1, value=str(r.get("created_at") or ""))
+        ws.cell(row=i, column=2, value=str(r.get("product_name") or ""))
+        ws.cell(row=i, column=3, value=to_int(r.get("product_id", 0)))
+        ws.cell(row=i, column=4, value=to_int(r.get("quantity", 0)))
+        ws.cell(row=i, column=5, value=str(r.get("reason") or ""))
+        ws.cell(row=i, column=6, value=str(r.get("memo") or ""))
+        ws.cell(row=i, column=7, value=str(r.get("lot_label") or ""))
+        ws.cell(row=i, column=8, value=to_int(r.get("cost", 0)))
+        ws.cell(row=i, column=9, value=to_int(r.get("cost_total", 0)))
+    total = sum(to_int(r.get("cost_total", 0)) for r in rows)
+    row = 2 + len(rows)
+    ws.cell(row=row, column=1, value="合計")
+    ws.cell(row=row, column=9, value=total)
+    set_widths(ws, [17, 26, 9, 8, 16, 24, 16, 12, 14])
+    style_range(ws, 2, row, formats=(None, None, None, None, None, None, None, None, "#,##0"))
+    return ws
+
+
 def build_cost_sheet(wb, products):
     ws = wb.create_sheet("仕入れ原価一覧")
     set_widths(ws, [30, 17, 17, 16, 10, 15, 3, 14, 14, 14, 14, 14, 14, 14])
@@ -490,6 +515,9 @@ def build_workbook(d):
     build_summary_sheet(wb, range_label, now_jst, summary)
     build_compare_sheet(wb, range_label, prev)
     build_order_sheet(wb, orders)
+    disposals = d.get("disposals") or []
+    if disposals:
+        build_disposal_sheet(wb, disposals)
     build_cost_sheet(wb, products)
     return wb
 

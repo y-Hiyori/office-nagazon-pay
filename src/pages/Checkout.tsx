@@ -609,6 +609,14 @@ function Checkout() {
 
           const guestOrderId = String(guestResult.orderId || "");
 
+          // ✅ v36：入荷ロットも消費（原価の記録／在庫とロットの一致）
+          if (guestOrderId) {
+            const { error: eLot0 } = await supabase.rpc("consume_lots_for_order", {
+              p_order_id: guestOrderId,
+            });
+            if (eLot0) console.error("consume_lots_for_order (guest) failed:", eLot0);
+          }
+
           // ✅ クーポンの使用を記録（ゲストでも同じ）
           if (appliedCoupon && guestOrderId) {
             const { error: eCoupon } = await supabase.rpc("coupon_redeem_for_order", {
