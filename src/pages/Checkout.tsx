@@ -605,10 +605,11 @@ function Checkout() {
         }
 
         // ✅ 入荷ロットも消費（セール分 → 期限が近い順／失敗しても購入は止めない）
-        try {
-          await supabase.rpc("consume_lots_for_order", { p_order_id: orderRow.id });
-        } catch (eLot) {
-          console.error("consume_lots_for_order failed:", eLot);
+        {
+          const { error: eLot } = await supabase.rpc("consume_lots_for_order", {
+            p_order_id: orderRow.id,
+          });
+          if (eLot) console.error("consume_lots_for_order failed:", eLot);
         }
 
         await supabase

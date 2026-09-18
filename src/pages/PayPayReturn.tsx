@@ -76,9 +76,12 @@ export default function PayPayReturn() {
           if (resolvedId) {
             try {
               const { supabase } = await import("../lib/supabase");
-              await supabase.rpc("consume_lots_for_order", { p_order_id: resolvedId });
+              const { error: eLot } = await supabase.rpc("consume_lots_for_order", {
+                p_order_id: resolvedId,
+              });
+              if (eLot) console.error("consume_lots_for_order failed:", eLot);
             } catch (eLot) {
-              console.error("consume_lots_for_order failed:", eLot);
+              console.error("consume_lots_for_order exception:", eLot);
             }
           }
           navigate(`/purchase-complete/${resolvedId}?orderId=${encodeURIComponent(resolvedId)}&token=${encodeURIComponent(token)}&paid=1`, {

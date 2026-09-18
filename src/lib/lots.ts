@@ -43,6 +43,19 @@ export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
   return map;
 }
 
+/**
+ * v25：在庫とロットの件数を一致させる
+ *   ・ロットを1個＝1件に正規化
+ *   ・足りない分は「在庫調整」ロットを自動作成／多い分は削除
+ */
+export async function syncProductLots(
+  productId: number
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc("sync_product_lots", { p_product_id: productId });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 /** 1回の会計での購入上限（未設定なら null） */
 export function maxPerOrderOf(p: any): number | null {
   const n = Math.floor(Number(p?.max_per_order ?? 0));

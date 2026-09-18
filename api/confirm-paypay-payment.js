@@ -213,6 +213,16 @@ export default async function handler(req, res) {
       }
     }
 
+    // ✅ 入荷ロットも消費（ロットは1個＝1件／冪等）
+    try {
+      const { error: lotErr } = await supabaseAdmin.rpc("consume_lots_for_order", {
+        p_order_id: orderId,
+      });
+      if (lotErr) console.error("consume_lots_for_order failed:", lotErr);
+    } catch (e) {
+      console.error("consume_lots_for_order exception:", e);
+    }
+
     // ✅ paid 反映（最後に）
     const paidAt = new Date().toISOString();
     const { error: paidErr } = await supabaseAdmin

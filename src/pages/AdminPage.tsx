@@ -17,6 +17,7 @@ import {
   expiryStatusOf,
   setProductSale,
   type ExpiryStatus,
+  syncProductLots,
 } from "../lib/lots";
 import { appDialog } from "../lib/appDialog";
 
@@ -482,7 +483,7 @@ function AdminPage() {
     const stockNow = toInt(p.stock);
     const ok = await appDialog.confirm({
       message:
-        `「${p.name ?? p.id}」の在庫を ${qty}個 追加します。\n` +
+        `「${p.name ?? p.id}」の在庫を ${qty}個 追加します（1個＝1ロット／${qty}件作成）。\n` +
         `在庫数：${stockNow} → ${stockNow + qty}\n\n` +
         `原価 ¥${yen(costRaw)}／${a.noExpiry ? "期限なし" : "期限 " + a.expiryDate}\n` +
         "よろしいですか？",
@@ -491,16 +492,19 @@ function AdminPage() {
 
     setBusy(true);
     try {
-      const { error } = await supabase.from("product_lots").insert({
-        product_id: p.id,
-        lot_label: a.memo.trim() || null,
-        cost: Math.max(0, toInt(costRaw)),
-        quantity: qty,
-        remaining: qty,
-        expiry_date: a.noExpiry ? null : a.expiryDate.trim(),
-        expiry_type: a.expiryType,
-        no_expiry: a.noExpiry,
-      });
+      // v25：ロットは1個＝1件（qty個ぶんのロットを作成する）
+      const { error } = await supabase.from("product_lots").insert(
+        Array.from({ length: qty }, () => ({
+          product_id: p.id,
+          lot_label: a.memo.trim() || null,
+          cost: Math.max(0, toInt(costRaw)),
+          quantity: 1,
+          remaining: 1,
+          expiry_date: a.noExpiry ? null : a.expiryDate.trim(),
+          expiry_type: a.expiryType,
+          no_expiry: a.noExpiry,
+        }))
+      );
       if (error) {
         setMsg("在庫の追加に失敗しました: " + error.message);
         return;
@@ -883,6 +887,32 @@ function AdminPage() {
     }
   };
 
+  // ---------- v25：在庫とロットの一致 ----------
+  const syncLots = async (p: ProductRow, lotsCount: number, stockNum: number) => {
+    if (busy) return;
+    const ok = await appDialog.confirm({
+      message:
+        `「${p.name ?? p.id}」の在庫とロットを一致させます。\n` +
+        `在庫 ${stockNum}個 ／ ロット ${lotsCount}件\n\n` +
+        "足りないぶんは「在庫調整」ロットとして自動作成し、多いぶんは削除します。\n" +
+        "ロットは1個＝1件に正規化されます。よろしいですか？",
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      const res = await syncProductLots(p.id);
+      if (!res.ok) {
+        setMsg("一致処理に失敗しました: " + res.error);
+        return;
+      }
+      setMsg(`「${p.name ?? p.id}」の在庫とロットを一致させました`);
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ---------- 商品情報の編集（v24：admin-edit を統合） ----------
   const openEditPanel = (p: ProductRow) => {
     if (editOpen && editId === p.id) {
@@ -1137,16 +1167,18 @@ function AdminPage() {
       }
 
       if (stockNum > 0) {
-        const { error: eLot } = await supabase.from("product_lots").insert({
-          product_id: idNum,
-          lot_label: f.lotLabel.trim() || "初回入荷",
-          cost: costNum,
-          quantity: stockNum,
-          remaining: stockNum,
-          expiry_date: f.noExpiry ? null : f.expiryDate.trim(),
-          expiry_type: f.expiryType,
-          no_expiry: f.noExpiry,
-        });
+        const { error: eLot } = await supabase.from("product_lots").insert(
+          Array.from({ length: stockNum }, () => ({
+            product_id: idNum,
+            lot_label: f.lotLabel.trim() || "初回入荷",
+            cost: costNum,
+            quantity: 1,
+            remaining: 1,
+            expiry_date: f.noExpiry ? null : f.expiryDate.trim(),
+            expiry_type: f.expiryType,
+            no_expiry: f.noExpiry,
+          }))
+        );
         if (eLot) {
           setAddErr(
             "商品は追加しましたが、入荷の登録に失敗しました: " +
@@ -1353,7 +1385,7 @@ function AdminPage() {
                         </label>
 
                         <label>
-                          <span>数量 必須</span>
+                          <span>個数 必須（1個＝1ロット）</span>
                           <input
                             type="number"
                             inputMode="numeric"
@@ -1419,7 +1451,7 @@ function AdminPage() {
                           checked={a.perUnit}
                           onChange={(e) => setArrival(openRow.p.id, { perUnit: e.target.checked })}
                         />
-                        <span>1個ずつ原価・期限を入力する（1個＝1ロットで登録）</span>
+                        <span>1個ずつ原価・期限を入力する（細かく指定したい場合のみ）</span>
                       </label>
 
                       {a.perUnit && (
@@ -1558,6 +1590,30 @@ function AdminPage() {
                     </>
                   );
                 })()}
+              </section>
+
+              {/* ---- v25：在庫とロットの一致 ---- */}
+              <section className="ap-section">
+                <h3 className="ap-section-title">
+                  在庫とロットの一致
+                  {openRow.info.count !== openRow.info.stockNum && (
+                    <span className="ap-badge-warn">要一致</span>
+                  )}
+                </h3>
+                <p className="ap-hint">
+                  ロットは<b>1個＝1件</b>で管理します。商品を購入するとロットも同時に消えます。
+                  <br />
+                  現在：在庫 <b>{openRow.info.stockNum}個</b> ／ ロット <b>{openRow.info.count}件</b>
+                  {openRow.info.count !== openRow.info.stockNum && "（数が合っていません）"}
+                </p>
+                <button
+                  className="ap-sync"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => syncLots(openRow.p, openRow.info.count, openRow.info.stockNum)}
+                >
+                  在庫とロットを一致させる（不足分は自動作成）
+                </button>
               </section>
 
               {/* ---- ロット（在庫の内訳） ---- */}
