@@ -12,45 +12,73 @@ export type SaleLot = {
   remaining: number; // total は残り個数／per_order は在庫数
 };
 
-/** セール中のロット（原価は含まない公開ビュー）を product_id → 情報 で返す */
+/**
+ * セール中の商品情報を product_id → 情報 で返す
+ *   v35：ビュー（product_sale_lots）ではなく products から直接読む
+ *        （ビューはRLSを設定できず Supabase に警告表示されるため）
+ *        products に sale_mode 列が無い環境では従来のビューにフォールバック
+ */
 export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
   const map = new Map<number, SaleLot>();
+
+  const push = (id: number, price: number, mode: SaleMode, sq: number, rem: number) => {
+    if (!Number.isFinite(id) || rem <= 0) return;
+    map.set(id, {
+      product_id: id,
+      sale_price: Math.max(0, Math.floor(price || 0)),
+      sale_mode: mode,
+      sale_qty: Math.max(0, Math.floor(sq || 0)),
+      remaining: Math.max(0, Math.floor(rem || 0)),
+    });
+  };
+
   try {
-    let rows: any[] | null = null;
-    {
-      const full = await supabase
-        .from("product_sale_lots")
-        .select("product_id,sale_price,sale_mode,sale_qty,remaining");
-      if (!full.error) {
-        rows = (full.data ?? []) as any[];
-      } else {
-        // v26 SQL 未実行の環境でも動くようにフォールバック
-        const legacy = await supabase
-          .from("product_sale_lots")
-          .select("product_id,sale_price,remaining");
-        if (legacy.error) {
-          console.error("product_sale_lots error:", full.error);
-          return map;
-        }
-        rows = (legacy.data ?? []) as any[];
+    // ---------- ① products から直接読む（本線） ----------
+    const direct = await supabase
+      .from("products")
+      .select("id,sale_price,sale_mode,sale_qty,sale_remaining,stock")
+      .not("sale_price", "is", null);
+
+    if (!direct.error) {
+      for (const r of ((direct.data ?? []) as any[])) {
+        const id = Number(r?.id);
+        const mode: SaleMode = r?.sale_mode === "per_order" ? "per_order" : "total";
+        const sq = Number(r?.sale_qty) || 0;
+        const stock = Math.max(0, Math.floor(Number(r?.stock) || 0));
+        const remTotal = Math.max(0, Math.floor(Number(r?.sale_remaining) || 0));
+        // per_order は在庫がある限り継続／total は残り個数まで
+        push(id, Number(r?.sale_price), mode, sq, mode === "per_order" ? stock : remTotal);
       }
+      return map;
+    }
+
+    // ---------- ② フォールバック：公開ビュー ----------
+    let rows: any[] | null = null;
+    const full = await supabase
+      .from("product_sale_lots")
+      .select("product_id,sale_price,sale_mode,sale_qty,remaining");
+    if (!full.error) {
+      rows = (full.data ?? []) as any[];
+    } else {
+      const legacy = await supabase
+        .from("product_sale_lots")
+        .select("product_id,sale_price,remaining");
+      if (legacy.error) {
+        console.error("fetchSaleLots error:", direct.error, full.error, legacy.error);
+        return map;
+      }
+      rows = (legacy.data ?? []) as any[];
     }
 
     for (const r of rows) {
-      const id = Number(r?.product_id);
-      const price = Math.max(0, Math.floor(Number(r?.sale_price) || 0));
-      const rem = Math.max(0, Math.floor(Number(r?.remaining) || 0));
       const mode: SaleMode = r?.sale_mode === "per_order" ? "per_order" : "total";
-      const sq = Math.max(0, Math.floor(Number(r?.sale_qty) || 0));
-      // 0円セールも有効（0円は無料販売）
-      if (!Number.isFinite(id) || rem <= 0) continue;
-      map.set(id, {
-        product_id: id,
-        sale_price: price,
-        sale_mode: mode,
-        sale_qty: sq,
-        remaining: rem,
-      });
+      push(
+        Number(r?.product_id),
+        Number(r?.sale_price),
+        mode,
+        Number(r?.sale_qty) || 0,
+        Number(r?.remaining) || 0
+      );
     }
   } catch (e) {
     console.error("fetchSaleLots failed:", e);
