@@ -83,6 +83,31 @@ const REASONS: { value: Reason; label: string }[] = [
 
 const reasonLabel = (v: string) => REASONS.find((r) => r.value === v)?.label ?? v;
 
+type StockAdj = {
+  id: string;
+  product_id: number;
+  qty: number | null;
+  reason: string | null;
+  memo: string | null;
+  cost: number | null;
+  lot_label: string | null;
+  expiry_date: string | null;
+  created_at: string | null;
+};
+
+const fmtAdjDate = (iso?: string | null) => {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 type ReduceState = {
   productId: number;
   productName: string;
@@ -238,6 +263,7 @@ function AdminPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<ProductEdit | null>(null);
   const [editErr, setEditErr] = useState("");
+  const [adjLog, setAdjLog] = useState<StockAdj[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -254,6 +280,17 @@ function AdminPage() {
       pRes = await supabase.from("products").select(baseCols).order("id", { ascending: true });
     } else {
       setSaleReady(true);
+    }
+
+    try {
+      const aRes = await supabase
+        .from("stock_adjustments")
+        .select("id,product_id,qty,reason,memo,cost,lot_label,expiry_date,created_at")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (!aRes.error) setAdjLog((aRes.data ?? []) as StockAdj[]);
+    } catch {
+      /* v19 SQL 未実行でも落ちないように */
     }
 
     const lRes = await supabase.from("product_lots").select("*");
@@ -444,6 +481,21 @@ function AdminPage() {
     () => extended.find((e) => e.p.id === openId) ?? null,
     [extended, openId]
   );
+
+  const adjForOpen = useMemo(
+    () => (openId == null ? [] : adjLog.filter((a) => Number(a.product_id) === Number(openId))),
+    [adjLog, openId]
+  );
+  const adjTotals = useMemo(() => {
+    let qty = 0;
+    let cost = 0;
+    for (const a of adjForOpen) {
+      const n = Math.abs(toInt(a.qty));
+      qty += n;
+      cost += n * Math.max(0, toInt(a.cost));
+    }
+    return { qty, cost };
+  }, [adjForOpen]);
 
   const arrivalOf = (id: number): Arrival => arrivals[id] ?? emptyArrival;
 
@@ -2043,6 +2095,50 @@ function AdminPage() {
                     {busy ? "保存中..." : "変更を保存"}
                   </button>
                 </div>
+                </div>
+              </details>
+
+              {/* ---- v29：在庫を減らした履歴 ---- */}
+              <details className="ap-acc">
+                <summary className="ap-acc-sum">
+                  <span className="ap-acc-name">在庫を減らした履歴（処分の記録）</span>
+                  {adjForOpen.length > 0 && <span className="ap-badge">{adjForOpen.length}件</span>}
+                  <span className="ap-acc-chev">▼</span>
+                </summary>
+                <div className="ap-acc-body">
+                  {adjForOpen.length === 0 ? (
+                    <p className="ap-hint">まだ履歴はありません。</p>
+                  ) : (
+                    <>
+                      <p className="ap-hint">
+                        合計 <b>{adjTotals.qty}個</b> ／ 処分した原価 <b>¥{yen(adjTotals.cost)}</b>
+                        <br />
+                        この原価は「売上状況」の廃棄ロスと、Excelの「処分履歴」シートに反映されます。
+                      </p>
+                      <div className="ap-adj-list">
+                        {adjForOpen.map((a) => {
+                          const n = Math.abs(toInt(a.qty));
+                          return (
+                            <div className="ap-adj-row" key={a.id}>
+                              <span className="ap-adj-date">{fmtAdjDate(a.created_at)}</span>
+                              <span className="ap-adj-reason">{reasonLabel(String(a.reason ?? ""))}</span>
+                              <span className="ap-adj-qty">{n}個</span>
+                              <span className="ap-adj-cost">
+                                原価 ¥{yen(a.cost)} × {n} = ¥{yen(n * Math.max(0, toInt(a.cost)))}
+                              </span>
+                              {a.expiry_date && (
+                                <span className="ap-adj-exp">
+                                  期限 {String(a.expiry_date).slice(0, 10)}
+                                </span>
+                              )}
+                              {a.lot_label && <span className="ap-lot-memo">{a.lot_label}</span>}
+                              {a.memo && <span className="ap-adj-memo">{a.memo}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               </details>
 

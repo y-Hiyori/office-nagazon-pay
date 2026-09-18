@@ -1717,3 +1717,35 @@
 }
 .ap-form label, .ap-lot-fields label, .ap-edit-grid label { min-width: 0; }
 .ap-form input, .ap-form select { box-sizing: border-box; width: 100%; }
+
+/* ---------- v29：在庫を減らした履歴 ---------- */
+.ap-adj-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ap-adj-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 12px;
+}
+.ap-adj-date { font-weight: 800; color: #334155; }
+.ap-adj-reason {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 800;
+  font-size: 11px;
+}
+.ap-adj-qty { font-weight: 900; color: #b91c1c; }
+.ap-adj-cost { font-weight: 800; color: #0f172a; }
+.ap-adj-exp { color: #64748b; }
+.ap-adj-memo { color: #475569; }

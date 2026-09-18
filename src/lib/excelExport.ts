@@ -189,6 +189,8 @@ function styledSheet(XLSX: XlsxApi, opts: StyledOptions): any {
 
 export type SalesSummaryData = {
   costTotal: number;
+  disposalCost?: number;
+  disposalQty?: number;
   profitTotal: number;
   cashSales: number;
   orderCount: number;
@@ -228,6 +230,18 @@ export type SalesOrderData = {
   total: number;
   cost?: number;
   profit?: number;
+};
+
+export type SalesDisposalData = {
+  created_at: string | null;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  cost: number;
+  cost_total: number;
+  reason: string;
+  memo: string;
+  lot_label: string;
 };
 
 export type SalesRangeData = {
@@ -418,7 +432,12 @@ function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummar
       ["総値引額", 0, "＝ クーポン割引 ＋ ポイント充当"],
       ["実収率", 0, "＝ 入金売上 ÷ 商品売上（割引前）"],
       ["売上原価（仕入れ）", summary.costTotal, "＝ Σ（仕入れ原価 × 販売数量）"],
-      ["粗利（利益）", 0, "＝ 入金売上 − 売上原価（仕入れ）"],
+      [
+        "廃棄ロス（処分原価）",
+        summary.disposalCost ?? 0,
+        `＝ Σ（処分した原価）／処分 ${summary.disposalQty ?? 0} 個（引く）`,
+      ],
+      ["粗利（利益）", 0, "＝ 入金売上 − 売上原価（仕入れ） − 廃棄ロス"],
       ["粗利率", 0, "＝ 粗利 ÷ 入金売上"],
     ],
     rowFormats: [
@@ -432,6 +451,7 @@ function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummar
       [null, PCT, null],
       [null, YEN, null],
       [null, YEN, null],
+      [null, YEN, null],
       [null, PCT, null],
     ],
     align: ["left", "right", "left"],
@@ -439,13 +459,20 @@ function summarySheet(XLSX: XlsxApi, range: SalesRangeData, summary: SalesSummar
       { addr: "B8", f: "B5-B6-B7", v: summary.cashSales, highlight: true, numFmt: YEN },
       { addr: "B9", f: "B6+B7", v: summary.couponDiscount + summary.pointsTotal, numFmt: YEN },
       { addr: "B10", f: "IF(B5=0,0,B8/B5)", v: summary.grossSubtotal ? summary.cashSales / summary.grossSubtotal : 0, numFmt: PCT },
-      { addr: "B12", f: "B8-B11", v: summary.profitTotal, highlight: true, numFmt: YEN },
-      { addr: "B13", f: "IF(B8=0,0,B12/B8)", v: summary.cashSales ? summary.profitTotal / summary.cashSales : 0, numFmt: PCT },
+      {
+        addr: "B13",
+        f: "B8-B11-B12",
+        v: summary.profitTotal,
+        highlight: true,
+        numFmt: YEN,
+      },
+      { addr: "B14", f: "IF(B8=0,0,B13/B8)", v: summary.cashSales ? summary.profitTotal / summary.cashSales : 0, numFmt: PCT },
     ],
     widths: [24, 18, 56],
     note: [
       "入金売上 ＝ お客様から実際にいただいた金額です。",
-      "粗利（利益）＝ 入金売上 − 売上原価（仕入れ）です。仕入れ原価は管理画面の「仕入れ原価の登録」で設定できます。",
+      "粗利（利益）＝ 入金売上 − 売上原価（仕入れ） − 廃棄ロス（処分した原価）です。",
+      "廃棄ロスは商品管理の「在庫を減らした履歴」で記録した処分（廃棄・期限切れなど）の原価合計です。理由別の内訳は「処分履歴」シートで確認できます。",
       "商品別売上シートには売上・粗利・数量・売上構成比のグラフを追加しています。",
       "期間比較シートには今期 vs 比較期間の棒グラフと、増減率の折れ線グラフを追加しています。",
     ],
@@ -483,6 +510,51 @@ function compareSheet(XLSX: XlsxApi, currentLabel: string, prev: PrevData | null
   });
 }
 
+function disposalSheet(XLSX: XlsxApi, rows: SalesDisposalData[]): any {
+  const total = rows.reduce((s, r) => s + (r.cost_total || 0), 0);
+  return styledSheet(XLSX, {
+    title: "処分履歴（廃棄ロス）",
+    headers: ["日時", "商品名", "商品ID", "数量", "処分理由", "メモ", "ロット", "原価(1個)", "処分原価(円)"],
+    rows: rows.map((r) => [
+      r.created_at,
+      r.product_name,
+      r.product_id,
+      r.quantity,
+      r.reason,
+      r.memo,
+      r.lot_label,
+      r.cost,
+      r.cost_total,
+    ]),
+    rowFormats: rows.map(() => [null, null, null, COUNT, null, null, null, YEN, YEN]),
+    align: ["left", "left", "right", "right", "left", "left", "left", "right", "right"],
+    footerRows:
+      rows.length > 0
+        ? [{
+            values: [
+              "合計",
+              "",
+              "",
+              `=SUM(D3:D${rows.length + 2})`,
+              "",
+              "",
+              "",
+              "",
+              `=SUM(I3:I${rows.length + 2})`,
+            ],
+            formats: [null, null, null, COUNT, null, null, null, null, YEN],
+          }]
+        : [],
+    widths: [17, 26, 9, 8, 16, 24, 16, 12, 14],
+    note: [
+      "商品管理で「在庫を減らす」を行った記録です。処分した分の原価は売上サマリーの「廃棄ロス」に加算され、利益から差し引かれます。",
+      "処分原価 ＝ 原価(1個) × 数量 です。",
+      `この期間の廃棄ロス合計：${total.toLocaleString("ja-JP")} 円`,
+    ],
+    freeze: true,
+  });
+}
+
 function orderSheet(XLSX: XlsxApi, orders: SalesOrderData[]): any {
   return styledSheet(XLSX, {
     title: "注文一覧",
@@ -499,7 +571,7 @@ function orderSheet(XLSX: XlsxApi, orders: SalesOrderData[]): any {
   });
 }
 
-export async function exportSalesXlsx(range: SalesRangeData, summary: SalesSummaryData, prev: PrevData | null, products: SalesProductData[], orders: SalesOrderData[]): Promise<void> {
+export async function exportSalesXlsx(range: SalesRangeData, summary: SalesSummaryData, prev: PrevData | null, products: SalesProductData[], orders: SalesOrderData[], disposals: SalesDisposalData[] = []): Promise<void> {
   const XLSX = await loadXLSX();
   const labelSafe = range.label.replace(/[\\/:*?"<>|～~]/g, "_");
   const fileName = `OFFICE NAGAZON売上_${labelSafe}.xlsx`;
@@ -508,6 +580,9 @@ export async function exportSalesXlsx(range: SalesRangeData, summary: SalesSumma
   XLSX.utils.book_append_sheet(wb, productSheet(XLSX, products), "商品別売上");
   XLSX.utils.book_append_sheet(wb, compareSheet(XLSX, range.label, prev), "期間比較");
   XLSX.utils.book_append_sheet(wb, orderSheet(XLSX, orders), "注文一覧");
+  if (disposals.length > 0) {
+    XLSX.utils.book_append_sheet(wb, disposalSheet(XLSX, disposals), "処分履歴");
+  }
   XLSX.writeFile(wb, fileName);
 }
 

@@ -138,6 +138,10 @@ function ProductDetail() {
     : 0;
   const saleAppliesQty = Math.min(Math.max(0, quantity), saleLimit);
   const lotSalePrice = saleLot && saleAppliesQty > 0 ? saleLot.sale_price : null;
+  // ✅ セール適用分と通常価格分を分けて計算（超過分は通常価格）
+  const saleUnitPrice = lotSalePrice != null ? Math.max(0, Math.floor(lotSalePrice)) : 0;
+  const baseUnitPrice = Math.max(0, Math.floor(basePriceNum || 0));
+  const normalAppliesQty = Math.max(0, Math.max(0, quantity) - saleAppliesQty);
   const priceNum = lotSalePrice != null ? lotSalePrice : basePriceNum;
   const memberPriceNum = isMember ? memberPriceOf(product) : null;
   const earnPoints = Math.max(0, Math.floor(Number((product as any)?.earn_points ?? 0)));
@@ -146,7 +150,8 @@ function ProductDetail() {
   const isSale = originalPriceNum > priceNum;
   const discountYen = isSale ? originalPriceNum - priceNum : 0;
   const discountRate = isSale ? Math.round((discountYen / originalPriceNum) * 100) : 0;
-  const subtotal = priceNum * quantity;
+  const subtotal =
+    saleAppliesQty * saleUnitPrice + normalAppliesQty * baseUnitPrice;
 
   // ✅ 発送目安テキスト（商品詳細に表示）
   const shipLeadText = useMemo(() => {
@@ -348,6 +353,15 @@ function ProductDetail() {
                 ? `1会計${saleLimit}個まで`
                 : `セール残り${saleLot?.remaining}個`}
               ／{saleAppliesQty}個に適用）
+              <br />
+              内訳：セール {saleAppliesQty}個 × ¥{formatYen(saleUnitPrice)}
+              {normalAppliesQty > 0 && (
+                <>
+                  {" "}+ 通常 {normalAppliesQty}個 × ¥{formatYen(baseUnitPrice)}
+                </>
+              )}
+              {" ＝ "}
+              <b>¥{formatYen(subtotal)}</b>
             </div>
           )}
           {maxPerOrder != null && (

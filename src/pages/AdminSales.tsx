@@ -62,7 +62,31 @@ type Summary = {
   pointsOrderCount: number;
   costTotal: number;
   profitTotal: number;
+  disposalCost: number; // 廃棄ロス（処分した原価）
+  disposalQty: number; // 処分した個数
 };
+
+type DisposalRow = {
+  id: string;
+  created_at: string | null;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  cost: number;
+  cost_total: number;
+  reason: string;
+  memo: string;
+  lot_label: string;
+};
+
+const REASON_LABEL: Record<string, string> = {
+  discard: "廃棄（傷み・破損）",
+  expired: "期限切れ廃棄",
+  return: "返品・返却",
+  sample: "試食・サンプル提供",
+  other: "その他",
+};
+const reasonLabelOf = (v: string) => REASON_LABEL[v] ?? v;
 
 const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -155,7 +179,10 @@ export default function AdminSales() {
     pointsOrderCount: 0,
     costTotal: 0,
     profitTotal: 0,
+    disposalCost: 0,
+    disposalQty: 0,
   });
+  const [disposals, setDisposals] = useState<DisposalRow[]>([]);
   const [prev, setPrev] = useState<PrevData | null>(null);
   const [items, setItems] = useState<SalesItem[]>([]);
   const [orderRows, setOrderRows] = useState<OrderRow[]>([]);
@@ -243,7 +270,10 @@ export default function AdminSales() {
       pointsOrderCount: 0,
       costTotal: 0,
       profitTotal: 0,
+      disposalCost: 0,
+      disposalQty: 0,
     });
+    setDisposals([]);
 
     try {
       let start: Date;
@@ -478,7 +508,53 @@ export default function AdminSales() {
         if (isPointsUsed(o)) pCnt++;
       }
 
+      // ✅ 廃棄ロス（在庫を減らした履歴＝処分した原価）を取得
+      let disposalRows: DisposalRow[] = [];
+      let disposalCost = 0;
+      let disposalQty = 0;
+      try {
+        const { data: adjRaw, error: adjErr } = await supabase
+          .from("stock_adjustments")
+          .select("id,created_at,product_id,qty,reason,memo,cost,lot_label")
+          .gte("created_at", startIso)
+          .lt("created_at", endIso)
+          .order("created_at", { ascending: false });
+
+        if (adjErr) {
+          console.warn("stock_adjustments error:", adjErr);
+        } else if (adjRaw && adjRaw.length > 0) {
+          const pids = Array.from(new Set(adjRaw.map((r: any) => Number(r.product_id))));
+          const nameById = new Map<number, string>();
+          const { data: prodRaw } = await supabase.from("products").select("id,name").in("id", pids);
+          for (const pr of (prodRaw ?? []) as any[]) nameById.set(Number(pr.id), String(pr.name ?? ""));
+
+          disposalRows = adjRaw
+            .filter((r: any) => round0(r.qty) < 0)
+            .map((r: any) => {
+              const qty = Math.abs(round0(r.qty));
+              const cost = Math.max(0, round0(r.cost));
+              return {
+                id: String(r.id),
+                created_at: r.created_at ?? null,
+                product_id: Number(r.product_id),
+                product_name: nameById.get(Number(r.product_id)) ?? `商品ID ${r.product_id}`,
+                quantity: qty,
+                cost,
+                cost_total: qty * cost,
+                reason: reasonLabelOf(String(r.reason ?? "")),
+                memo: String(r.memo ?? ""),
+                lot_label: String(r.lot_label ?? ""),
+              };
+            });
+          disposalCost = disposalRows.reduce((sum, r) => sum + r.cost_total, 0);
+          disposalQty = disposalRows.reduce((sum, r) => sum + r.quantity, 0);
+        }
+      } catch (eAdj) {
+        console.warn("disposal load failed:", eAdj);
+      }
+
       if (loadId !== loadIdRef.current) return;
+      setDisposals(disposalRows);
       setItems(list);
       setSummary({
         cashSales: cash,
@@ -489,7 +565,9 @@ export default function AdminSales() {
         couponOrderCount: cCnt,
         pointsOrderCount: pCnt,
         costTotal: Math.round(costSum),
-        profitTotal: Math.round(cash - costSum),
+        disposalCost: Math.round(disposalCost),
+        disposalQty,
+        profitTotal: Math.round(cash - costSum - disposalCost),
       });
 
       // ✅ 比較期間（前日/前週/前月/前年）も取得 → Excel の「期間比較」シート用
@@ -670,6 +748,7 @@ export default function AdminSales() {
         prev,
         products: items,
         orders: orderData,
+        disposals,
       };
       const labelSafe = (currentRange.rangeLabel || "期間").replace(/[\\/:*?"<>|～~]/g, "_");
       const fileName = `OFFICE NAGAZON売上_${labelSafe}.xlsx`;
@@ -701,7 +780,8 @@ export default function AdminSales() {
           summary,
           prev,
           items,
-          orderData
+          orderData,
+          disposals
         );
       }
       setExcelMsg("Excelをダウンロードしました");
@@ -803,6 +883,8 @@ export default function AdminSales() {
                   <div className="as-sub">
                     ＝ 入金売上 {summary.cashSales.toLocaleString("ja-JP")} 円 − 仕入れ原価{" "}
                     {summary.costTotal.toLocaleString("ja-JP")} 円
+                    {summary.disposalCost > 0 &&
+                      ` − 廃棄ロス ${summary.disposalCost.toLocaleString("ja-JP")} 円`}
                   </div>
                 </div>
 
@@ -816,6 +898,16 @@ export default function AdminSales() {
                     {summary.cashSales > 0
                       ? `${Math.round((summary.profitTotal / summary.cashSales) * 100)}%`
                       : "-"}
+                  </div>
+                </div>
+
+                <div className="as-card as-card-cost">
+                  <div className="as-label">廃棄ロス（処分原価）</div>
+                  <div className="as-value as-minus">
+                    -{summary.disposalCost.toLocaleString("ja-JP")} 円
+                  </div>
+                  <div className="as-sub">
+                    処分 {summary.disposalQty.toLocaleString("ja-JP")} 個（商品管理の履歴で理由を確認）
                   </div>
                 </div>
 
