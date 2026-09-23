@@ -1,0 +1,91 @@
+name: keepalive
+
+# ==================================================================
+# すべてターミナルだけで完結する版（各サービスの画面設定が不要）
+#
+#   このリポジトリには .env（VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY）が
+#   含まれているので、Secrets を登録しなくてもそのまま接続情報を読み取れます。
+#
+#   ・Supabase（無料プラン）: 7日間アクティビティが少ないと一時停止 → 毎日クエリを投げる
+#   ・GitHub Actions 自身 : 公開リポジトリは60日間リポジトリ活動が無いと予約実行が止まる
+#                           → 毎月1日に keepalive ブランチへ空コミットを積む
+# ==================================================================
+
+on:
+  schedule:
+    - cron: "0 17 * * *"      # 毎日 02:00 JST（= 前日 17:00 UTC）
+    - cron: "0 17 1 * *"      # 毎月1日 02:00 JST（リポジトリ活動を作る）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Supabase / Vercel を叩く
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 接続情報を .env から読み取る
+        run: |
+          set -euo pipefail
+          if [ ! -f .env ]; then
+            echo "::error::.env が見つかりません。リポジトリ内の .env を確認してください"
+            exit 1
+          fi
+          read_env() {
+            grep -E "^$1=" .env | head -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+          }
+          URL_VAL="$(read_env VITE_SUPABASE_URL)"
+          KEY_VAL="$(read_env VITE_SUPABASE_ANON_KEY)"
+          if [ -z "$URL_VAL" ] || [ -z "$KEY_VAL" ]; then
+            echo "::error::.env に VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY が見つかりません"
+            exit 1
+          fi
+          {
+            echo "SUPABASE_URL=$URL_VAL"
+            echo "SUPABASE_ANON_KEY=$KEY_VAL"
+          } >> "$GITHUB_ENV"
+          echo "接続先: $URL_VAL"
+
+      - name: Supabase に実クエリを投げる（DBアクティビティを作る）
+        run: |
+          set -euo pipefail
+          TARGET="${SUPABASE_URL%/}/rest/v1/products?select=id&limit=1"
+          CODE=$(curl -sS -o /tmp/res.json -w '%{http_code}' "$TARGET" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          echo "supabase: HTTP ${CODE}"
+          head -c 200 /tmp/res.json || true
+          echo
+          case "$CODE" in
+            200|206) ;;
+            *) echo "::error::Supabase へのクエリに失敗しました (HTTP ${CODE})"; exit 1 ;;
+          esac
+
+      - name: Vercel 本番を叩く
+        run: |
+          curl -sS -o /dev/null -w 'vercel: %{http_code}\n' https://office-nagazon-pay.vercel.app/
+
+  activity:
+    name: リポジトリ活動を作る（60日ルール対策）
+    if: github.event_name == 'schedule' && github.event.schedule == '0 17 1 * *'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: keepalive ブランチに空コミットを積む
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B keepalive
+          git commit --allow-empty -m "chore(keepalive): $(date -u +%Y-%m-%d)"
+          git push -f origin keepalive
