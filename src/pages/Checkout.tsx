@@ -614,7 +614,17 @@ function Checkout() {
             const { error: eLot0 } = await supabase.rpc("consume_lots_for_order", {
               p_order_id: guestOrderId,
             });
-            if (eLot0) console.error("consume_lots_for_order (guest) failed:", eLot0);
+            if (eLot0) {
+              console.error("consume_lots_for_order (guest) failed:", eLot0);
+              const r2 = await supabase.rpc("consume_lots_for_order", { p_order_id: guestOrderId });
+              if (r2.error) {
+                console.error("consume_lots_for_order (guest) retry failed:", r2.error);
+                await appDialog.alert({
+                  title: "入荷ロットの記録に失敗しました",
+                  message: "購入は完了していますが、入荷ロット（原価）の記録に失敗しました。管理者に連絡してください。",
+                });
+              }
+            }
           }
 
           // ✅ クーポンの使用を記録（ゲストでも同じ）
@@ -788,7 +798,17 @@ function Checkout() {
           const { error: eLot } = await supabase.rpc("consume_lots_for_order", {
             p_order_id: orderRow.id,
           });
-          if (eLot) console.error("consume_lots_for_order failed:", eLot);
+          if (eLot) {
+          console.error("consume_lots_for_order failed:", eLot);
+          const r2 = await supabase.rpc("consume_lots_for_order", { p_order_id: orderRow.id });
+          if (r2.error) {
+            console.error("consume_lots_for_order retry failed:", r2.error);
+            await appDialog.alert({
+              title: "入荷ロットの記録に失敗しました",
+              message: "購入は完了していますが、入荷ロット（原価）の記録に失敗しました。管理者に連絡してください。",
+            });
+          }
+        }
         }
 
         await supabase

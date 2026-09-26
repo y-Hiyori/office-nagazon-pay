@@ -79,7 +79,11 @@ export default function PayPayReturn() {
               const { error: eLot } = await supabase.rpc("consume_lots_for_order", {
                 p_order_id: resolvedId,
               });
-              if (eLot) console.error("consume_lots_for_order failed:", eLot);
+              if (eLot) {
+                console.error("consume_lots_for_order failed:", eLot);
+                const r2 = await supabase.rpc("consume_lots_for_order", { p_order_id: resolvedId });
+                if (r2.error) console.error("consume_lots_for_order retry failed:", r2.error);
+              }
 
               // ✅ クーポンの使用を記録（PayPay購入分／同じ注文では二重に数えない）
               const { error: eCoupon } = await supabase.rpc("coupon_redeem_for_order", {
