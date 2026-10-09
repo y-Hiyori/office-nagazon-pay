@@ -10,8 +10,8 @@ import img14 from "./商品画像/忍者飯めし 巨峰.jpg";
 import img15 from "./商品画像/忍者めし ラムネ.avif";
 import img16 from "./商品画像/コアラのマーチ.jpg";
 import img17 from "./商品画像/タフグミ.jpgg";
-import img18 from "./商品画像/めいらくアイス.jpg";
-import img19 from "./商品画像/めいらくアイス.jpg";
+import img18 from "./商品画像/フットチーネグミイタリアングレープ味.webp";
+import img19 from "./商品画像/フットチーネグミコーラ味.jpg";
 import img20 from "./商品画像/つぶグミ ソーダ.jp";
 import img21 from "./商品画像/つぶグミ.jp";
 
