@@ -1,11 +1,20 @@
 // src/data/products.ts
 import img1 from "./商品画像/じゃがりこサラダ.jpg";
-import img2 from "./商品画像/じゃがりこチーズ.jpg";
-import img3 from "./商品画像/じゃがりこバター.avif";
-import img4 from "./商品画像/ピュレグミぶどう.jpg";
-import img5 from "./商品画像/ピュレグミマスカット.jpg";
 import img6 from "./商品画像/ラムネ.webp";
 import img7 from "./商品画像/めいらくアイス.jpg";
+import img10 from "./商品画像/大粒ラムネ.jpg";
+import img11 from "./商品画像/チョコチップクッキー.png";
+import img12 from "./商品画像/めいらくアイス.jpg";
+import img13 from "./商品画像/めいらくアイス.jpg";
+import img14 from "./商品画像/めいらくアイス.jpg";
+import img15 from "./商品画像/めいらくアイス.jpg";
+import img16 from "./商品画像/めいらくアイス.jpg";
+import img17 from "./商品画像/めいらくアイス.jpg";
+import img18 from "./商品画像/めいらくアイス.jpg";
+import img19 from "./商品画像/めいらくアイス.jpg";
+import img20 from "./商品画像/つぶグミ ソーダ.jp";
+import img21 from "./商品画像/つぶグミ.jp";
+
 // 画像だけのマスタ
 export type ProductImageMaster = {
   id: number;        // products テーブルの id と合わせる
