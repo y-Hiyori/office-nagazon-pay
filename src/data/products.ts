@@ -1,13 +1,7 @@
 // src/data/products.ts
 import img1 from "./商品画像/じゃがりこサラダ.jpg";
-import img2 from "./商品画像/じゃがりこサラダ.jpg";
-import img3 from "./商品画像/じゃがりこサラダ.jpg";
-import img4 from "./商品画像/じゃがりこサラダ.jpg";
-import img5 from "./商品画像/じゃがりこサラダ.jpg";
 import img6 from "./商品画像/ラムネ.webp";
 import img7 from "./商品画像/めいらくアイス.jpg";
-import img8 from "./商品画像/大粒ラムネ.jpg";
-import img9 from "./商品画像/大粒ラムネ.jpg";
 import img10 from "./商品画像/大粒ラムネ.jpg";
 import img11 from "./商品画像/チョコチップクッキー.png";
 import img12 from "./商品画像/グミのわグレープ＆マスカット味.jpg";
@@ -30,14 +24,8 @@ export type ProductImageMaster = {
 // 画像マスタ（名前・価格は Supabase 側）
 export const PRODUCT_IMAGES: ProductImageMaster[] = [
   { id: 1, imageData: img1 },
-  { id: 2, imageData: img2 },
-  { id: 3, imageData: img3 },
-  { id: 4, imageData: img4 },
-  { id: 5, imageData: img5 },
   { id: 6, imageData: img6 },
   { id: 7, imageData: img7 },
-   { id: 8, imageData: img8 },
-   { id: 9, imageData: img9 },
   { id: 10, imageData: img10 },
   { id: 11, imageData: img11 },
   { id: 12, imageData: img12 },
