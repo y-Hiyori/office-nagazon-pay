@@ -4,7 +4,7 @@ import img6 from "./商品画像/ラムネ.webp";
 import img7 from "./商品画像/めいらくアイス.jpg";
 import img10 from "./商品画像/大粒ラムネ.jpg";
 import img11 from "./商品画像/チョコチップクッキー.png";
-import img12 from "./商品画像/めいらくアイス.jpg";
+import img12 from "./商品画像/src/data/商品画像/グミのわグレープ＆マスカット味.jpg";
 import img13 from "./商品画像/めいらくアイス.jpg";
 import img14 from "./商品画像/めいらくアイス.jpg";
 import img15 from "./商品画像/めいらくアイス.jpg";
