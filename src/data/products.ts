@@ -24,12 +24,20 @@ export type ProductImageMaster = {
 // 画像マスタ（名前・価格は Supabase 側）
 export const PRODUCT_IMAGES: ProductImageMaster[] = [
   { id: 1, imageData: img1 },
-  { id: 2, imageData: img2 },
-  { id: 3, imageData: img3 },
-  { id: 4, imageData: img4 },
-  { id: 5, imageData: img5 },
   { id: 6, imageData: img6 },
   { id: 7, imageData: img7 },
+  { id: 10, imageData: img10 },
+  { id: 11, imageData: img11 },
+  { id: 12, imageData: img12 },
+  { id: 13, imageData: img13 },
+  { id: 14, imageData: img14 },
+  { id: 15, imageData: img15 },
+  { id: 16, imageData: img16 },
+  { id: 17, imageData: img17 },
+  { id: 18, imageData: img18 },
+  { id: 19, imageData: img19 },
+  { id: 20, imageData: img20 },
+  { id: 21, imageData: img21 },
 ];
 
 // id から画像パスを取る関数（なければ undefined）
