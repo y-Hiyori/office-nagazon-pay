@@ -26,7 +26,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "クーポン管理", path: "/admin-coupons", icon: "🎟", desc: "割引クーポンの作成・停止" },
       { label: "ポイント管理", path: "/admin-points", icon: "💰", desc: "ポイントの付与・調整", tone: "danger" },
       { label: "お知らせ管理", path: "/admin-notices", icon: "📣", desc: "ホームのお知らせ" },
-      { label: "ホームスライド", path: "/admin-home", icon: "🖼", desc: "トップ画面のスライド" },
     ],
   },
   {

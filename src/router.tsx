@@ -53,8 +53,6 @@ import AdminGuestOrders from "./pages/AdminGuestOrders";
 import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
 import AdminCoupons from "./pages/AdminCoupons";
 import AdminCouponEdit from "./pages/AdminCouponEdit";
-import AdminHomeSlides from "./pages/AdminHomeSlides";
-import AdminHomeSlideEdit from "./pages/AdminHomeSlideEdit";
 import AdminNotices from "./pages/AdminNotices";
 import AdminNoticeEdit from "./pages/AdminNoticeEdit";
 import AdminPoints from "./pages/AdminPoints";
@@ -268,32 +266,6 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminCouponEdit mode="edit" />
-          </AdminRoute>
-        ),
-      },
-
-      // ✅ ホームスライド管理
-      {
-        path: "admin-home",
-        element: (
-          <AdminRoute>
-            <AdminHomeSlides />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "admin-home-new",
-        element: (
-          <AdminRoute>
-            <AdminHomeSlideEdit mode="new" />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "admin-home-edit/:id",
-        element: (
-          <AdminRoute>
-            <AdminHomeSlideEdit mode="edit" />
           </AdminRoute>
         ),
       },
