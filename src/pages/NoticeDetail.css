@@ -106,14 +106,14 @@
   letter-spacing: 0.06em;
   cursor: pointer;
   color: #fff;
-  background: var(--plist-accent, #8b1e3f);
-  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  background: var(--plist-accent, #111111);
+  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.22);
   transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .notice-linkbtn:hover {
-  background: #75182f;
-  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
+  background: #000000;
+  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.28);
 }
 .notice-linkbtn:active { transform: scale(0.98); }
 

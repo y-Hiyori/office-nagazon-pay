@@ -10,11 +10,11 @@
 ========================= */
 
 :root{
-  --g-bg:#0b0f19;
-  --g-card2: rgba(15,18,30,0.92);
+  --g-bg:#ffffff;
+  --g-card2: #ffffff;
 
-  --g-shadow: 0 18px 60px rgba(0,0,0,0.38);
-  --g-shadow2: 0 12px 32px rgba(0,0,0,0.30);
+  --g-shadow: 0 12px 40px rgba(17,24,39,0.10);
+  --g-shadow2: 0 8px 24px rgba(17,24,39,0.08);
 
   --g-radius2: 20px;
 
@@ -68,14 +68,11 @@
 
   background:
     radial-gradient(1200px 600px at 40% 0%,
-      rgba(255,255,255,0.07),
-      rgba(255,255,255,0.00) 60%),
-    radial-gradient(900px 500px at 90% 40%,
-      rgba(90,120,255,0.10),
-      rgba(0,0,0,0.00) 65%),
+      rgba(17,24,39,0.05),
+      rgba(17,24,39,0.00) 60%),
     var(--g-bg);
 
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(17,24,39,0.10);
   box-shadow: var(--g-shadow);
 }
 
@@ -108,12 +105,12 @@
   padding:10px 12px;
   border-radius:16px;
 
-  background: rgba(255,255,255,0.09);
-  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(17,24,39,0.09);
+  border: 1px solid rgba(17,24,39,0.14);
   backdrop-filter: blur(14px);
 
   z-index:3;
-  color:#fff;
+  color:#111111;
   font-weight:900;
   letter-spacing:0.02em;
 
@@ -137,7 +134,7 @@
   place-items:center;
 
   padding:14px;
-  background: radial-gradient(circle at 50% 40%, rgba(0,0,0,0.18), rgba(0,0,0,0.58));
+  background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.5), rgba(255,255,255,0.85));
   overflow:hidden;
   z-index:5;
 
@@ -155,14 +152,12 @@
   -webkit-overflow-scrolling: touch;
 
   border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.16);
-  background:
-    radial-gradient(800px 400px at 30% 0%, rgba(255,255,255,0.07), rgba(0,0,0,0) 65%),
-    rgba(12,16,28,0.94);
+  border: 1px solid rgba(17,24,39,0.10);
+  background: #ffffff;
 
-  color:#fff;
+  color:#111111;
   padding:16px;
-  box-shadow: 0 22px 70px rgba(0,0,0,0.55);
+  box-shadow: 0 22px 70px rgba(17,24,39,0.16);
 }
 
 .overlayTitle{
@@ -188,8 +183,8 @@
   letter-spacing: .02em;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(17,24,39,0.07);
+  border: 1px solid rgba(17,24,39,0.12);
 }
 
 .overlayRow{
@@ -213,29 +208,30 @@
 .overlayPrimary{
   width:100%;
   padding:12px 14px;
-  border-radius:14px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.10);
-  color:#fff;
-  font-weight:950;
+  border-radius:12px;
+  border: 1px solid #111111;
+  background: #111111;
+  color:#ffffff;
+  font-weight:800;
   cursor:pointer;
   transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
 .overlayPrimary:hover{
-  background: rgba(255,255,255,0.14);
-  border-color: rgba(255,255,255,0.26);
+  background: #000000;
+  border-color: #000000;
   transform: translateY(-1px);
 }
 .overlayPrimary:active{ transform: translateY(0); }
-.overlayPrimary.ghost{ background: rgba(255,255,255,0.06); }
+.overlayPrimary.ghost{ background:#ffffff; color:#111111; border-color: rgba(17,24,39,0.18); }
+.overlayPrimary.ghost:hover{ background: #f4f4f5; border-color: rgba(17,24,39,0.28); }
 
 .diffBtn{
   padding:10px 14px;
   border-radius:999px;
-  border:1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.92);
-  font-weight:950;
+  border:1px solid rgba(17,24,39,0.14);
+  background:#ffffff;
+  color: rgba(17,24,39,0.92);
+  font-weight:800;
   cursor:pointer;
   min-width:92px;
   max-width:44vw;
@@ -243,8 +239,9 @@
   white-space:nowrap;
 }
 .diffBtn.on{
-  border-color: rgba(255,255,255,0.28);
-  background: rgba(255,255,255,0.14);
+  border-color:#111111;
+  background:#111111;
+  color:#ffffff;
 }
 
 /* Start overlay layout */
@@ -276,11 +273,11 @@
   border-radius: var(--g-radius2);
   padding:18px 16px;
   background:
-    radial-gradient(900px 400px at 30% 0%, rgba(255,255,255,0.06), rgba(0,0,0,0) 65%),
+    radial-gradient(900px 400px at 30% 0%, rgba(17,24,39,0.06), rgba(0,0,0,0) 65%),
     var(--g-card2);
-  border:1px solid rgba(255,255,255,0.08);
+  border:1px solid rgba(17,24,39,0.08);
   box-shadow: var(--g-shadow);
-  color:#fff;
+  color:#111111;
 
   /* ✅ はみ出し事故を止める */
   overflow: hidden;
@@ -293,7 +290,7 @@
   justify-content:space-between;
   gap:10px;
   padding-bottom:10px;
-  border-bottom:1px solid rgba(255,255,255,0.08);
+  border-bottom:1px solid rgba(17,24,39,0.08);
   margin-bottom:12px;
   flex-wrap: wrap;
   min-width: 0;
@@ -323,7 +320,7 @@
   font-weight:800;
 }
 .gSectionErr{
-  color:#ff7b7b;
+  color:#b91c1c;
   font-weight:900;
   font-size:13px;
 }
@@ -350,8 +347,8 @@
   border-radius:999px;
   font-size:11px;
   font-weight:950;
-  background: rgba(255,255,255,0.12);
-  border:1px solid rgba(255,255,255,0.10);
+  background: rgba(17,24,39,0.12);
+  border:1px solid rgba(17,24,39,0.10);
 }
 .gRewardDesc{
   margin-top:4px;
@@ -373,8 +370,8 @@
   align-items:center;
   padding:12px 14px;
   border-radius:18px;
-  background: rgba(255,255,255,0.06);
-  border:1px solid rgba(255,255,255,0.09);
+  background: rgba(17,24,39,0.06);
+  border:1px solid rgba(17,24,39,0.09);
   min-width: 0;
 }
 .gHowto .n{
@@ -384,8 +381,8 @@
   display:grid;
   place-items:center;
   font-weight:950;
-  background: rgba(167,199,255,0.20);
-  border:1px solid rgba(255,255,255,0.10);
+  background: rgba(17,24,39,0.20);
+  border:1px solid rgba(17,24,39,0.10);
 }
 .gHowto .t{
   font-size:13px;
@@ -413,8 +410,8 @@
 .gHowtoImgPh{
   min-height:150px;
   border-radius:18px;
-  border:1px dashed rgba(255,255,255,0.20);
-  background: rgba(255,255,255,0.03);
+  border:1px dashed rgba(17,24,39,0.20);
+  background: rgba(17,24,39,0.03);
   display:grid;
   place-items:center;
   text-align:center;
@@ -433,8 +430,8 @@
   width:100%;
   overflow:auto;
   border-radius:18px;
-  border:1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.02);
+  border:1px solid rgba(17,24,39,0.08);
+  background: rgba(17,24,39,0.02);
   min-width: 0;
 }
 .gRank50Table{
@@ -444,7 +441,7 @@
 }
 .gRank50Table th, .gRank50Table td{
   padding:11px 12px;
-  border-bottom:1px solid rgba(255,255,255,0.06);
+  border-bottom:1px solid rgba(17,24,39,0.06);
   font-size:13px;
 }
 .gRank50Table th{
@@ -453,8 +450,8 @@
   font-weight:950;
   white-space:nowrap;
 }
-.gRank50Table tbody tr:hover td{ background: rgba(255,255,255,0.04); }
-.gRank50Table td.num{ width:60px; font-weight:950; color: rgba(255,255,255,0.75); }
+.gRank50Table tbody tr:hover td{ background: rgba(17,24,39,0.04); }
+.gRank50Table td.num{ width:60px; font-weight:950; color: rgba(17,24,39,0.75); }
 .gRank50Table td.score{ text-align:right; font-weight:950; letter-spacing:.02em; }
 .gRank50Table td.diff{ width:90px; opacity:.88; font-weight:900; }
 
@@ -485,7 +482,7 @@
 }
 
 button:focus-visible{
-  outline:2px solid rgba(255,255,255,0.55);
+  outline:2px solid rgba(17,24,39,0.55);
   outline-offset:2px;
 }
 
@@ -496,12 +493,12 @@ button:focus-visible{
 
 .gRankCard{
   border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(17,24,39,0.12);
   background:
     radial-gradient(700px 340px at 35% 0%,
-      rgba(255,255,255,0.06),
+      rgba(17,24,39,0.05),
       rgba(0,0,0,0) 65%),
-    rgba(10, 13, 22, 0.55);
+    #ffffff;
   box-shadow: var(--g-shadow2);
   overflow: hidden;
   min-width: 0;
@@ -513,14 +510,14 @@ button:focus-visible{
   align-items: baseline;
   gap: 10px;
   padding: 12px 12px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.10);
+  border-bottom: 1px solid rgba(17,24,39,0.10);
   min-width: 0;
 }
 
 .gRankTitle{
   font-weight: 950;
   font-size: 14px;
-  color: rgba(255,255,255,0.92);
+  color: rgba(17,24,39,0.92);
   letter-spacing: .02em;
   min-width: 0;
 }
@@ -528,7 +525,7 @@ button:focus-visible{
 .gRankSub{
   font-weight: 900;
   font-size: 12px;
-  color: rgba(255,255,255,0.55);
+  color: rgba(17,24,39,0.55);
   min-width: 0;
   word-break: break-word;
   text-align: right;
@@ -540,7 +537,7 @@ button:focus-visible{
   padding: 12px;
   font-weight: 850;
   font-size: 12px;
-  color: rgba(255,255,255,0.72);
+  color: rgba(17,24,39,0.72);
 }
 .gRankErr{ color: rgba(255, 130, 130, 0.95); }
 
@@ -560,27 +557,27 @@ button:focus-visible{
   text-align: left;
   font-size: 12px;
   font-weight: 950;
-  color: rgba(255,255,255,0.60);
+  color: rgba(17,24,39,0.60);
   padding: 8px 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.10);
+  border-bottom: 1px solid rgba(17,24,39,0.10);
   white-space: nowrap;
 }
 
 .gRankTable tbody td{
   padding: 10px 6px;
   font-size: 13px;
-  color: rgba(255,255,255,0.88);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: rgba(17,24,39,0.88);
+  border-bottom: 1px solid rgba(17,24,39,0.06);
   white-space: nowrap;
 }
 
 .gRankTable tbody tr:hover td{
-  background: rgba(255,255,255,0.04);
+  background: rgba(17,24,39,0.04);
 }
 
 .gRankNum{
   width: 28px;
-  color: rgba(255,255,255,0.60);
+  color: rgba(17,24,39,0.60);
   font-weight: 950;
 }
 
@@ -610,8 +607,8 @@ button:focus-visible{
 /* ===== Ranking mini card (Start overlay) ===== */
 .gRankCard{
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  border: 1px solid rgba(17,24,39,0.10);
+  background: linear-gradient(180deg, rgba(17,24,39,0.07), rgba(17,24,39,0.03));
   box-shadow: var(--g-shadow2);
   overflow: hidden;
   min-height: 220px;
@@ -622,18 +619,18 @@ button:focus-visible{
   align-items:baseline;
   gap:10px;
   padding:12px 12px 10px;
-  border-bottom:1px solid rgba(255,255,255,0.08);
+  border-bottom:1px solid rgba(17,24,39,0.08);
 }
 .gRankTitle{
   font-weight: 950;
   letter-spacing: .02em;
-  color: rgba(255,255,255,0.92);
+  color: rgba(17,24,39,0.92);
   font-size: 13px;
 }
 .gRankSub{
   font-weight: 950;
   font-size: 12px;
-  color: rgba(255,255,255,0.55);
+  color: rgba(17,24,39,0.55);
 }
 .gRankTableWrap{ padding: 8px 10px 12px; overflow:hidden; }
 .gRankTable{ width:100%; border-collapse:collapse; }
@@ -641,19 +638,19 @@ button:focus-visible{
   text-align:left;
   font-size:11px;
   font-weight:950;
-  color: rgba(255,255,255,0.60);
+  color: rgba(17,24,39,0.60);
   padding: 8px 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(17,24,39,0.08);
   white-space:nowrap;
 }
 .gRankTable tbody td{
   padding: 9px 6px;
   font-size: 12px;
-  color: rgba(255,255,255,0.88);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: rgba(17,24,39,0.88);
+  border-bottom: 1px solid rgba(17,24,39,0.06);
   white-space:nowrap;
 }
-.gRankNum{ color: rgba(255,255,255,0.55); font-weight:950; width:26px; }
+.gRankNum{ color: rgba(17,24,39,0.55); font-weight:950; width:26px; }
 .gRankScore{ text-align:right; font-weight:980; letter-spacing:.02em; }
 
 /* =========================
@@ -662,11 +659,11 @@ button:focus-visible{
 
 .gRankCard{
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(17,24,39,0.10);
   background: linear-gradient(
     180deg,
-    rgba(255,255,255,0.07),
-    rgba(255,255,255,0.03)
+    rgba(17,24,39,0.07),
+    rgba(17,24,39,0.03)
   );
   box-shadow: var(--g-shadow2);
   overflow: hidden;
@@ -680,20 +677,20 @@ button:focus-visible{
   align-items: baseline;
   gap: 10px;
   padding: 12px 12px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(17,24,39,0.08);
 }
 
 .gRankTitle{
   font-weight: 950;
   letter-spacing: 0.02em;
-  color: rgba(255,255,255,0.92);
+  color: rgba(17,24,39,0.92);
   font-size: 13px;
 }
 
 .gRankSub{
   font-weight: 950;
   font-size: 12px;
-  color: rgba(255,255,255,0.55);
+  color: rgba(17,24,39,0.55);
   white-space: nowrap;
 }
 
@@ -703,7 +700,7 @@ button:focus-visible{
   padding: 12px;
   font-weight: 850;
   font-size: 12px;
-  color: rgba(255,255,255,0.70);
+  color: rgba(17,24,39,0.70);
 }
 
 .gRankErr{ color: rgba(255, 130, 130, 0.95); }
@@ -722,26 +719,26 @@ button:focus-visible{
   text-align: left;
   font-size: 11px;
   font-weight: 950;
-  color: rgba(255,255,255,0.60);
+  color: rgba(17,24,39,0.60);
   padding: 8px 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(17,24,39,0.08);
   white-space: nowrap;
 }
 
 .gRankTable tbody td{
   padding: 9px 6px;
   font-size: 12px;
-  color: rgba(255,255,255,0.88);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: rgba(17,24,39,0.88);
+  border-bottom: 1px solid rgba(17,24,39,0.06);
   white-space: nowrap;
 }
 
 .gRankTable tbody tr:hover td{
-  background: rgba(255,255,255,0.04);
+  background: rgba(17,24,39,0.04);
 }
 
 .gRankNum{
-  color: rgba(255,255,255,0.55);
+  color: rgba(17,24,39,0.55);
   font-weight: 950;
   width: 26px;
 }
@@ -762,8 +759,8 @@ button:focus-visible{
 .gRankTableWrap{
   margin-top: 10px;
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(17,24,39,0.10);
+  background: rgba(17,24,39,0.03);
   overflow: hidden;
 }
 .gRankTable{
@@ -771,10 +768,10 @@ button:focus-visible{
   border-collapse: collapse;
 }
 .gRankTable thead th{
-  border-bottom: 1px solid rgba(255,255,255,0.10);
+  border-bottom: 1px solid rgba(17,24,39,0.10);
 }
 .gRankTable tbody td{
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(17,24,39,0.06);
 }
 
 /* HUDの各アイテムを“ピル”にして枠復活 */
@@ -785,24 +782,24 @@ button:focus-visible{
 
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(17,24,39,0.08);
+  border: 1px solid rgba(17,24,39,0.14);
 }
 
 .gRewardItemBtn{
   width: 100%;
   text-align: left;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.92);
+  border: 1px solid rgba(17,24,39,0.10);
+  background: rgba(17,24,39,0.04);
+  color: rgba(17,24,39,0.92);
   padding: 10px 12px;
   border-radius: 14px;
   cursor: pointer;
   font-weight: 900;
 }
 .gRewardItemBtn:hover{
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.16);
+  background: rgba(17,24,39,0.06);
+  border-color: rgba(17,24,39,0.16);
 }
 
 /* =========================
@@ -849,12 +846,12 @@ html{
 .hudCombo {
   background: rgba(255, 209, 102, 0.18);
   border-color: rgba(255, 209, 102, 0.5);
-  color: #ffd166;
+  color: #b45309;
 }
 .hudCombo.is-fever {
   background: linear-gradient(90deg, rgba(255, 80, 120, 0.4), rgba(255, 180, 0, 0.4));
   border-color: rgba(255, 130, 90, 0.75);
-  color: #fff;
+  color: #111111;
   animation: feverPulse 0.7s ease-in-out infinite;
 }
 @keyframes feverPulse {
@@ -869,9 +866,9 @@ html{
   border-radius: 999px;
   font-size: 11px;
   font-weight: 900;
-  background: rgba(99, 102, 241, 0.22);
-  color: #c7d2fe;
-  border: 1px solid rgba(129, 140, 248, 0.45);
+  background: rgba(17, 24, 39, 0.22);
+  color: #111111;
+  border: 1px solid rgba(17, 24, 39, 0.45);
 }
 
 .quizLegend {

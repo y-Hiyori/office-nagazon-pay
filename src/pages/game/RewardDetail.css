@@ -1,12 +1,12 @@
 /* src/pages/game/RewardDetail.css */
 
 :root{
-  --rd-bg:#0b0f19;
-  --rd-card: rgba(12,16,28,0.94);
-  --rd-line: rgba(255,255,255,0.10);
-  --rd-text: rgba(255,255,255,0.92);
-  --rd-sub: rgba(255,255,255,0.65);
-  --rd-shadow: 0 18px 60px rgba(0,0,0,0.40);
+  --rd-bg:#f6f6f7;
+  --rd-card: #ffffff;
+  --rd-line: rgba(17,24,39,0.10);
+  --rd-text: rgba(17,24,39,0.92);
+  --rd-sub: rgba(17,24,39,0.65);
+  --rd-shadow: 0 12px 40px rgba(17,24,39,0.10);
   --rd-radius: 20px;
 }
 
@@ -15,9 +15,9 @@
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(1200px 600px at 30% 0%, rgba(255,255,255,0.06), rgba(0,0,0,0) 60%),
+    radial-gradient(1200px 600px at 30% 0%, rgba(17,24,39,0.06), rgba(0,0,0,0) 60%),
     var(--rd-bg);
-  color: #fff;
+  color: #111111;
   overflow-x: hidden;
 }
 
@@ -32,7 +32,7 @@
 
 .rewardDetailCard{
   border-radius: var(--rd-radius);
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(17,24,39,0.10);
   background: var(--rd-card);
   box-shadow: var(--rd-shadow);
   overflow: hidden;
@@ -41,7 +41,7 @@
 
 .rewardDetailHead{
   padding: 16px 16px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(17,24,39,0.08);
 }
 .rewardDetailTitle{
   font-weight: 950;
@@ -63,8 +63,8 @@
 .rewardStatusBar{
   margin: 16px 16px 0;
   border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(17,24,39,0.10);
+  background: rgba(17,24,39,0.05);
   padding: 14px;
 
   display: flex;
@@ -88,7 +88,7 @@
 .rewardStatusText{
   font-size: 12px;
   font-weight: 850;
-  color: rgba(255,255,255,0.72);
+  color: rgba(17,24,39,0.72);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -118,8 +118,8 @@
 
 .rewardBlock{
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(17,24,39,0.10);
+  background: rgba(17,24,39,0.04);
   padding: 12px;
   min-width: 0;
 }
@@ -127,7 +127,7 @@
 .rewardBlockTitle{
   font-weight: 950;
   font-size: 13px;
-  color: rgba(255,255,255,0.92);
+  color: rgba(17,24,39,0.92);
   margin-bottom: 10px;
 }
 
@@ -136,7 +136,7 @@
   grid-template-columns: 92px 1fr;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(17,24,39,0.06);
   min-width: 0;
 }
 .rewardRow:last-child{ border-bottom: none; }
@@ -144,13 +144,13 @@
 .k{
   font-size: 12px;
   font-weight: 950;
-  color: rgba(255,255,255,0.60);
+  color: rgba(17,24,39,0.60);
   min-width: 0;
 }
 .v{
   font-size: 13px;
   font-weight: 900;
-  color: rgba(255,255,255,0.92);
+  color: rgba(17,24,39,0.92);
   min-width: 0;
   word-break: break-word;
 }
@@ -163,29 +163,29 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 950;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(17,24,39,0.14);
+  background: rgba(17,24,39,0.06);
 }
 .badge.ok{
-  border-color: rgba(110,255,180,0.35);
-  background: rgba(110,255,180,0.10);
+  border-color: rgba(22,163,74,0.35);
+  background: rgba(22,163,74,0.10);
 }
 .badge.ng{
-  border-color: rgba(255,110,110,0.35);
-  background: rgba(255,110,110,0.10);
+  border-color: rgba(185,28,28,0.35);
+  background: rgba(185,28,28,0.10);
 }
 
 .rewardNote{
   margin-top: 14px;
   font-size: 12px;
   font-weight: 850;
-  color: rgba(255,255,255,0.60);
+  color: rgba(17,24,39,0.60);
   line-height: 1.6;
 }
 
 .rewardErr{
   font-weight: 950;
-  color: #ff7b7b;
+  color: #b91c1c;
 }
 
 .rewardDetailBtns{
@@ -193,25 +193,25 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(17,24,39,0.08);
   flex-wrap: wrap;
 }
 
 .rBtn{
   padding: 10px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.10);
-  color: #fff;
+  border: 1px solid rgba(17,24,39,0.18);
+  background: rgba(17,24,39,0.10);
+  color: #111111;
   font-weight: 950;
   cursor: pointer;
 }
-.rBtn.ghost{ background: rgba(255,255,255,0.06); }
+.rBtn.ghost{ background: rgba(17,24,39,0.06); }
 
 .rBtn:disabled{ opacity: .55; cursor: not-allowed; }
 
 button:focus-visible{
-  outline: 2px solid rgba(255,255,255,0.55);
+  outline: 2px solid rgba(17,24,39,0.55);
   outline-offset: 2px;
 }
 
@@ -228,7 +228,7 @@ button:focus-visible{
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(17,24,39,0.08);
   flex-wrap: wrap;          /* ← これが重要 */
   min-width: 0;
 }

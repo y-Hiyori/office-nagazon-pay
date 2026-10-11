@@ -1,35 +1,35 @@
 /* ===========================
-   商品一覧ページ  ✨ Refined
-   Apple風プレミアム × 游ゴシック × ワインレッド
+   商品一覧ページ  ✨ Minimal
+   白黒ミニマル × 游ゴシック
 =========================== */
 
 :root {
-  /* Palette */
-  --plist-bg: #fafafa;
+  /* Palette（モノトーン） */
+  --plist-bg: #f6f6f7;
   --plist-surface: #ffffff;
-  --plist-image-bg: #f4f4f6;
-  --plist-border: rgba(15, 23, 42, 0.06);
+  --plist-image-bg: #f1f1f2;
+  --plist-border: rgba(17, 24, 39, 0.08);
 
-  --plist-text: #1d1d1f;         /* Apple風の黒（純黒より少し柔らかい） */
-  --plist-text-sub: #6e6e73;
-  --plist-text-muted: #a1a1a6;
+  --plist-text: #111111;
+  --plist-text-sub: #6b7280;
+  --plist-text-muted: #9ca3af;
 
-  --plist-accent: #8b1e3f;       /* ワインレッド */
-  --plist-accent-soft: #f7ecef;
+  --plist-accent: #111111;
+  --plist-accent-soft: #f4f4f5;
 
-  /* Shadows — 多層で繊細に */
+  /* Shadows — 繊細に控えめ */
   --plist-shadow-1:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 4px 12px rgba(15, 23, 42, 0.05);
+    0 1px 2px rgba(17, 24, 39, 0.04),
+    0 4px 12px rgba(17, 24, 39, 0.05);
   --plist-shadow-2:
-    0 2px 4px rgba(15, 23, 42, 0.05),
-    0 12px 28px rgba(15, 23, 42, 0.09),
-    0 24px 56px rgba(15, 23, 42, 0.06);
+    0 2px 4px rgba(17, 24, 39, 0.05),
+    0 12px 28px rgba(17, 24, 39, 0.09),
+    0 24px 56px rgba(17, 24, 39, 0.06);
 
-  /* Radius */
-  --plist-radius-card: 14px;
-  --plist-radius-media: 14px 14px 0 0;
-  --plist-radius-input: 12px;
+  /* Radius（控えめ） */
+  --plist-radius-card: 12px;
+  --plist-radius-media: 12px 12px 0 0;
+  --plist-radius-input: 10px;
 }
 
 /* ---------- Page ---------- */
@@ -102,9 +102,9 @@
 }
 
 .plist-search-inner:focus-within {
-  border-color: rgba(139, 30, 63, 0.35);
+  border-color: rgba(17, 24, 39, 0.35);
   box-shadow:
-    0 0 0 4px rgba(139, 30, 63, 0.08),
+    0 0 0 4px rgba(17, 24, 39, 0.08),
     var(--plist-shadow-1);
 }
 
@@ -386,30 +386,30 @@
 .plist-card:focus-visible {
   outline: none;
   box-shadow:
-    0 0 0 3px rgba(139, 30, 63, 0.35),
+    0 0 0 3px rgba(17, 24, 39, 0.35),
     var(--plist-shadow-2);
 }
 
 /* ============ 会員価格の差別化（追加） ============ */
 .plist-price.is-member {
-  color: #1e6fd9;
+  color: #111111;
 }
 .plist-memberTag {
   flex: 0 0 auto;
   padding: 2px 8px;
   border-radius: 6px;
-  background: #e7f0ff;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
   font-size: 11px;
   font-weight: 700;
   margin-right: 6px;
 }
 .pdetail-price.is-member {
-  color: #1e6fd9;
+  color: #111111;
 }
 .pdetail-chip.member {
-  background: #e7f0ff;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .pdetail-points {
   margin-top: 14px;
@@ -427,29 +427,29 @@
 .pdetail-points-num {
   font-weight: 800;
   font-size: 15px;
-  color: #1e6fd9;
+  color: #111111;
 }
 
 /* ============ 会員価格の差別化（追加） ============ */
 .plist-price.is-member {
-  color: #1e6fd9;
+  color: #111111;
 }
 .plist-memberTag {
   flex: 0 0 auto;
   padding: 2px 8px;
   border-radius: 6px;
-  background: #e7f0ff;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
   font-size: 11px;
   font-weight: 700;
   margin-right: 6px;
 }
 .pdetail-price.is-member {
-  color: #1e6fd9;
+  color: #111111;
 }
 .pdetail-chip.member {
-  background: #e7f0ff;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .pdetail-points {
   margin-top: 14px;
@@ -467,29 +467,29 @@
 .pdetail-points-num {
   font-weight: 800;
   font-size: 15px;
-  color: #1e6fd9;
+  color: #111111;
 }
 
 /* ============ 会員価格の差別化（追加） ============ */
 .plist-price.is-member {
-  color: #1e6fd9;
+  color: #111111;
 }
 .plist-memberTag {
   flex: 0 0 auto;
   padding: 2px 8px;
   border-radius: 6px;
-  background: #e7f0ff;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
   font-size: 11px;
   font-weight: 700;
   margin-right: 6px;
 }
 .pdetail-price.is-member {
-  color: #1e6fd9;
+  color: #111111;
 }
 .pdetail-chip.member {
-  background: #e7f0ff;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .pdetail-points {
   margin-top: 14px;
@@ -507,7 +507,7 @@
 .pdetail-points-num {
   font-weight: 800;
   font-size: 15px;
-  color: #1e6fd9;
+  color: #111111;
 }
 
 .pdetail-points.guest {
@@ -581,7 +581,7 @@
 .ae-shipping-toggle input {
   width: 18px;
   height: 18px;
-  accent-color: #1e6fd9;
+  accent-color: #111111;
 }
 .ae-help {
   font-size: 12px;
@@ -595,7 +595,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #1e6fd9;
+  background: #111111;
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -607,17 +607,17 @@
 
 /* --- 商品詳細：発送タグ・発送案内 --- */
 .pdetail-chip.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .pdetail-shipNote {
   margin-top: 10px;
   font-size: 12.5px;
   font-weight: 800;
-  color: #1e6fd9;
+  color: #111111;
   background: #f2f7fd;
-  border: 1px dashed #bcd4f4;
+  border: 1px dashed #e4e4e7;
   border-radius: 8px;
   padding: 8px 10px;
 }
@@ -631,9 +631,9 @@
   margin-bottom: 12px;
 }
 .co-fulfillBanner.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .co-fulfillBanner.pickup {
   background: #f0fdf4;
@@ -656,8 +656,8 @@
   white-space: nowrap;
 }
 .co-item-tag.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .co-item-tag.pickup {
   background: #f0fdf4;
@@ -682,7 +682,7 @@
 .ae-shipping-toggle input {
   width: 18px;
   height: 18px;
-  accent-color: #1e6fd9;
+  accent-color: #111111;
 }
 .ae-help {
   font-size: 12px;
@@ -696,7 +696,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #1e6fd9;
+  background: #111111;
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -708,17 +708,17 @@
 
 /* --- 商品詳細：発送タグ・発送案内 --- */
 .pdetail-chip.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .pdetail-shipNote {
   margin-top: 10px;
   font-size: 12.5px;
   font-weight: 800;
-  color: #1e6fd9;
+  color: #111111;
   background: #f2f7fd;
-  border: 1px dashed #bcd4f4;
+  border: 1px dashed #e4e4e7;
   border-radius: 8px;
   padding: 8px 10px;
 }
@@ -732,9 +732,9 @@
   margin-bottom: 12px;
 }
 .co-fulfillBanner.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .co-fulfillBanner.pickup {
   background: #f0fdf4;
@@ -757,8 +757,8 @@
   white-space: nowrap;
 }
 .co-item-tag.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .co-item-tag.pickup {
   background: #f0fdf4;
@@ -783,7 +783,7 @@
 .ae-shipping-toggle input {
   width: 18px;
   height: 18px;
-  accent-color: #1e6fd9;
+  accent-color: #111111;
 }
 .ae-help {
   font-size: 12px;
@@ -797,7 +797,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #1e6fd9;
+  background: #111111;
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -809,17 +809,17 @@
 
 /* --- 商品詳細：発送タグ・発送案内 --- */
 .pdetail-chip.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .pdetail-shipNote {
   margin-top: 10px;
   font-size: 12.5px;
   font-weight: 800;
-  color: #1e6fd9;
+  color: #111111;
   background: #f2f7fd;
-  border: 1px dashed #bcd4f4;
+  border: 1px dashed #e4e4e7;
   border-radius: 8px;
   padding: 8px 10px;
 }
@@ -833,9 +833,9 @@
   margin-bottom: 12px;
 }
 .co-fulfillBanner.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .co-fulfillBanner.pickup {
   background: #f0fdf4;
@@ -858,8 +858,8 @@
   white-space: nowrap;
 }
 .co-item-tag.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .co-item-tag.pickup {
   background: #f0fdf4;

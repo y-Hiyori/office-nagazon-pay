@@ -6,20 +6,39 @@
   line-height: 1.5;
   font-weight: 400;
 
-  /* ❌ ダークモード前提をやめる */
-  /* color-scheme: light dark; */
-  /* color: rgba(255, 255, 255, 0.87); */
-  /* background-color: #242424; */
-
-  /* ✅ 常にライトモードっぽくする */
+  /* ✅ 常にライトモード */
   color-scheme: light;
-  color: #111827;            /* ベース文字色（ほぼ黒） */
-  background-color: #ffffff; /* 背景は白 */
+  color: #111111;
+  background-color: #ffffff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* ============================================================
+     共通デザイントークン（白黒ミニマル）
+  ============================================================ */
+  --app-bg: #f6f6f7;
+  --app-surface: #ffffff;
+  --app-surface-2: #fafafa;
+  --app-line: rgba(17, 24, 39, 0.08);
+  --app-line-strong: rgba(17, 24, 39, 0.16);
+  --app-text: #111111;
+  --app-text-sub: #6b7280;
+  --app-text-muted: #9ca3af;
+  --app-accent: #111111;
+  --app-accent-soft: #f4f4f5;
+  --app-danger: #b91c1c;
+  --app-success: #15803d;
+
+  --app-radius: 12px;
+  --app-radius-sm: 10px;
+  --app-radius-pill: 999px;
+  --app-shadow-1: 0 1px 2px rgba(17, 24, 39, 0.04), 0 4px 12px rgba(17, 24, 39, 0.05);
+  --app-shadow-2: 0 2px 4px rgba(17, 24, 39, 0.05), 0 16px 40px rgba(17, 24, 39, 0.12);
+  --app-max: 1200px;
+  --app-header-h: 60px;
 }
 
 html,
@@ -39,50 +58,51 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
 
-  /* ページの背景も薄グレーにしておく（カードが映えるように） */
-  background-color: #f3f4f6;
+  background-color: var(--app-bg);
   color: inherit;
 }
 
-/* リンク */
+/* リンク（モノトーン） */
 a {
-  font-weight: 500;
-  color: #2563eb;        /* ちょい濃いめの青 */
+  font-weight: 600;
+  color: var(--app-text);
   text-decoration: none;
+  text-underline-offset: 3px;
 }
 
 a:hover {
-  color: #1d4ed8;
+  color: #000000;
   text-decoration: underline;
 }
 
 /* 見出し */
 h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  font-size: 2.2em;
+  line-height: 1.15;
 }
 
 /* ボタンのデフォルト（各画面で上書きしてるから最小限） */
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
+  border-radius: 10px;
+  border: 1px solid var(--app-line-strong);
   padding: 0.6em 1.2em;
   font-size: 1em;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
-  background-color: #f3f4f6;
+  background-color: #ffffff;
+  color: var(--app-text);
   cursor: pointer;
-  transition: border-color 0.25s, background-color 0.2s;
+  transition: background-color 0.18s, border-color 0.18s, transform 0.12s;
 }
 
 button:hover {
-  border-color: #d1d5db;
-  background-color: #e5e7eb;
+  border-color: #111111;
+  background-color: #f4f4f5;
 }
 
 button:focus,
 button:focus-visible {
-  outline: 3px solid #93c5fd;
+  outline: 3px solid rgba(17, 24, 39, 0.18);
   outline-offset: 2px;
 }
 

@@ -37,8 +37,8 @@
   --co-text: var(--plist-text, #1d1d1f);
   --co-text-sub: var(--plist-text-sub, #6e6e73);
   --co-text-muted: var(--plist-text-muted, #a1a1a6);
-  --co-accent: var(--plist-accent, #8b1e3f);
-  --co-accent-soft: var(--plist-accent-soft, #f7ecef);
+  --co-accent: var(--plist-accent, #111111);
+  --co-accent-soft: var(--plist-accent-soft, #f4f4f5);
   --co-shadow-1:
     0 1px 2px rgba(15, 23, 42, 0.04),
     0 4px 12px rgba(15, 23, 42, 0.05);
@@ -180,9 +180,9 @@
 }
 .coupon-input::placeholder { color: var(--co-text-muted); font-weight: 400; }
 .coupon-input:focus {
-  border-color: rgba(139, 30, 63, 0.35);
+  border-color: rgba(17, 24, 39, 0.35);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
+  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
 }
 
 .coupon-apply {
@@ -319,12 +319,12 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.22);
   transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .side-pay-btn:hover:not(:disabled) {
-  background: #75182f;
-  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
+  background: #000000;
+  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.28);
 }
 .side-pay-btn:active:not(:disabled) { transform: scale(0.98); }
 .side-pay-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -358,12 +358,12 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.22);
   transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 .checkout-btn:hover:not(:disabled) {
-  background: #75182f;
-  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
+  background: #000000;
+  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.28);
 }
 .checkout-btn:active:not(:disabled) { transform: scale(0.98); }
 .checkout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -441,9 +441,9 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .store-auth-input:focus {
-  border-color: rgba(139, 30, 63, 0.35);
+  border-color: rgba(17, 24, 39, 0.35);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
+  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
 }
 
 .modal-buttons {
@@ -465,10 +465,10 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
+  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.22);
   transition: background 0.2s ease, transform 0.12s ease;
 }
-.modal-main-btn:hover { background: #75182f; }
+.modal-main-btn:hover { background: #000000; }
 .modal-main-btn:active { transform: scale(0.98); }
 
 .modal-sub-btn {
@@ -655,7 +655,7 @@
 .ae-shipping-toggle input {
   width: 18px;
   height: 18px;
-  accent-color: #1e6fd9;
+  accent-color: #111111;
 }
 .ae-help {
   font-size: 12px;
@@ -669,7 +669,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #1e6fd9;
+  background: #111111;
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -681,17 +681,17 @@
 
 /* --- 商品詳細：発送タグ・発送案内 --- */
 .pdetail-chip.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .pdetail-shipNote {
   margin-top: 10px;
   font-size: 12.5px;
   font-weight: 800;
-  color: #1e6fd9;
+  color: #111111;
   background: #f2f7fd;
-  border: 1px dashed #bcd4f4;
+  border: 1px dashed #e4e4e7;
   border-radius: 8px;
   padding: 8px 10px;
 }
@@ -705,9 +705,9 @@
   margin-bottom: 12px;
 }
 .co-fulfillBanner.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .co-fulfillBanner.pickup {
   background: #f0fdf4;
@@ -730,8 +730,8 @@
   white-space: nowrap;
 }
 .co-item-tag.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .co-item-tag.pickup {
   background: #f0fdf4;
@@ -756,7 +756,7 @@
 .ae-shipping-toggle input {
   width: 18px;
   height: 18px;
-  accent-color: #1e6fd9;
+  accent-color: #111111;
 }
 .ae-help {
   font-size: 12px;
@@ -770,7 +770,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #1e6fd9;
+  background: #111111;
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -782,17 +782,17 @@
 
 /* --- 商品詳細：発送タグ・発送案内 --- */
 .pdetail-chip.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .pdetail-shipNote {
   margin-top: 10px;
   font-size: 12.5px;
   font-weight: 800;
-  color: #1e6fd9;
+  color: #111111;
   background: #f2f7fd;
-  border: 1px dashed #bcd4f4;
+  border: 1px dashed #e4e4e7;
   border-radius: 8px;
   padding: 8px 10px;
 }
@@ -806,9 +806,9 @@
   margin-bottom: 12px;
 }
 .co-fulfillBanner.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .co-fulfillBanner.pickup {
   background: #f0fdf4;
@@ -831,8 +831,8 @@
   white-space: nowrap;
 }
 .co-item-tag.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .co-item-tag.pickup {
   background: #f0fdf4;
@@ -857,7 +857,7 @@
 .ae-shipping-toggle input {
   width: 18px;
   height: 18px;
-  accent-color: #1e6fd9;
+  accent-color: #111111;
 }
 .ae-help {
   font-size: 12px;
@@ -871,7 +871,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #1e6fd9;
+  background: #111111;
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -883,17 +883,17 @@
 
 /* --- 商品詳細：発送タグ・発送案内 --- */
 .pdetail-chip.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .pdetail-shipNote {
   margin-top: 10px;
   font-size: 12.5px;
   font-weight: 800;
-  color: #1e6fd9;
+  color: #111111;
   background: #f2f7fd;
-  border: 1px dashed #bcd4f4;
+  border: 1px dashed #e4e4e7;
   border-radius: 8px;
   padding: 8px 10px;
 }
@@ -907,9 +907,9 @@
   margin-bottom: 12px;
 }
 .co-fulfillBanner.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
-  border: 1px solid #bcd4f4;
+  background: #f4f4f5;
+  color: #111111;
+  border: 1px solid #e4e4e7;
 }
 .co-fulfillBanner.pickup {
   background: #f0fdf4;
@@ -932,8 +932,8 @@
   white-space: nowrap;
 }
 .co-item-tag.shipping {
-  background: #eaf2fd;
-  color: #1e6fd9;
+  background: #f4f4f5;
+  color: #111111;
 }
 .co-item-tag.pickup {
   background: #f0fdf4;

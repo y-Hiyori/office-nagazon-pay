@@ -42,7 +42,7 @@
   height: 42px;
   border-radius: 50%;
   border: 3.5px solid rgba(15, 23, 42, 0.08);
-  border-top-color: #8b1e3f;
+  border-top-color: #111111;
   border-right-color: #c2416a;
   animation: appSpin 0.8s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite;
   box-sizing: border-box;
@@ -55,7 +55,7 @@
   inset: 6px;
   border-radius: 50%;
   border: 2.5px solid transparent;
-  border-bottom-color: rgba(139, 30, 63, 0.45);
+  border-bottom-color: rgba(17, 24, 39, 0.45);
   animation: appSpin 1.2s linear infinite reverse;
 }
 .app-spinner--sm {
@@ -104,7 +104,7 @@
   z-index: 99999;
   overflow: hidden;
   pointer-events: none;
-  background: rgba(139, 30, 63, 0.12);
+  background: rgba(17, 24, 39, 0.12);
 }
 .app-topbar::before {
   content: "";
@@ -112,7 +112,7 @@
   top: 0;
   bottom: 0;
   width: 40%;
-  background: linear-gradient(90deg, transparent, #8b1e3f, #c2416a, transparent);
+  background: linear-gradient(90deg, transparent, #111111, #c2416a, transparent);
   animation: appBar 1.1s ease-in-out infinite;
 }
 
