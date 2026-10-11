@@ -87,6 +87,7 @@ function formatYMDHM(iso?: string | null) {
 export default function AdminCouponRewardsPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Reward[]>([]);
+  const [outIds, setOutIds] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<RewardForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -107,6 +108,17 @@ export default function AdminCouponRewardsPage() {
     }
 
     setRows((data ?? []) as Reward[]);
+
+    // 配布期間外の景品をマーク（一覧で「期間外」表示）
+    const now = Date.now();
+    const out = new Set<string>();
+    for (const r of (data ?? []) as Reward[]) {
+      const fromOk = !r.valid_from || new Date(r.valid_from).getTime() <= now;
+      const toOk = !r.valid_to || new Date(r.valid_to).getTime() >= now;
+      if (r.is_active && !(fromOk && toOk)) out.add(r.id);
+    }
+    setOutIds(out);
+
     setLoading(false);
   };
 
@@ -275,7 +287,7 @@ export default function AdminCouponRewardsPage() {
         okText: "OK",
       });
     } catch (e: unknown) {
-      const msg = typeof e === "object" && e && "message" in e ? String((e as any).message) : String(e);
+      const msg = typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : String(e);
       await appDialog.alert({
         title: "保存エラー",
         message: msg,
@@ -579,6 +591,7 @@ export default function AdminCouponRewardsPage() {
                         <div className="itemMeta">
                           <div className="metaChip">難易度：{DIFF_LABEL[r.difficulty] ?? r.difficulty ?? "全難易度共通"}</div>
                           <div className="metaChip">表示：{MODE_LABEL[r.display_mode] ?? "QRコード"}</div>
+                          {outIds.has(r.id) ? <div className="metaChip ng">期間外</div> : null}
                           <div className="metaChip">しきい値：{r.score_threshold}</div>
                           <div className="metaChip">{r.coupon_title}</div>
                           {r.display_mode === "code" && r.coupon_code ? (

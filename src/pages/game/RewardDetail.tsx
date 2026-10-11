@@ -81,6 +81,7 @@ export default function RewardDetail() {
 
   const [issued, setIssued] = useState<IssuedState>({ status: "checking" });
   const [issuedErr, setIssuedErr] = useState<string | null>(null);
+  const [inWindow, setInWindow] = useState(true);
 
   // ① reward 本体
   useEffect(() => {
@@ -111,6 +112,11 @@ export default function RewardDetail() {
         setUi({ status: "error", message: "報酬が見つかりませんでした" });
         return;
       }
+
+      const now = Date.now();
+      const fromOk = !data.valid_from || new Date(data.valid_from).getTime() <= now;
+      const toOk = !data.valid_to || new Date(data.valid_to).getTime() >= now;
+      setInWindow(fromOk && toOk);
 
       setUi({ status: "ready", reward: data as RewardRow });
     };
@@ -238,6 +244,11 @@ export default function RewardDetail() {
                       <div className="rewardStatusText">
                         まだこの報酬は獲得していません（ゲーム終了時に条件を満たすと発行されます）
                       </div>
+                      {!inWindow ? (
+                        <div className="rewardStatusText" style={{ color: "rgba(255,180,130,0.95)" }}>
+                          現在は配布期間外です（{formatDateTime(ui.reward.valid_from)} 〜 {formatDateTime(ui.reward.valid_to)}）
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -265,10 +276,12 @@ export default function RewardDetail() {
                       <div className="rewardRow">
                         <div className="k">配布状態</div>
                         <div className="v">
-                          {ui.reward.is_active ? (
-                            <span className="badge ok">配布中</span>
-                          ) : (
+                          {!ui.reward.is_active ? (
                             <span className="badge ng">停止</span>
+                          ) : !inWindow ? (
+                            <span className="badge ng">期間外</span>
+                          ) : (
+                            <span className="badge ok">配布中</span>
                           )}
                         </div>
                       </div>

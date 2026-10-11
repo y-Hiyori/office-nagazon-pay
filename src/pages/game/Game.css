@@ -957,3 +957,10 @@ html{
   text-align: center;
   line-height: 1.6;
 }
+
+/* 報酬一覧：配布期間外チップ */
+.gRewardOut{
+  background: rgba(255,90,90,0.18);
+  color: #ffb4b4;
+  border-color: rgba(255,90,90,0.45);
+}
