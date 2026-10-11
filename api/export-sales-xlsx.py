@@ -5,12 +5,15 @@ Vercel Python Function: /api/export-sales-xlsx
 BaseHTTPRequestHandler 版。Vercel の /api ディレクトリ用 Python 関数として公開する。
 
 シート構成（見やすい順）:
-  1. 要点まとめ   … 開いてすぐ分かる要点ダッシュボード（新規）
+  1. 要点まとめ   … 開いてすぐ分かる要点ダッシュボード
   2. 売上サマリー … 入金売上・粗利などのくわしい内訳
   3. 期間比較     … 今期 vs 比較期間
   4. 商品別売上   … 商品ごとの売上・原価・粗利 ＋ グラフ
   5. 注文一覧     … 注文ごとの明細
   6. 処分履歴     … 廃棄ロスの明細（該当があるときだけ）
+
+デザイン: ネイビー×スレートの落ち着いた配色。見出しは淡色＋ネイビー文字、
+強調はアクセントブルー、黒字＝緑／赤字＝赤で統一。
 """
 import io
 import json
@@ -22,33 +25,54 @@ from openpyxl.utils import get_column_letter
 from openpyxl.chart import BarChart, PieChart, LineChart, Reference
 from openpyxl.chart.label import DataLabelList
 
-TITLE_FILL = PatternFill("solid", fgColor="312E81")
-HEADER_FILL = PatternFill("solid", fgColor="4338CA")
-ZEBRA_FILL = PatternFill("solid", fgColor="F8FAFC")
-TOTAL_FILL = PatternFill("solid", fgColor="DBEAFE")
-HIGHLIGHT_FILL = PatternFill("solid", fgColor="DCFCE7")
-SECTION_FILL = PatternFill("solid", fgColor="E0E7FF")
+# ---- 配色（プロ向けパレット） ----------------------------------------------
+NAVY = "0F172A"        # 濃紺（文字・タイトル帯）
+SLATE_700 = "334155"   # 本文
+SLATE_500 = "64748B"   # 補助文字
+SLATE_300 = "CBD5E1"   # 中罫線
+SLATE_200 = "E2E8F0"   # 細罫線
+SLATE_100 = "F1F5F9"   # 見出し・合計の淡色
+SLATE_50 = "F8FAFC"    # ゼブラ
+WHITE = "FFFFFF"
+ACCENT = "1D4ED8"      # アクセントブルー
+ACCENT_SOFT = "DBEAFE"  # アクセント淡色
+POS = "047857"         # 黒字（緑）
+NEG = "BE123C"         # 赤字（赤）
+POS_BG = "ECFDF5"      # 強調カードの淡緑
+NEG_BG = "FFF1F2"      # 注意の淡赤
 
-TITLE_FONT = Font(name="メイリオ", size=15, bold=True, color="FFFFFF")
-HEADER_FONT = Font(name="メイリオ", size=10.5, bold=True, color="FFFFFF")
-BODY_FONT = Font(name="メイリオ", size=10)
-BOLD_FONT = Font(name="メイリオ", size=10, bold=True)
-NOTE_FONT = Font(name="メイリオ", size=9, color="64748B")
-SECTION_FONT = Font(name="メイリオ", size=11, bold=True, color="3730A3")
-KPI_LABEL_FONT = Font(name="メイリオ", size=10.5, bold=True, color="334155")
-KPI_VALUE_FONT = Font(name="メイリオ", size=18, bold=True, color="1E293B")
-KPI_SUB_FONT = Font(name="メイリオ", size=14, bold=True, color="1E293B")
-GOOD_FONT = Font(name="メイリオ", size=10, bold=True, color="15803D")
-BAD_FONT = Font(name="メイリオ", size=10, bold=True, color="B91C1C")
+TITLE_FILL = PatternFill("solid", fgColor=NAVY)
+HEADER_FILL = PatternFill("solid", fgColor=SLATE_100)
+ZEBRA_FILL = PatternFill("solid", fgColor=SLATE_50)
+TOTAL_FILL = PatternFill("solid", fgColor=SLATE_100)
+HIGHLIGHT_FILL = PatternFill("solid", fgColor=POS_BG)
+SECTION_FILL = PatternFill("solid", fgColor=SLATE_100)
+KPI_FILL = PatternFill("solid", fgColor=SLATE_50)
 
-THIN = Side(style="thin", color="94A3B8")
-MED = Side(style="medium", color="94A3B8")
+TITLE_FONT = Font(name="メイリオ", size=15, bold=True, color=WHITE)
+HEADER_FONT = Font(name="メイリオ", size=10.5, bold=True, color=NAVY)
+BODY_FONT = Font(name="メイリオ", size=10, color=SLATE_700)
+BOLD_FONT = Font(name="メイリオ", size=10, bold=True, color=NAVY)
+NOTE_FONT = Font(name="メイリオ", size=9, color=SLATE_500)
+SECTION_FONT = Font(name="メイリオ", size=11, bold=True, color=ACCENT)
+KPI_LABEL_FONT = Font(name="メイリオ", size=10, bold=True, color=SLATE_500)
+KPI_VALUE_FONT = Font(name="メイリオ", size=20, bold=True, color=NAVY)
+KPI_SUB_FONT = Font(name="メイリオ", size=14, bold=True, color=NAVY)
+GOOD_FONT = Font(name="メイリオ", size=10, bold=True, color=POS)
+BAD_FONT = Font(name="メイリオ", size=10, bold=True, color=NEG)
+
+THIN = Side(style="thin", color=SLATE_200)
+MED = Side(style="medium", color=SLATE_300)
+ACCENT_SIDE = Side(style="thick", color=ACCENT)
 BORDER = Border(top=THIN, left=THIN, bottom=THIN, right=THIN)
+HEADER_BORDER = Border(top=THIN, left=THIN, bottom=MED, right=THIN)
 TOTAL_BORDER = Border(top=MED, left=THIN, bottom=THIN, right=THIN)
+CARD_BORDER = Border(top=MED, left=THIN, bottom=THIN, right=THIN)
 
 CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
 RIGHT = Alignment(horizontal="right", vertical="center")
+CENTER_NO_WRAP = Alignment(horizontal="center", vertical="center")
 
 YEN = "¥#,##0"
 COUNT = "#,##0"
@@ -71,13 +95,15 @@ def set_number_format(cell, fmt):
         cell.number_format = PCT
 
 
-def write_headers(ws, row, headers):
+def write_headers(ws, row, headers, height=None):
     for c, h in enumerate(headers, start=1):
         cell = ws.cell(row=row, column=c, value=h)
         cell.font = HEADER_FONT
         cell.fill = HEADER_FILL
         cell.alignment = CENTER
-        cell.border = BORDER
+        cell.border = HEADER_BORDER
+    if height:
+        ws.row_dimensions[row].height = height
 
 
 def set_widths(ws, widths):
@@ -85,7 +111,7 @@ def set_widths(ws, widths):
         ws.column_dimensions[get_column_letter(i)].width = w
 
 
-def write_title_bar(ws, row, text, span, height=32):
+def write_title_bar(ws, row, text, span, height=34):
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=span)
     cell = ws.cell(row=row, column=1, value=text)
     cell.font = TITLE_FONT
@@ -94,11 +120,25 @@ def write_title_bar(ws, row, text, span, height=32):
     ws.row_dimensions[row].height = height
 
 
-def write_notes(ws, start_row, spans, notes):
-    """注記（灰色の小さめ文字）を結合セルで書く。spans=結合する最終列。"""
+def draw_section(ws, row, text, span):
+    """淡色ベタ＋左にアクセントバーを引いた見出し行。"""
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=span)
+    for c in range(1, span + 1):
+        cell = ws.cell(row=row, column=c)
+        cell.fill = SECTION_FILL
+        cell.border = Border(top=THIN, bottom=THIN,
+                             left=(ACCENT_SIDE if c == 1 else None),
+                             right=(THIN if c == span else None))
+    cell = ws.cell(row=row, column=1, value=text)
+    cell.font = SECTION_FONT
+    cell.alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[row].height = 24
+
+
+def write_notes(ws, start_row, span, notes):
     for i, txt in enumerate(notes):
         r = start_row + i
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=spans)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=span)
         cell = ws.cell(row=r, column=1, value=txt)
         cell.font = NOTE_FONT
         cell.alignment = LEFT
@@ -134,14 +174,14 @@ def total_row_style(cell, align=RIGHT, fmt=None):
 
 
 # ---------------------------------------------------------------------------
-# 1. 要点まとめ（新規・先頭シート）
+# 1. 要点まとめ（先頭シート）
 # ---------------------------------------------------------------------------
 def build_overview_sheet(wb, range_label, now_jst, summary, products, prev):
     ws = wb.create_sheet("要点まとめ")
     ncol = 6
-    set_widths(ws, [22, 18, 22, 18, 22, 18])
+    set_widths(ws, [26, 18, 20, 18, 20, 18])
 
-    write_title_bar(ws, 1, "OFFICE NAGAZON 売上レポート｜要点まとめ", ncol, height=34)
+    write_title_bar(ws, 1, "OFFICE NAGAZON 売上レポート｜要点まとめ", ncol, height=36)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncol)
     sub = ws.cell(row=2, column=1,
                   value="対象期間：{}　　出力日時：{}".format(range_label, now_jst))
@@ -160,61 +200,71 @@ def build_overview_sheet(wb, range_label, now_jst, summary, products, prev):
     qty = sum(to_int(p.get("quantity", 0)) for p in products)
     unit_price = int(round(cash / orders_n)) if orders_n else 0
     profit_rate = (profit / cash) if cash else 0
+    profit_font = Font(name="メイリオ", size=20, bold=True, color=POS if profit >= 0 else NEG)
 
-    def section(row, text):
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=ncol)
-        c = ws.cell(row=row, column=1, value=text)
-        c.font = SECTION_FONT
-        c.fill = SECTION_FILL
-        c.alignment = Alignment(horizontal="left", vertical="center")
-        ws.row_dimensions[row].height = 22
-
-    def kpi_card(label_row, col, label, value, fmt, fill=None):
+    def card(label_row, col, label, value, fmt, fill, value_font=KPI_VALUE_FONT):
         ws.merge_cells(start_row=label_row, start_column=col, end_row=label_row, end_column=col + 1)
+        ws.merge_cells(start_row=label_row + 1, start_column=col, end_row=label_row + 1, end_column=col + 1)
         lc = ws.cell(row=label_row, column=col, value=label)
         lc.font = KPI_LABEL_FONT
-        lc.alignment = CENTER
-        ws.merge_cells(start_row=label_row + 1, start_column=col, end_row=label_row + 1, end_column=col + 1)
+        lc.alignment = CENTER_NO_WRAP
         vc = ws.cell(row=label_row + 1, column=col, value=value)
-        vc.font = KPI_VALUE_FONT
-        vc.alignment = CENTER
+        vc.font = value_font
+        vc.alignment = CENTER_NO_WRAP
         set_number_format(vc, fmt)
-        if fill:
-            for rr in (label_row, label_row + 1):
-                for cc in (col, col + 1):
-                    ws.cell(row=rr, column=cc).fill = fill
+        for rr in (label_row, label_row + 1):
+            for cc in (col, col + 1):
+                cell = ws.cell(row=rr, column=cc)
+                cell.fill = fill
+                cell.border = Border(
+                    top=(CARD_BORDER.top if rr == label_row else None),
+                    bottom=(CARD_BORDER.bottom if rr == label_row + 1 else None),
+                    left=(CARD_BORDER.left if cc == col else None),
+                    right=(CARD_BORDER.right if cc == col + 1 else None),
+                )
 
-    def mini_kpi(row, col, label, value, fmt):
-        ws.merge_cells(start_row=row, start_column=col, end_row=row, end_column=col + 1)
-        lc = ws.cell(row=row, column=col, value=label)
+    def mini_card(label_row, col, label, value, fmt):
+        ws.merge_cells(start_row=label_row, start_column=col, end_row=label_row, end_column=col + 1)
+        ws.merge_cells(start_row=label_row + 1, start_column=col, end_row=label_row + 1, end_column=col + 1)
+        lc = ws.cell(row=label_row, column=col, value=label)
         lc.font = KPI_LABEL_FONT
-        lc.alignment = CENTER
-        ws.merge_cells(start_row=row + 1, start_column=col, end_row=row + 1, end_column=col + 1)
-        vc = ws.cell(row=row + 1, column=col, value=value)
+        lc.alignment = CENTER_NO_WRAP
+        vc = ws.cell(row=label_row + 1, column=col, value=value)
         vc.font = KPI_SUB_FONT
-        vc.alignment = CENTER
+        vc.alignment = CENTER_NO_WRAP
         set_number_format(vc, fmt)
+        for rr in (label_row, label_row + 1):
+            for cc in (col, col + 1):
+                cell = ws.cell(row=rr, column=cc)
+                cell.fill = KPI_FILL
+                cell.border = Border(
+                    top=(CARD_BORDER.top if rr == label_row else None),
+                    bottom=(CARD_BORDER.bottom if rr == label_row + 1 else None),
+                    left=(CARD_BORDER.left if cc == col else None),
+                    right=(CARD_BORDER.right if cc == col + 1 else None),
+                )
 
     r = 4
-    section(r, "◆ いちばん大事な数字"); r += 1
-    kpi_card(r, 1, "入金売上（実際に入ったお金）", cash, "yen", HIGHLIGHT_FILL)
-    kpi_card(r, 3, "粗利（利益）", profit, "yen", HIGHLIGHT_FILL)
-    kpi_card(r, 5, "粗利率", profit_rate, "pct", HIGHLIGHT_FILL)
+    draw_section(ws, r, "◆ いちばん大事な数字", ncol); r += 1
+    card(r, 1, "入金売上（実際に入ったお金）", cash, "yen", HIGHLIGHT_FILL)
+    card(r, 3, "粗利（利益）", profit, "yen", HIGHLIGHT_FILL, value_font=profit_font)
+    card(r, 5, "粗利率", profit_rate, "pct", KPI_FILL)
+    ws.row_dimensions[r].height = 20
+    ws.row_dimensions[r + 1].height = 32
     r += 2
 
-    section(r, "◆ お客様の動き"); r += 1
-    for idx, (lab, val, fmt) in enumerate([
-        ("注文件数", orders_n, "count"),
-        ("販売個数", qty, "count"),
-        ("平均注文額（客単価）", unit_price, "yen"),
-    ]):
-        mini_kpi(r, 1 + idx * 2, lab, val, fmt)
+    draw_section(ws, r, "◆ お客様の動き", ncol); r += 1
+    mini_card(r, 1, "注文件数", orders_n, "count")
+    mini_card(r, 3, "販売個数", qty, "count")
+    mini_card(r, 5, "平均注文額（客単価）", unit_price, "yen")
+    ws.row_dimensions[r].height = 20
+    ws.row_dimensions[r + 1].height = 26
     r += 2
 
     if prev:
         prev_label = prev.get("label") or "比較期間"
-        section(r, "◆ 前の期間との比較（{} とくらべる）".format(prev_label)); r += 1
-        write_headers(ws, r, ["指標", "今期", prev_label, "増減率", "", ""])
+        draw_section(ws, r, "◆ 前の期間との比較（{} とくらべる）".format(prev_label), ncol); r += 1
+        write_headers(ws, r, ["指標", "今期", prev_label, "増減率"], height=24)
         r += 1
         cur = prev.get("current") or {}
         pre = prev.get("previous") or {}
@@ -224,8 +274,8 @@ def build_overview_sheet(wb, range_label, now_jst, summary, products, prev):
             ("商品売上（割引前）", to_int(cur.get("grossSubtotal", 0)), to_int(pre.get("grossSubtotal", 0)), "yen"),
         ]:
             ws.cell(row=r, column=1, value=lab).font = BOLD_FONT
-            c2 = ws.cell(row=r, column=2, value=cv); set_number_format(c2, fmt); c2.alignment = RIGHT
-            c3 = ws.cell(row=r, column=3, value=pv); set_number_format(c3, fmt); c3.alignment = RIGHT
+            c2 = ws.cell(row=r, column=2, value=cv); set_number_format(c2, fmt); c2.alignment = RIGHT; c2.font = BODY_FONT
+            c3 = ws.cell(row=r, column=3, value=pv); set_number_format(c3, fmt); c3.alignment = RIGHT; c3.font = BODY_FONT
             rate = ((cv - pv) / pv) if pv else 0
             c4 = ws.cell(row=r, column=4, value=rate)
             c4.number_format = PCT
@@ -237,7 +287,7 @@ def build_overview_sheet(wb, range_label, now_jst, summary, products, prev):
             r += 1
         r += 1
 
-    section(r, "◆ 売上のお金の流れ"); r += 1
+    draw_section(ws, r, "◆ 売上のお金の流れ", ncol); r += 1
     flow = [
         ("商品売上（割引前）", gross, False),
         ("クーポン割引（引く）", -coupon, False),
@@ -251,12 +301,12 @@ def build_overview_sheet(wb, range_label, now_jst, summary, products, prev):
         lc = ws.cell(row=r, column=1, value=lab)
         lc.font = BOLD_FONT if strong else BODY_FONT
         lc.alignment = LEFT
-        lc.border = BORDER
+        lc.border = Border(top=THIN, bottom=THIN, left=(ACCENT_SIDE if strong else THIN), right=THIN)
         vc = ws.cell(row=r, column=2, value=val)
         vc.number_format = YEN
         vc.alignment = RIGHT
         vc.font = BOLD_FONT
-        vc.border = BORDER
+        vc.border = Border(top=THIN, bottom=THIN, left=THIN, right=THIN)
         if strong:
             lc.fill = HIGHLIGHT_FILL
             vc.fill = HIGHLIGHT_FILL
@@ -278,9 +328,9 @@ def build_overview_sheet(wb, range_label, now_jst, summary, products, prev):
 # ---------------------------------------------------------------------------
 def build_summary_sheet(wb, range_label, now_jst, summary):
     ws = wb.create_sheet("売上サマリー")
-    set_widths(ws, [26, 18, 60])
-    write_title_bar(ws, 1, "売上サマリー（くわしい内訳）", 3, height=32)
-    write_headers(ws, 2, ["項目", "値", "説明"])
+    set_widths(ws, [28, 18, 62])
+    write_title_bar(ws, 1, "売上サマリー（くわしい内訳）", 3, height=34)
+    write_headers(ws, 2, ["項目", "値", "説明"], height=26)
 
     rows = [
         ("対象期間", range_label, "集計対象の期間"),
@@ -313,9 +363,12 @@ def build_summary_sheet(wb, range_label, now_jst, summary):
     for addr, fmt in [("B8", YEN), ("B9", YEN), ("B10", PCT), ("B11", YEN), ("B12", YEN), ("B13", YEN), ("B14", PCT)]:
         ws[addr].number_format = fmt
         ws[addr].alignment = RIGHT
-        ws[addr].font = Font(name="メイリオ", size=11 if addr in ("B8", "B13") else 10, bold=True)
+        ws[addr].font = Font(name="メイリオ", size=11 if addr in ("B8", "B13") else 10, bold=True,
+                             color=NAVY)
     ws["B8"].fill = HIGHLIGHT_FILL
     ws["B13"].fill = HIGHLIGHT_FILL
+    for addr in ("B8", "B13"):
+        ws[addr].border = Border(top=MED, bottom=THIN, left=THIN, right=THIN)
 
     notes = [
         "入金売上 ＝ お客様から実際にいただいた金額です。",
@@ -335,10 +388,9 @@ def build_summary_sheet(wb, range_label, now_jst, summary):
 def build_compare_sheet(wb, range_label, prev):
     ws = wb.create_sheet("期間比較")
     prev_label = (prev or {}).get("label") or "比較期間"
-    set_widths(ws, [26, 16, 16, 16, 13, 3, 14, 14, 14, 14, 14, 14, 14])
+    set_widths(ws, [28, 16, 16, 16, 14, 3, 14, 14, 14, 14, 14, 14, 14])
     write_title_bar(ws, 1, "期間比較（{0}{1}）".format(range_label, (" vs " + prev_label) if prev else ""), 5, height=36)
-    ws.row_dimensions[2].height = 32
-    write_headers(ws, 2, ["指標", "今期", prev_label, "増減", "増減率"])
+    write_headers(ws, 2, ["指標", "今期", prev_label, "増減", "増減率"], height=30)
 
     cur = (prev or {}).get("current") or {}
     pre = (prev or {}).get("previous") or {}
@@ -354,7 +406,7 @@ def build_compare_sheet(wb, range_label, prev):
         ws.cell(row=i, column=4, value=f"=B{i}-C{i}")
         ws.cell(row=i, column=5, value=f"=IF(C{i}=0,0,D{i}/C{i})")
         style_range(ws, i, i, {2: fmt, 3: fmt, 4: fmt, 5: "pct"})
-        ws.row_dimensions[i].height = 22
+        ws.row_dimensions[i].height = 24
         diff = curv - prevv
         diff_font = GOOD_FONT if diff >= 0 else BAD_FONT
         ws.cell(row=i, column=4).font = diff_font
@@ -363,29 +415,29 @@ def build_compare_sheet(wb, range_label, prev):
     if prev:
         compare_chart = BarChart()
         compare_chart.type = "col"
-        compare_chart.style = 11
+        compare_chart.style = 10
         compare_chart.title = "今期 vs {}".format(prev_label)
         compare_chart.legend.position = "b"
-        compare_chart.gapWidth = 45
+        compare_chart.gapWidth = 50
         compare_chart.add_data(Reference(ws, min_col=2, max_col=3, min_row=2, max_row=5), titles_from_data=True)
         compare_chart.set_categories(Reference(ws, min_col=1, min_row=3, max_row=5))
         compare_chart.width = 13.8
         compare_chart.height = 8.2
         if len(compare_chart.series) >= 2:
-            compare_chart.series[0].graphicalProperties.solidFill = "4F46E5"
-            compare_chart.series[1].graphicalProperties.solidFill = "CBD5E1"
+            compare_chart.series[0].graphicalProperties.solidFill = ACCENT
+            compare_chart.series[1].graphicalProperties.solidFill = SLATE_300
         ws.add_chart(compare_chart, "G3")
 
         rate_chart = LineChart()
         rate_chart.title = "増減率"
-        rate_chart.style = 13
+        rate_chart.style = 12
         rate_chart.legend = None
         rate_chart.add_data(Reference(ws, min_col=5, min_row=2, max_row=5), titles_from_data=True)
         rate_chart.set_categories(Reference(ws, min_col=1, min_row=3, max_row=5))
         rate_chart.width = 13.8
         rate_chart.height = 7.4
         if rate_chart.series:
-            rate_chart.series[0].graphicalProperties.line.solidFill = "DC2626"
+            rate_chart.series[0].graphicalProperties.line.solidFill = NEG
             rate_chart.series[0].graphicalProperties.line.width = 24000
         ws.add_chart(rate_chart, "G20")
 
@@ -405,14 +457,13 @@ def build_compare_sheet(wb, range_label, prev):
 def build_product_sheet(wb, products):
     ws = wb.create_sheet("商品別売上")
     DATA_COLS = 13
-    set_widths(ws, [30, 15, 10, 19, 15, 15, 17, 15, 13, 13, 13, 10, 12, 3, 3] + [14] * 6)
-    write_title_bar(ws, 1, "商品別売上（売上・仕入れ原価・粗利がひと目で分かる一覧）", DATA_COLS, height=36)
-    ws.row_dimensions[2].height = 34
+    set_widths(ws, [34, 13, 8, 16, 15, 15, 17, 15, 13, 14, 11, 10, 11, 3, 3] + [14] * 6)
+    write_title_bar(ws, 1, "商品別売上（売上・仕入れ原価・粗利がひと目で分かる一覧）", DATA_COLS, height=38)
     write_headers(ws, 2, [
         "商品名", "売価(平均・円)", "数量", "売上計算(割引前・円)", "クーポン割引(円)",
         "ポイント充当(円)", "入金売上(割引後・円)", "仕入れ原価(単価・円)", "売上原価(円)",
         "1個あたり粗利(円)", "粗利(円)", "粗利率", "売上構成比",
-    ])
+    ], height=46)
 
     total_sales = max(1, sum(to_int(p.get("subtotal_after_discount", 0)) for p in products))
     for i, p in enumerate(products, start=3):
@@ -439,8 +490,7 @@ def build_product_sheet(wb, products):
         style_range(ws, i, i, {2: "yen", 3: "count", 4: "yen", 5: "yen", 6: "yen", 7: "yen",
                                8: "yen", 9: "yen", 10: "yen", 11: "yen", 12: "pct", 13: "pct"},
                     center_cols=(3,))
-        ws.row_dimensions[i].height = 22
-        ws.cell(row=i, column=7).font = Font(name="メイリオ", size=10, bold=True)
+        ws.cell(row=i, column=7).font = Font(name="メイリオ", size=10, bold=True, color=NAVY)
         profit_unit = avg_price - cost_unit
         ws.cell(row=i, column=10).font = (GOOD_FONT if profit_unit >= 0 else BAD_FONT)
         profit = sales_after - cost_unit * qty
@@ -456,7 +506,7 @@ def build_product_sheet(wb, products):
     for col, fmt in [(2, "yen"), (3, "count"), (4, "yen"), (5, "yen"), (6, "yen"), (7, "yen"),
                      (8, "yen"), (9, "yen"), (10, "yen"), (11, "yen"), (12, "pct"), (13, "pct")]:
         total_row_style(ws.cell(row=total_row, column=col), RIGHT, fmt)
-    ws.row_dimensions[total_row].height = 22
+    ws.row_dimensions[total_row].height = 24
     ws.cell(row=total_row, column=2, value="=IF(C{0}=0,0,D{0}/C{0})".format(total_row))
     ws.cell(row=total_row, column=3, value="=SUM(C3:C{0})".format(data_end))
     ws.cell(row=total_row, column=4, value="=SUM(D3:D{0})".format(data_end))
@@ -470,8 +520,7 @@ def build_product_sheet(wb, products):
     ws.cell(row=total_row, column=12, value="=IF(G{0}=0,0,K{0}/G{0})".format(total_row))
     ws.cell(row=total_row, column=13, value="=1")
 
-    note_row = total_row + 1
-    write_notes(ws, note_row, DATA_COLS, [
+    write_notes(ws, total_row + 1, DATA_COLS, [
         "※ 入金売上(割引後) ＝ 売上計算(割引前) − クーポン割引 − ポイント充当 です。",
         "※ 粗利 ＝ 入金売上(割引後) − 売上原価 です。売上原価 ＝ 仕入れ原価(単価) × 数量。",
         "※ 仕入れ原価が未登録（赤文字）の商品は原価0円で計算されるため、粗利が実際より大きく出ます。",
@@ -489,7 +538,7 @@ def build_product_sheet(wb, products):
         sales_chart.width = 11.8
         sales_chart.height = 8.0
         if sales_chart.series:
-            sales_chart.series[0].graphicalProperties.solidFill = "4F46E5"
+            sales_chart.series[0].graphicalProperties.solidFill = ACCENT
         ws.add_chart(sales_chart, "P3")
 
         profit_chart = BarChart()
@@ -503,7 +552,7 @@ def build_product_sheet(wb, products):
         profit_chart.width = 11.8
         profit_chart.height = 8.0
         if profit_chart.series:
-            profit_chart.series[0].graphicalProperties.solidFill = "15803D"
+            profit_chart.series[0].graphicalProperties.solidFill = POS
         ws.add_chart(profit_chart, "V3")
 
         qty_chart = BarChart()
@@ -544,9 +593,9 @@ def build_product_sheet(wb, products):
 # ---------------------------------------------------------------------------
 def build_order_sheet(wb, orders):
     ws = wb.create_sheet("注文一覧")
-    set_widths(ws, [30, 17, 15, 26, 12, 38, 14, 14, 15, 15, 14, 14, 14])
-    write_title_bar(ws, 1, "注文一覧（支払いが完了した注文）", 13, height=32)
-    write_headers(ws, 2, ["注文ID", "注文日時", "購入者名", "メール", "支払方法", "商品内訳", "小計(円)", "クーポンコード", "クーポン割引(円)", "ポイント充当(円)", "入金額(円)", "売上原価(円)", "粗利(円)"])
+    set_widths(ws, [30, 16, 15, 26, 12, 38, 12, 14, 15, 15, 12, 12, 11])
+    write_title_bar(ws, 1, "注文一覧（支払いが完了した注文）", 13, height=34)
+    write_headers(ws, 2, ["注文ID", "注文日時", "購入者名", "メール", "支払方法", "商品内訳", "小計(円)", "クーポンコード", "クーポン割引(円)", "ポイント充当(円)", "入金額(円)", "売上原価(円)", "粗利(円)"], height=44)
 
     for i, o in enumerate(orders, start=3):
         ws.cell(row=i, column=1, value=str(o.get("id", "")))
@@ -572,7 +621,7 @@ def build_order_sheet(wb, orders):
     for col in (7, 9, 10, 11, 12, 13):
         cell = ws.cell(row=total_row, column=col, value="=SUM({0}3:{0}{1})".format(get_column_letter(col), max(2, total_row - 1)))
         total_row_style(cell, RIGHT, "yen")
-    ws.row_dimensions[total_row].height = 22
+    ws.row_dimensions[total_row].height = 24
     ws.freeze_panes = "A3"
     return ws
 
@@ -583,9 +632,9 @@ def build_order_sheet(wb, orders):
 def build_disposal_sheet(wb, rows):
     ws = wb.create_sheet("処分履歴")
     headers = ["日時", "商品名", "商品ID", "数量", "処分理由", "メモ", "ロット", "原価(1個)", "処分原価(円)"]
-    set_widths(ws, [18, 26, 9, 8, 16, 24, 16, 12, 14])
-    write_title_bar(ws, 1, "処分履歴（廃棄ロス）", len(headers), height=32)
-    write_headers(ws, 2, headers)
+    set_widths(ws, [18, 28, 9, 8, 16, 26, 16, 12, 14])
+    write_title_bar(ws, 1, "処分履歴（廃棄ロス）", len(headers), height=34)
+    write_headers(ws, 2, headers, height=30)
     for i, r in enumerate(rows, start=3):
         ws.cell(row=i, column=1, value=str(r.get("created_at") or ""))
         ws.cell(row=i, column=2, value=str(r.get("product_name") or ""))
@@ -607,7 +656,7 @@ def build_disposal_sheet(wb, rows):
         total_row_style(ws.cell(row=total_row, column=col), RIGHT, fmt)
     ws.cell(row=total_row, column=4, value="=SUM(D3:D{0})".format(max(2, data_end)))
     ws.cell(row=total_row, column=9, value="=SUM(I3:I{0})".format(max(2, data_end)))
-    ws.row_dimensions[total_row].height = 22
+    ws.row_dimensions[total_row].height = 24
 
     write_notes(ws, total_row + 2, len(headers), [
         "商品管理で「在庫を減らす」を行った記録です。処分した分の原価は「売上サマリー」の「廃棄ロス」に加算され、利益から差し引かれます。",
