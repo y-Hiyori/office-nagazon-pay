@@ -320,42 +320,44 @@ export default function CouponDetail() {
 
                   {/* 右：情報 */}
                   <div className="couponInfo">
-                    <div className="couponInfoBlock">
-                      <div className="couponInfoBlockTitle">ステータス</div>
+                    {!showCode && (
+                      <div className="couponInfoBlock">
+                        <div className="couponInfoBlockTitle">ステータス</div>
 
-                      <div className="couponInfoRow">
-                        <div className="k">状態</div>
-                        <div className="v">
-                          <span className={statusBadge.cls}>{statusBadge.text}</span>
-                          {status?.ok === false ? (
-                            <span style={{ marginLeft: 10, color: "#ff8f8f", fontSize: 12, fontWeight: 800 }}>
-                              {status.error}
-                            </span>
-                          ) : null}
+                        <div className="couponInfoRow">
+                          <div className="k">状態</div>
+                          <div className="v">
+                            <span className={statusBadge.cls}>{statusBadge.text}</span>
+                            {status?.ok === false ? (
+                              <span style={{ marginLeft: 10, color: "#ff8f8f", fontSize: 12, fontWeight: 800 }}>
+                                {status.error}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
+
+                        {who ? (
+                          <div className="couponInfoRow">
+                            <div className="k">使用者</div>
+                            <div className="v">{who}</div>
+                          </div>
+                        ) : null}
+
+                        {status?.ok === true && status.found === true && status.used_confirmed_at ? (
+                          <div className="couponInfoRow">
+                            <div className="k">受取確定</div>
+                            <div className="v">{formatDateTime(status.used_confirmed_at)}</div>
+                          </div>
+                        ) : null}
+
+                        {coupon.expires_at || coupon.valid_to ? (
+                          <div className="couponInfoRow">
+                            <div className="k">有効期限</div>
+                            <div className="v">{formatDateTime(coupon.expires_at ?? coupon.valid_to)}</div>
+                          </div>
+                        ) : null}
                       </div>
-
-                      {who ? (
-                        <div className="couponInfoRow">
-                          <div className="k">使用者</div>
-                          <div className="v">{who}</div>
-                        </div>
-                      ) : null}
-
-                      {status?.ok === true && status.found === true && status.used_confirmed_at ? (
-                        <div className="couponInfoRow">
-                          <div className="k">受取確定</div>
-                          <div className="v">{formatDateTime(status.used_confirmed_at)}</div>
-                        </div>
-                      ) : null}
-
-                      {coupon.expires_at || coupon.valid_to ? (
-                        <div className="couponInfoRow">
-                          <div className="k">有効期限</div>
-                          <div className="v">{formatDateTime(coupon.expires_at ?? coupon.valid_to)}</div>
-                        </div>
-                      ) : null}
-                    </div>
+                    )}
 
                     <div className="couponInfoBlock">
                       <div className="couponInfoBlockTitle">クーポン内容</div>

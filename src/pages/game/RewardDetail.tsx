@@ -208,7 +208,9 @@ export default function RewardDetail() {
                           <span className="badge ok">達成済み</span>
                         </div>
                         <div className="rewardStatusText">
-                          この報酬は獲得済みです。クーポン詳細（QR）を開けます。
+                          {ui.reward.display_mode === "code"
+                            ? "この報酬は獲得済みです。クーポン詳細（コード）を開けます。"
+                            : "この報酬は獲得済みです。クーポン詳細（QR）を開けます。"}
                         </div>
                       </div>
 
@@ -290,10 +292,14 @@ export default function RewardDetail() {
                         <div className="v">{ui.reward.coupon_title?.trim() || "（未設定）"}</div>
                       </div>
 
-                      {(ui.reward.display_mode ?? "qr") === "code" && ui.reward.coupon_code?.trim() ? (
+                      {(ui.reward.display_mode ?? "qr") === "code" ? (
                         <div className="rewardRow">
                           <div className="k">割引クーポンコード</div>
-                          <div className="v strong">{ui.reward.coupon_code.trim()}</div>
+                          <div className={`v ${achieved ? "strong" : ""}`}>
+                            {achieved && ui.reward.coupon_code?.trim()
+                              ? ui.reward.coupon_code.trim()
+                              : "達成すると表示されます"}
+                          </div>
                         </div>
                       ) : null}
 
