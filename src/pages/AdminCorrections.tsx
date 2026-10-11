@@ -135,6 +135,16 @@ export default function AdminCorrections() {
   const [saving, setSaving] = useState(false);
   const [formErr, setFormErr] = useState("");
 
+  // まとめて修正（廃棄ロス・複数選択）
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bulk, setBulk] = useState<string[] | null>(null);
+  const [bStep, setBStep] = useState<1 | 2>(1);
+  const [bAfter, setBAfter] = useState("");
+  const [bReason, setBReason] = useState("");
+  const [bTyped, setBTyped] = useState("");
+  const [bSaving, setBSaving] = useState(false);
+  const [bErr, setBErr] = useState("");
+
   const [pastNames, setPastNames] = useState<Map<number, string>>(new Map());
   const nameOf = useMemo(() => {
     const m = new Map<number, string>();
@@ -144,6 +154,8 @@ export default function AdminCorrections() {
   const PAGE = 30;
   const [limit, setLimit] = useState(PAGE);
   useEffect(() => setLimit(PAGE), [tab, q, days]);
+  // 絞り込みを変えたら選択をリセット（見えていない記録を誤って修正しないため）
+  useEffect(() => setPicked(new Set()), [tab, q, days]);
 
   const load = async () => {
     setLoading(true);
@@ -307,6 +319,100 @@ export default function AdminCorrections() {
     log: logRows.length,
   };
 
+  // ---------- 廃棄ロスのまとめて修正（複数選択） ----------
+  const togglePick = (id: string) =>
+    setPicked((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const openBulk = () => {
+    const ids = dispRows.filter((r) => picked.has(r.id)).map((r) => r.id);
+    if (ids.length === 0) return;
+    setBulk(ids);
+    setBStep(1);
+    setBAfter("");
+    setBReason("");
+    setBTyped("");
+    setBErr("");
+    setMsg("");
+  };
+
+  const closeBulk = () => {
+    if (bSaving) return;
+    setBulk(null);
+  };
+
+  const bulkRows = useMemo(() => (bulk ? disposals.filter((d) => bulk.includes(d.id)) : []), [bulk, disposals]);
+  const bAfterNum = toInt(bAfter);
+  const bulkCosts = bulkRows.map((d) => Number(d.cost || 0));
+  const bulkAllSame = bulkCosts.length > 0 && bulkCosts.every((c) => c === bulkCosts[0]);
+  const bulkCurText =
+    !bulk || bulkRows.length === 0
+      ? ""
+      : bulkAllSame
+        ? yen(bulkCosts[0])
+        : `${yen(Math.min(...bulkCosts))}〜${yen(Math.max(...bulkCosts))}（記録ごとに異なります）`;
+  const bulkChanging = Number.isFinite(bAfterNum) ? bulkRows.filter((d) => Number(d.cost || 0) !== bAfterNum) : [];
+  const bulkImpactTotal = bulkChanging.reduce((s, d) => s + (bAfterNum - Number(d.cost || 0)) * Math.abs(Number(d.qty || 0)), 0);
+
+  const goBulkConfirm = () => {
+    if (!bulk) return;
+    if (!Number.isFinite(bAfterNum) || bAfterNum < 0) {
+      setBErr("0以上の数字を入力してください");
+      return;
+    }
+    if (bulkChanging.length === 0) {
+      setBErr("選択した記録はすべて同じ原価です。変更がありません。");
+      return;
+    }
+    if (bReason.trim().length < 2) {
+      setBErr("修正理由を入力してください（例：請求書と金額が違っていた）");
+      return;
+    }
+    setBErr("");
+    setBTyped("");
+    setBStep(2);
+  };
+
+  const submitBulk = async () => {
+    if (!bulk || bSaving) return;
+    if (bTyped.trim() !== CONFIRM_WORD) {
+      setBErr(`確認のため「${CONFIRM_WORD}」と入力してください`);
+      return;
+    }
+    setBSaving(true);
+    setBErr("");
+    const targets = bulkChanging;
+    let done = 0;
+    try {
+      for (const d of targets) {
+        const { error } = await supabase.rpc("admin_correct_value", {
+          p_target: "disposal",
+          p_id: d.id,
+          p_field: "cost",
+          p_value: bAfterNum,
+          p_reason: bReason.trim(),
+        });
+        if (error) {
+          setBulk(null);
+          await load();
+          setErr(`${done}件を修正した後、エラーが発生しました：${error.message}`);
+          return;
+        }
+        done++;
+      }
+      setMsg(`選択した${done}件の廃棄ロスの原価(1個)を ${yen(bAfterNum)} にまとめて修正し、履歴に記録しました。`);
+      setBulk(null);
+      setPicked(new Set());
+      await load();
+    } finally {
+      setBSaving(false);
+    }
+  };
+
   // ---------- 影響額の表示 ----------
   const impact = edit?.impact && Number.isFinite(afterNum) ? edit.impact(afterNum) : null;
 
@@ -360,6 +466,31 @@ export default function AdminCorrections() {
           )}
         </div>
         <p className="acr-help">{current.help}</p>
+
+        {tab === "disposal" && dispRows.length > 0 && (
+          <div className="acr-bulkbar">
+            <div className="acr-bulkbar-info">
+              <b>{picked.size}</b> 件を選択中
+              <span className="acr-bulkbar-sub">チェックした記録の原価(1個)をまとめて直せます</span>
+            </div>
+            <div className="acr-bulkbar-btns">
+              <button
+                type="button"
+                className="acr-btn acr-btn--sub"
+                onClick={() => setPicked(new Set(dispRows.map((r) => r.id)))}
+                disabled={picked.size === dispRows.length}
+              >
+                すべて選択
+              </button>
+              <button type="button" className="acr-btn acr-btn--sub" onClick={() => setPicked(new Set())} disabled={picked.size === 0}>
+                選択解除
+              </button>
+              <button type="button" className="acr-btn" onClick={openBulk} disabled={picked.size === 0}>
+                まとめて原価を修正
+              </button>
+            </div>
+          </div>
+        )}
 
         {msg && (
           <div className="acr-msg" role="status">
@@ -441,7 +572,16 @@ export default function AdminCorrections() {
                   const cost = Number(r.cost || 0);
                   const lastC = recentLogFor("disposal", r.id);
                   return (
-                    <article className="acr-row" key={r.id}>
+                    <article className={`acr-row acr-row--pick${picked.has(r.id) ? " is-picked" : ""}`} key={r.id}>
+                      <label className="acr-pick" title="選択する">
+                        <input
+                          type="checkbox"
+                          checked={picked.has(r.id)}
+                          onChange={() => togglePick(r.id)}
+                          aria-label={`${nameOf(r.product_id)} の廃棄記録を選択`}
+                        />
+                        <span className="acr-pick-mark" aria-hidden="true" />
+                      </label>
                       <div className="acr-row-main">
                         <div className="acr-row-title">{nameOf(r.product_id)}</div>
                         <div className="acr-row-meta">
@@ -776,6 +916,146 @@ export default function AdminCorrections() {
                     disabled={saving || typed.trim() !== CONFIRM_WORD}
                   >
                     {saving ? (
+                      <>
+                        <span className="btn-spinner" />
+                        修正中…
+                      </>
+                    ) : (
+                      "この内容で修正する"
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== まとめて修正ダイアログ（廃棄ロス・複数選択） ===== */}
+      {bulk && (
+        <div className="acr-modal-back" onClick={closeBulk}>
+          <div className="acr-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="acr-modal-head">
+              <div>
+                <div className="acr-step">{bStep === 1 ? "ステップ 1 / 2：修正内容の入力" : "ステップ 2 / 2：最終確認"}</div>
+                <h2>廃棄ロスの原価をまとめて修正</h2>
+              </div>
+              <button className="acr-x" type="button" onClick={closeBulk} aria-label="閉じる" disabled={bSaving}>
+                ×
+              </button>
+            </div>
+
+            <div className="acr-modal-body">
+              <div className="acr-target">
+                <div className="acr-target-name">選択した {bulkRows.length} 件の廃棄ロス</div>
+                <div className="acr-target-detail">原価(1個)をすべて同じ金額にそろえます。個数・在庫数は変わりません。</div>
+              </div>
+
+              {bStep === 1 ? (
+                <>
+                  <label className="acr-field">
+                    <span>現在の原価(1個)</span>
+                    <div className="acr-current acr-current--sm">{bulkCurText}</div>
+                  </label>
+                  <label className="acr-field">
+                    <span>修正後の原価（1個・円）</span>
+                    <input
+                      inputMode="numeric"
+                      value={bAfter}
+                      onChange={(e) => setBAfter(e.target.value.replace(/[^\d]/g, ""))}
+                      autoFocus
+                      placeholder="例：108"
+                    />
+                  </label>
+                  <label className="acr-field">
+                    <span>修正理由（必須・履歴に残ります）</span>
+                    <textarea
+                      rows={3}
+                      value={bReason}
+                      onChange={(e) => setBReason(e.target.value)}
+                      placeholder="例：仕入れ伝票の金額と違っていたため（120円→108円）"
+                    />
+                  </label>
+                  {Number.isFinite(bAfterNum) && bulkChanging.length > 0 && (
+                    <div className="acr-impact">
+                      変更される記録：<b>{bulkChanging.length}件</b>
+                      {bulkRows.length - bulkChanging.length > 0 && (
+                        <>（すでに同じ原価の{bulkRows.length - bulkChanging.length}件はそのまま）</>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="acr-diff">
+                    <div>
+                      <span>変更前</span>
+                      <b className="acr-before">{bulkRows.length}件</b>
+                    </div>
+                    <div className="acr-arrow" aria-hidden="true">
+                      →
+                    </div>
+                    <div>
+                      <span>変更後（1個）</span>
+                      <b className="acr-after">{yen(bAfterNum)}</b>
+                    </div>
+                  </div>
+                  {bulkImpactTotal !== 0 && (
+                    <div className="acr-impact">
+                      選択した{bulkChanging.length}件の廃棄ロス（合計）が{" "}
+                      <b>
+                        {bulkImpactTotal > 0 ? "+" : "−"}
+                        {yen(Math.abs(bulkImpactTotal)).slice(1)}円
+                      </b>{" "}
+                      {bulkImpactTotal > 0 ? "増えます" : "減ります"}（粗利は {bulkImpactTotal > 0 ? "減り" : "増え"}ます）
+                    </div>
+                  )}
+                  <div className="acr-confirm-log">
+                    <div className="acr-confirm-log-title">修正履歴に記録される内容</div>
+                    <ul>
+                      <li>対象：廃棄ロス（原価）／選択した{bulkRows.length}件</li>
+                      <li>
+                        内容：原価(1個)を {yen(bAfterNum)} に変更（{bulkChanging.length}件）
+                      </li>
+                      <li>理由：{bReason.trim()}</li>
+                      <li>実行者・日時：ログイン中の管理者／{fmtDate(new Date().toISOString())}</li>
+                      <li>記録ごとに1行ずつ履歴に残ります</li>
+                    </ul>
+                  </div>
+                  <label className="acr-field">
+                    <span>
+                      本当に修正する場合は「<b>{CONFIRM_WORD}</b>」と入力してください
+                    </span>
+                    <input value={bTyped} onChange={(e) => setBTyped(e.target.value)} placeholder={CONFIRM_WORD} autoFocus />
+                  </label>
+                </>
+              )}
+
+              {bErr && <div className="acr-form-err">{bErr}</div>}
+            </div>
+
+            <div className="acr-modal-foot">
+              {bStep === 1 ? (
+                <>
+                  <button className="acr-btn acr-btn--sub" type="button" onClick={closeBulk}>
+                    キャンセル
+                  </button>
+                  <button className="acr-btn" type="button" onClick={goBulkConfirm}>
+                    確認へ進む
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="acr-btn acr-btn--sub" type="button" onClick={() => setBStep(1)} disabled={bSaving}>
+                    戻る
+                  </button>
+                  <button
+                    className="acr-btn acr-btn--danger"
+                    type="button"
+                    onClick={submitBulk}
+                    disabled={bSaving || bTyped.trim() !== CONFIRM_WORD}
+                  >
+                    {bSaving ? (
                       <>
                         <span className="btn-spinner" />
                         修正中…
