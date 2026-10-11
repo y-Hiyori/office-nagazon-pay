@@ -87,7 +87,7 @@ function formatYMDHM(iso?: string | null) {
 export default function AdminCouponRewardsPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Reward[]>([]);
-  const [outIds, setOutIds] = useState<Set<string>>(new Set());
+  const [outLabels, setOutLabels] = useState<Map<string, string>>(new Map());
   const [form, setForm] = useState<RewardForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -109,15 +109,16 @@ export default function AdminCouponRewardsPage() {
 
     setRows((data ?? []) as Reward[]);
 
-    // 配布期間外の景品をマーク（一覧で「期間外」表示）
+    // 期限切れ／開始前をマーク（一覧に表示）
     const now = Date.now();
-    const out = new Set<string>();
+    const labels = new Map<string, string>();
     for (const r of (data ?? []) as Reward[]) {
-      const fromOk = !r.valid_from || new Date(r.valid_from).getTime() <= now;
-      const toOk = !r.valid_to || new Date(r.valid_to).getTime() >= now;
-      if (r.is_active && !(fromOk && toOk)) out.add(r.id);
+      const vt = r.valid_to ? new Date(r.valid_to).getTime() : null;
+      const vf = r.valid_from ? new Date(r.valid_from).getTime() : null;
+      if (r.is_active && vt !== null && vt < now) labels.set(r.id, "期限切れ");
+      else if (r.is_active && vf !== null && vf > now) labels.set(r.id, "開始前");
     }
-    setOutIds(out);
+    setOutLabels(labels);
 
     setLoading(false);
   };
@@ -591,7 +592,9 @@ export default function AdminCouponRewardsPage() {
                         <div className="itemMeta">
                           <div className="metaChip">難易度：{DIFF_LABEL[r.difficulty] ?? r.difficulty ?? "全難易度共通"}</div>
                           <div className="metaChip">表示：{MODE_LABEL[r.display_mode] ?? "QRコード"}</div>
-                          {outIds.has(r.id) ? <div className="metaChip ng">期間外</div> : null}
+                          {outLabels.has(r.id) ? (
+                            <div className="metaChip ng">{outLabels.get(r.id)}</div>
+                          ) : null}
                           <div className="metaChip">しきい値：{r.score_threshold}</div>
                           <div className="metaChip">{r.coupon_title}</div>
                           {r.display_mode === "code" && r.coupon_code ? (

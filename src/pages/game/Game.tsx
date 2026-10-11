@@ -575,7 +575,8 @@ export default function Game() {
   const [couponUi, setCouponUi] = useState<CouponUiState>({ status: "idle" });
 
   const [rewardRows, setRewardRows] = useState<CouponRewardRow[]>([]);
-  const [rewardOutIds, setRewardOutIds] = useState<Set<string>>(new Set());
+  const [rewardHideIds, setRewardHideIds] = useState<Set<string>>(new Set()); // 期限切れ（非表示）
+  const [rewardSoonIds, setRewardSoonIds] = useState<Set<string>>(new Set()); // 開始前
   const [rewardLoading, setRewardLoading] = useState(true);
   const [rewardErr, setRewardErr] = useState<string | null>(null);
 
@@ -630,14 +631,22 @@ export default function Game() {
 
       if (!res.ok) {
         setRewardRows([]);
-        setRewardOutIds(new Set());
+        setRewardHideIds(new Set());
+        setRewardSoonIds(new Set());
         setRewardErr(res.error);
       } else {
         setRewardRows(res.rows);
-        const now = new Date();
-        const out = new Set<string>();
-        for (const r of res.rows) if (!isInValidWindow(r, now)) out.add(r.id);
-        setRewardOutIds(out);
+        const now = Date.now();
+        const hide = new Set<string>();
+        const soon = new Set<string>();
+        for (const r of res.rows) {
+          const vt = r.valid_to ? new Date(r.valid_to).getTime() : null;
+          const vf = r.valid_from ? new Date(r.valid_from).getTime() : null;
+          if (vt !== null && vt < now) hide.add(r.id); // 期限切れは非表示
+          else if (vf !== null && vf > now) soon.add(r.id); // 開始前
+        }
+        setRewardHideIds(hide);
+        setRewardSoonIds(soon);
       }
       setRewardLoading(false);
     };
@@ -2197,6 +2206,7 @@ export default function Game() {
               ) : rewardErr ? (
                 <div className="gSectionErr">取得失敗：{rewardErr}</div>
               ) : rewardRows.filter((r) => {
+                  if (rewardHideIds.has(r.id)) return false; // 期限切れは非表示
                   const d = String(r.difficulty ?? "any").trim().toLowerCase();
                   return !d || d === "any" || d === difficulty;
                 }).length === 0 ? (
@@ -2205,6 +2215,7 @@ export default function Game() {
                 <ul className="gRewardList">
                   {rewardRows
                     .filter((r) => {
+                      if (rewardHideIds.has(r.id)) return false; // 期限切れは非表示
                       const d = String(r.difficulty ?? "any").trim().toLowerCase();
                       return !d || d === "any" || d === difficulty;
                     })
@@ -2219,8 +2230,8 @@ export default function Game() {
                         >
                           <span className="badge">{r.score_threshold}点</span>
                           <span className="gRewardDiff">{rewardDiffLabel(r.difficulty)}</span>
-                          {rewardOutIds.has(r.id) ? (
-                            <span className="gRewardDiff gRewardOut">期間外</span>
+                          {rewardSoonIds.has(r.id) ? (
+                            <span className="gRewardDiff gRewardOut">開始前</span>
                           ) : null}
                           {r.coupon_title || "（タイトル未設定）"}
                         </button>
