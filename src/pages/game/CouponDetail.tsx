@@ -25,6 +25,7 @@ type IssuedCouponView = {
   valid_to?: string | null;
 
   coupon_code?: string | null; // 管理画面で設定した表示用コード
+  display_mode?: string | null; // qr / code
 
   // ✅ 表示用（あれば出す）
   user_name?: string | null;
@@ -53,6 +54,7 @@ type CouponStatus =
         valid_to: string | null;
         coupon_code?: string | null;
         difficulty?: string | null;
+        display_mode?: string | null;
       } | null;
     }
   | { ok: true; found: false }
@@ -171,6 +173,7 @@ export default function CouponDetail() {
         expires_at: coupon.expires_at ?? res.reward.valid_to ?? null,
         title: coupon.title ?? res.reward.coupon_title ?? "クーポン",
         coupon_code: res.reward.coupon_code ?? coupon.coupon_code ?? null,
+        display_mode: res.reward.display_mode ?? coupon.display_mode ?? null,
         // ✅ 使用者名も返ってくるなら保存してOK
         user_name: res.user_name ?? coupon.user_name ?? null,
         is_guest: typeof res.is_guest === "boolean" ? res.is_guest : coupon.is_guest ?? null,
@@ -217,6 +220,8 @@ export default function CouponDetail() {
   const productName = (coupon?.product_name ?? "").trim();
   const description = (coupon?.description ?? "").trim();
   const couponCode = (coupon?.coupon_code ?? "").trim();
+  const displayMode = (coupon?.display_mode ?? "qr").trim() || "qr";
+  const showCode = displayMode === "code" && !!couponCode;
   const [copied, setCopied] = useState(false);
   const copyCode = async () => {
     if (!couponCode) return;
@@ -245,9 +250,11 @@ export default function CouponDetail() {
             <div className="couponDetailHead">
               <div className="couponDetailTitle">🎉 {title}</div>
               <div className="couponDetailSub">
-                {isRedeemed
-                  ? "このクーポンは受取済みです"
-                  : "QRコードを店舗で提示してください（店舗側で受け取り完了を押すと受取済みになります）"}
+                {showCode
+                  ? "購入手続きでコードを入力すると割引が受けられます"
+                  : isRedeemed
+                    ? "このクーポンは受取済みです"
+                    : "QRコードを店舗で提示してください（店舗側で受け取り完了を押すと受取済みになります）"}
               </div>
             </div>
 
@@ -265,7 +272,18 @@ export default function CouponDetail() {
                 <div className="couponDetailBody">
                   {/* 左：QR */}
                   <div className="couponQrCol">
-                    {!isRedeemed ? (
+                    {showCode ? (
+                      <div className="couponCodeBox">
+                        <div className="couponCodeLabel">割引クーポンコード</div>
+                        <div className="couponCodeValue">{couponCode}</div>
+                        <button type="button" className="couponCopyBtn" onClick={() => void copyCode()}>
+                          {copied ? "コピーしました ✓" : "コードをコピー"}
+                        </button>
+                        <div className="couponCodeHint">
+                          購入手続きのお会計でクーポン欄にこのコードを入力すると、割引が受けられます。
+                        </div>
+                      </div>
+                    ) : !isRedeemed ? (
                       <>
                         {coupon.qr_png_base64 ? (
                           <img
@@ -298,19 +316,6 @@ export default function CouponDetail() {
                         <div className="couponAltNote">✅ 受取済みのため、QRコードは表示されません</div>
                       </div>
                     )}
-
-                    {couponCode ? (
-                      <div className="couponCodeBox">
-                        <div className="couponCodeLabel">クーポンコード</div>
-                        <div className="couponCodeValue">{couponCode}</div>
-                        <button type="button" className="couponCopyBtn" onClick={() => void copyCode()}>
-                          {copied ? "コピーしました ✓" : "コードをコピー"}
-                        </button>
-                        <div className="couponCodeHint">
-                          店舗でQRが読み取れない場合は、この番号をスタッフにお伝えください。
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
 
                   {/* 右：情報 */}

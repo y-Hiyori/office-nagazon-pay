@@ -24,6 +24,7 @@ type RewardRow = {
   is_active: boolean | null;
   difficulty: string | null; // any / easy / normal / hard
   coupon_code: string | null; // お客様に表示するコード
+  display_mode: string | null; // qr / code
 };
 
 type IssueOkIssued = {
@@ -176,7 +177,7 @@ serve(async (req: Request) => {
     if (rewardId) {
       const { data, error } = await supabase
         .from("coupon_rewards")
-        .select("id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active, difficulty, coupon_code")
+        .select("id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active, difficulty, coupon_code, display_mode")
         .eq("id", rewardId)
         .maybeSingle<RewardRow>();
 
@@ -198,7 +199,7 @@ serve(async (req: Request) => {
       // ✅ 1) スコア条件を満たす候補を高い順で取る
       const { data: rewards, error: rewErr } = await supabase
         .from("coupon_rewards")
-        .select("id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active, difficulty, coupon_code")
+        .select("id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active, difficulty, coupon_code, display_mode")
         .lte("score_threshold", score)
         .order("score_threshold", { ascending: false })
         .limit(100);

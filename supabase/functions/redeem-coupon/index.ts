@@ -60,6 +60,7 @@ type RewardRow = {
   redeem_password_hash: string | null;
   difficulty: string | null;
   coupon_code: string | null;
+  display_mode: string | null;
 };
 
 type RewardView = Omit<RewardRow, "id" | "redeem_password_hash">;
@@ -75,6 +76,7 @@ function toRewardView(r: RewardRow): RewardView {
     valid_to: r.valid_to ?? null,
     difficulty: r.difficulty ?? null,
     coupon_code: r.coupon_code ?? null,
+    display_mode: r.display_mode ?? null,
   };
 }
 
@@ -107,7 +109,7 @@ serve(async (req: Request) => {
       const { data: r, error: rErr } = await supabase
         .from("coupon_rewards")
         .select(
-          "id, store_name, store_info, product_name, coupon_title, description, valid_from, valid_to, redeem_password_hash, difficulty, coupon_code",
+          "id, store_name, store_info, product_name, coupon_title, description, valid_from, valid_to, redeem_password_hash, difficulty, coupon_code, display_mode",
         )
         .eq("id", issuance.reward_id)
         .maybeSingle<RewardRow>();

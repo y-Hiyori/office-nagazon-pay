@@ -18,6 +18,7 @@ type IssuedCouponView = {
   description: string | null;
   score_threshold: number | null;
   coupon_code?: string | null;
+  display_mode?: string | null;
 
   user_name?: string | null;
   is_guest?: boolean | null;
@@ -131,7 +132,7 @@ export default function CouponsList() {
                           <span className="k">期限</span>
                           <span className="v">{formatDateTime(c.expires_at)}</span>
                         </div>
-                        {c.coupon_code?.trim() ? (
+                        {(c.display_mode ?? "qr") === "code" && c.coupon_code?.trim() ? (
                           <div className="m">
                             <span className="k">コード</span>
                             <span className="v couponCodeMono">{c.coupon_code.trim()}</span>
@@ -145,7 +146,7 @@ export default function CouponsList() {
                         </div>
                       ) : null}
 
-                      <div className="couponItemHint">タップしてQRへ →</div>
+                      <div className="couponItemHint">タップして開く →</div>
                     </button>
                   ))}
                 </div>

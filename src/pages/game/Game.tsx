@@ -221,6 +221,7 @@ type IssuedCouponView = {
   description: string | null;
   score_threshold: number | null;
   coupon_code: string | null;
+  display_mode: string | null;
 };
 
 type CouponUiState =
@@ -367,6 +368,7 @@ async function issueCouponByEdge(args: {
       description: typeof reward?.description === "string" ? (reward.description as string) : null,
       score_threshold: typeof reward?.score_threshold === "number" ? (reward.score_threshold as number) : null,
       coupon_code: typeof reward?.coupon_code === "string" ? (reward.coupon_code as string) : null,
+      display_mode: typeof reward?.display_mode === "string" ? (reward.display_mode as string) : null,
     };
 
     return { ok: true, issued: true, coupon };
@@ -2010,6 +2012,13 @@ export default function Game() {
                   {couponUi.status === "issued" ? (
                     <div style={{ textAlign: "center", marginTop: 14 }}>
                       <div style={{ fontWeight: 900, marginBottom: 10 }}>🎉 クーポン獲得！</div>
+                      {couponUi.coupon.display_mode === "code" && couponUi.coupon.coupon_code ? (
+                        <div className="gGotCode">
+                          <div className="gGotCodeLabel">割引クーポンコード</div>
+                          <div className="gGotCodeValue">{couponUi.coupon.coupon_code}</div>
+                          <div className="gGotCodeHint">お会計のクーポン欄に入力すると割引が受けられます</div>
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         className="overlayPrimary"

@@ -19,6 +19,7 @@ type Reward = {
   redeem_password_hash: string | null;
   difficulty: string;
   coupon_code: string;
+  display_mode: string;
   created_at: string;
   updated_at: string;
 };
@@ -27,12 +28,30 @@ type RewardForm = Omit<Reward, "id" | "created_at" | "updated_at" | "redeem_pass
   redeem_password: string; // UI入力（平文はDBに保存しない）
 };
 
+type DiscountCoupon = {
+  code: string;
+  is_active: boolean;
+  discount_type: string | null;
+  discount_value: number | null;
+};
+
 const DIFF_LABEL: Record<string, string> = {
   any: "全難易度共通",
   easy: "EASY のみ",
   normal: "NORMAL のみ",
   hard: "HARD のみ",
 };
+
+const MODE_LABEL: Record<string, string> = {
+  qr: "QRコード",
+  code: "割引クーポンのコード",
+};
+
+function couponSummary(c: DiscountCoupon): string {
+  const v = Number(c.discount_value ?? 0);
+  const d = c.discount_type === "percent" ? `${v}%引き` : `${v}円引き`;
+  return `${c.code}（${d}）`;
+}
 
 const emptyForm: RewardForm = {
   is_active: true,
@@ -46,6 +65,7 @@ const emptyForm: RewardForm = {
   valid_to: null,
   difficulty: "any",
   coupon_code: "",
+  display_mode: "qr",
   redeem_password: "",
 };
 
@@ -80,6 +100,7 @@ function formatYMDHM(iso?: string | null) {
 export default function AdminCouponRewardsPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Reward[]>([]);
+  const [coupons, setCoupons] = useState<DiscountCoupon[]>([]);
   const [form, setForm] = useState<RewardForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -90,7 +111,13 @@ export default function AdminCouponRewardsPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("coupon_rewards").select("*").order("created_at", { ascending: false });
+    const [{ data, error }, couponRes] = await Promise.all([
+      supabase.from("coupon_rewards").select("*").order("created_at", { ascending: false }),
+      supabase
+        .from("coupons")
+        .select("code,is_active,discount_type,discount_value")
+        .order("created_at", { ascending: false }),
+    ]);
 
     if (error) {
       console.error(error);
@@ -100,6 +127,7 @@ export default function AdminCouponRewardsPage() {
     }
 
     setRows((data ?? []) as Reward[]);
+    setCoupons((couponRes.data ?? []) as DiscountCoupon[]);
     setLoading(false);
   };
 
@@ -129,6 +157,7 @@ export default function AdminCouponRewardsPage() {
       valid_to: r.valid_to,
       difficulty: r.difficulty ?? "any",
       coupon_code: r.coupon_code ?? "",
+      display_mode: r.display_mode ?? "qr",
       redeem_password: "",
     });
 
@@ -191,6 +220,16 @@ export default function AdminCouponRewardsPage() {
         }
       }
 
+      // ✅ 表示方法が「コード」なら割引クーポンの選択が必須
+      if (form.display_mode === "code" && !form.coupon_code.trim()) {
+        await appDialog.alert({
+          title: "入力不足",
+          message: "表示方法が「割引クーポンのコード」の場合、割引クーポンを選んでください。",
+          okText: "OK",
+        });
+        return;
+      }
+
       // ✅ 保存前要約（ミス防止）
       const summary = [
         `状態：${form.is_active ? "ON（配布）" : "OFF（停止）"}`,
@@ -198,7 +237,10 @@ export default function AdminCouponRewardsPage() {
         `商品名：${form.product_name}`,
         `対象難易度：${DIFF_LABEL[form.difficulty] ?? form.difficulty}`,
         `しきい値：${form.score_threshold} 点`,
-        `クーポンコード：${form.coupon_code.trim() || "（未設定）"}`,
+        `表示方法：${MODE_LABEL[form.display_mode] ?? form.display_mode}`,
+        ...(form.display_mode === "code"
+          ? [`割引クーポン：${form.coupon_code.trim() || "（未設定）"}`]
+          : []),
         `タイトル：${form.coupon_title || "—"}`,
         `期間：${formatYMDHM(form.valid_from)} 〜 ${formatYMDHM(form.valid_to)}`,
         `店舗パスワード：${!isEditing ? "新規設定" : changePw ? "変更する" : "変更しない"}`,
@@ -223,7 +265,8 @@ export default function AdminCouponRewardsPage() {
         valid_from: form.valid_from,
         valid_to: form.valid_to,
         difficulty: form.difficulty,
-        coupon_code: form.coupon_code.trim(),
+        display_mode: form.display_mode,
+        coupon_code: form.display_mode === "code" ? form.coupon_code.trim() : "",
       };
 
       let payload: Record<string, unknown> = basePayload;
@@ -361,15 +404,45 @@ export default function AdminCouponRewardsPage() {
                   </label>
 
                   <label className="field">
-                    <div className="fieldLabel">クーポンコード（お客様に表示）</div>
-                    <input
+                    <div className="fieldLabel">お客様への表示方法</div>
+                    <select
+                      className="input"
+                      value={form.display_mode}
+                      onChange={(e) => setForm((p) => ({ ...p, display_mode: e.target.value }))}
+                    >
+                      <option value="qr">QRコード（従来）</option>
+                      <option value="code">割引クーポンのコード</option>
+                    </select>
+                  </label>
+                </div>
+
+                {form.display_mode === "qr" ? (
+                  <div className="miniNote">
+                    ※QRコードを表示します。店舗スタッフが読み取って「受け取り完了」で確定します。
+                  </div>
+                ) : (
+                  <label className="field">
+                    <div className="fieldLabel">
+                      割引クーポン <span className="req">必須</span>
+                    </div>
+                    <select
                       className="input"
                       value={form.coupon_code}
                       onChange={(e) => setForm((p) => ({ ...p, coupon_code: e.target.value }))}
-                      placeholder="例：NGZ-GAME10"
-                    />
+                    >
+                      <option value="">選択してください</option>
+                      {coupons.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {couponSummary(c)}
+                          {c.is_active ? "" : "（停止中）"}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="miniNote">
+                      ※お客様のクーポン画面にこのコードを表示します。購入時（お会計）に入力すると割引が受けられます。
+                    </div>
                   </label>
-                </div>
+                )}
 
                 <label className="field">
                   <div className="fieldLabel">店情報</div>
@@ -533,9 +606,10 @@ export default function AdminCouponRewardsPage() {
 
                         <div className="itemMeta">
                           <div className="metaChip">難易度：{DIFF_LABEL[r.difficulty] ?? r.difficulty ?? "全難易度共通"}</div>
+                          <div className="metaChip">表示：{MODE_LABEL[r.display_mode] ?? "QRコード"}</div>
                           <div className="metaChip">しきい値：{r.score_threshold}</div>
                           <div className="metaChip">{r.coupon_title}</div>
-                          {r.coupon_code ? (
+                          {r.display_mode === "code" && r.coupon_code ? (
                             <div className="metaChip">コード：{r.coupon_code}</div>
                           ) : null}
                           <div className={`metaChip ${r.redeem_password_hash ? "ok" : "ng"}`}>
