@@ -8,6 +8,7 @@ import SiteFooter from "../components/SiteFooter";
 
 // ✅ 追加：アプリ内ダイアログ
 import { appDialog } from "../lib/appDialog";
+import Loading from "../components/Loading";
 
 type SiteProfile = {
   id: string;
@@ -220,7 +221,7 @@ function AccountMenu() {
         <SiteHeader />
         <main className="account-main">
           <div className="account-shell">
-            <p className="account-ghost">読み込み中...</p>
+            <Loading />
           </div>
         </main>
         <SiteFooter />
@@ -256,7 +257,7 @@ function AccountMenu() {
                   履歴を見る
                 </button>
                 <button className="account-points-reload" onClick={loadWallet} disabled={walletLoading}>
-                  {walletLoading ? "更新中..." : "更新"}
+                  {walletLoading ? <><span className="btn-spinner" />更新中...</> : "更新"}
                 </button>
               </div>
             </div>
@@ -318,7 +319,7 @@ function AccountMenu() {
             <div className="ptx-sub">ポイントの獲得・使用・失効の履歴です（1pt = 1円）。</div>
 
             {historyLoading ? (
-              <p className="ptx-ghost">読み込み中...</p>
+              <Loading variant="compact" />
             ) : historyError ? (
               <p className="ptx-error">{historyError}</p>
             ) : !history || history.length === 0 ? (

@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminNoticeEdit.css";
+import Loading from "../components/Loading";
 
 export default function AdminNoticeEdit({ mode }: { mode: "new" | "edit" }) {
   const navigate = useNavigate();
@@ -95,13 +96,13 @@ export default function AdminNoticeEdit({ mode }: { mode: "new" | "edit" }) {
           <div className="ane-actions">
             <button className="ane-mini" onClick={() => navigate(-1)}>戻る</button>
             <button className="ane-save" onClick={save} disabled={saving}>
-              {saving ? "保存中..." : "保存"}
+              {saving ? <><span className="btn-spinner" />保存中...</> : "保存"}
             </button>
           </div>
         </div>
 
         {loading ? (
-          <p className="ane-loading">読み込み中...</p>
+          <Loading />
         ) : (
           <div className="ane-form">
             <label className="ane-label">タイトル（必須）</label>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import Loading from "../../../components/Loading";
 import { useParams } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 
@@ -67,7 +68,7 @@ export default function CouponUsePage() {
   };
 
   const renderBody = () => {
-    if (loading) return <div style={styles.muted}>読み込み中...</div>;
+    if (loading) return <Loading />;
     if (!token) return <div style={styles.error}>不正なQRです（tokenなし）</div>;
     if (state?.ok === false) return <div style={styles.error}>エラー：{state.error}</div>;
 
@@ -101,7 +102,7 @@ export default function CouponUsePage() {
           <div style={styles.actions}>
             <button style={styles.btn2} onClick={() => setStep("view")}>いいえ</button>
             <button style={styles.btnDanger} disabled={redeeming} onClick={doRedeem}>
-              {redeeming ? "処理中..." : "はい（使用する）"}
+              {redeeming ? <><span className="btn-spinner" />処理中...</> : "はい（使用する）"}
             </button>
           </div>
         </div>

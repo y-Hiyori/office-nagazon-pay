@@ -10,6 +10,7 @@ import { supabase } from "../lib/supabase";
 
 // ✅ 追加：ランキング（仕様は変えない）
 import RankingPanel from "./RankingPanel";
+import Loading from "../components/Loading";
 
 type NoticeRow = {
   id: string;
@@ -287,7 +288,7 @@ export default function Home() {
             </div>
 
             {noticeLoading ? (
-              <div className="home-panel-skel">読み込み中...</div>
+              <Loading variant="compact" />
             ) : notices.length === 0 ? (
               <div className="home-panel-empty">お知らせはありません</div>
             ) : (
@@ -329,7 +330,7 @@ export default function Home() {
             </div>
 
             {newLoading ? (
-              <div className="home-panel-skel">読み込み中...</div>
+              <Loading variant="compact" />
             ) : newProducts.length === 0 ? (
               <div className="home-panel-empty">新着はありません</div>
             ) : (

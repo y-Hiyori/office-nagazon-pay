@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import "./OrdersList.css";
+import Loading from "../components/Loading";
 
 type OrderRow = {
   id: string;
@@ -235,7 +236,7 @@ function OrdersList() {
         </header>
 
         {loading ? (
-          <p className="orders-loading">読み込み中...</p>
+          <Loading />
         ) : errorMsg ? (
           <p className="no-orders">{errorMsg}</p>
         ) : orders.length === 0 ? (

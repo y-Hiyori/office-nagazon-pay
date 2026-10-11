@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import type { ReactNode } from "react";
+import Loading from "./Loading";
 
 type Props = {
   children: ReactNode;
@@ -41,7 +42,7 @@ export default function UserRoute({ children }: Props) {
     };
   }, []);
 
-  if (loading) return null;
+  if (loading) return <Loading variant="full" label="ログイン状態を確認中" />;
   if (!isAuthed) return <Navigate to="/auth" replace />;
 
   return <>{children}</>;

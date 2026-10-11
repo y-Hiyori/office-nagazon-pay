@@ -250,3 +250,66 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ============================================
+   v39：カード型メニュー（アイコン＋説明つき・PC/スマホとも押しやすく）
+============================================ */
+.admin-menu-container { width: min(980px, calc(100% - 28px)); }
+.admin-menu-group .admin-menu-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  border-top: none;
+  margin-top: 8px;
+}
+.admin-menu-buttons .admin-menu-btn,
+.admin-menu-buttons .admin-menu-btn:first-child,
+.admin-menu-buttons .admin-menu-btn:nth-child(4) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--am-text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.admin-menu-buttons .admin-menu-btn::after { display: none; }
+.admin-menu-buttons .admin-menu-btn:hover {
+  padding: 12px 14px;
+  background: #fff;
+  border-color: rgba(139, 30, 63, 0.35);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+.admin-menu-buttons .admin-menu-btn:active { transform: scale(0.99); }
+.admin-menu-icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #f1f5f9;
+  font-size: 22px;
+}
+.admin-menu-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.admin-menu-label { font-size: 15px; font-weight: 800; line-height: 1.35; }
+.admin-menu-desc { font-size: 12px; color: var(--am-text-sub); line-height: 1.5; font-weight: 500; }
+.admin-menu-chev { flex: 0 0 auto; font-size: 22px; color: var(--am-text-muted); }
+
+.admin-menu-buttons .admin-menu-btn.is-main { border-color: rgba(139, 30, 63, 0.3); background: #fffafb; }
+.admin-menu-buttons .admin-menu-btn.is-main .admin-menu-label { color: var(--am-accent); }
+.admin-menu-buttons .admin-menu-btn.is-main .admin-menu-icon { background: var(--am-accent-soft); }
+.admin-menu-buttons .admin-menu-btn.is-danger .admin-menu-label { color: #c02323; }
+.admin-menu-buttons .admin-menu-btn.is-danger .admin-menu-icon { background: #fef2f2; }
+.admin-menu-buttons .admin-menu-btn.is-warn .admin-menu-label { color: #b45309; }
+.admin-menu-buttons .admin-menu-btn.is-warn .admin-menu-icon { background: #fffbeb; }
+
+@media (max-width: 480px) {
+  .admin-menu-container { padding: 20px 14px 18px; }
+  .admin-menu-group .admin-menu-buttons { grid-template-columns: 1fr; }
+  .admin-menu-buttons .admin-menu-btn { min-height: 64px; }
+}

@@ -83,7 +83,7 @@ function ResetPassword() {
         onClick={handleUpdatePassword}
         disabled={isUpdating}
       >
-        {isUpdating ? "変更中..." : "パスワードを変更する"}
+        {isUpdating ? <><span className="btn-spinner" />変更中...</> : "パスワードを変更する"}
       </button>
     </div>
   );

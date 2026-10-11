@@ -235,7 +235,7 @@ export default function PurchaseComplete() {
 
       {view === "pending" && token && showManual && (
         <button className="home-btn" onClick={confirmNow} disabled={isConfirming} type="button">
-          {isConfirming ? "確認中…" : "支払いを再確認"}
+          {isConfirming ? <><span className="btn-spinner" />確認中…</> : "支払いを再確認"}
         </button>
       )}
 

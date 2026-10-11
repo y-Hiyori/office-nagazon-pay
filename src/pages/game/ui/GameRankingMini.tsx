@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchTopScores, type ScoreRow } from "../lib/scoreApi";
+import Loading from "../../../components/Loading";
 
 type Props = {
   limit?: number;
@@ -53,7 +54,7 @@ export default function GameRankingMini({
         </div>
       </div>
 
-      {loading && <div className="gRankInfo">読み込み中…</div>}
+      {loading && <Loading variant="compact" />}
       {err && <div className="gRankErr">取得失敗</div>}
 
       {!loading && !err && (

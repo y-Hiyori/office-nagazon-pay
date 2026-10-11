@@ -232,7 +232,7 @@ function AdminAdd() {
           onClick={handleAdd}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "送信中..." : "追加"}
+          {isSubmitting ? <><span className="btn-spinner" />送信中...</> : "追加"}
         </button>
       </header>
 

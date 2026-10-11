@@ -9,6 +9,7 @@ import "./ProductList.css";
 import { findProductImage } from "../data/products";
 import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
+import Loading from "../components/Loading";
 
 const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
 
@@ -185,7 +186,7 @@ function ProductList() {
         <h2 className="plist-title">商品一覧</h2>
 
         {loading ? (
-          <div className="plist-empty">読み込み中...</div>
+          <Loading />
         ) : filtered.length === 0 ? (
           <div className="plist-empty">該当する商品がありません</div>
         ) : (

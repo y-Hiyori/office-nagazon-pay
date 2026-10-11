@@ -5,6 +5,7 @@ import "./AccountEdit.css";
 import { appDialog } from "../lib/appDialog";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
+import Loading from "../components/Loading";
 
 type ProfileRow = {
   id: string;
@@ -246,7 +247,7 @@ export default function AccountEdit() {
             </div>
 
             {loading ? (
-              <div className="account-edit-state">読み込み中...</div>
+              <Loading />
             ) : error ? (
               <div className="account-edit-error">{error}</div>
             ) : (
@@ -287,7 +288,7 @@ export default function AccountEdit() {
                   disabled={saving || !hasChanges}
                   type="button"
                 >
-                  {saving ? "保存中..." : hasChanges ? "変更を保存する" : "変更はありません"}
+                  {saving ? <><span className="btn-spinner" />保存中...</> : hasChanges ? "変更を保存する" : "変更はありません"}
                 </button>
               </>
             )}

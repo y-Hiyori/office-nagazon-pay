@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminUsers.css";
+import Loading from "../components/Loading";
 
 type Profile = {
   id: string;
@@ -59,7 +60,7 @@ function AdminUsers() {
     loadProfiles();
   }, [navigate]);
 
-  if (loading) return <p style={{ padding: 20 }}>読み込み中...</p>;
+  if (loading) return <Loading />;
 
   const sorted = [...profiles].sort((a, b) => {
     const aAdmin = a.is_admin ? 1 : 0;

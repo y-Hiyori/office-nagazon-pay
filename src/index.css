@@ -95,3 +95,40 @@ button:focus-visible {
 input, textarea, select, button {
   font-size: 16px;
 }
+
+/* ============================================================
+   v39：全画面共通の安全策（PC／スマホ）
+============================================================ */
+img, video, canvas, svg { max-width: 100%; }
+/* 長い英数字（メール・注文ID）で画面が横に広がらないように */
+p, li, td, dd, dt, h1, h2, h3, h4, span, label { overflow-wrap: anywhere; }
+/* iPhone のホームバー・ノッチに操作項目が隠れないように */
+body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* ---------- 管理画面共通（AdminRoute が body に is-admin-page を付与） ---------- */
+body.is-admin-page button,
+body.is-admin-page [role="button"],
+body.is-admin-page select,
+body.is-admin-page input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+  min-height: 40px;
+}
+body.is-admin-page input[type="checkbox"],
+body.is-admin-page input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #4338ca;
+}
+body.is-admin-page input,
+body.is-admin-page select,
+body.is-admin-page textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+/* 下部に固定ボタンがあるページでも最後の項目が隠れないよう余白 */
+body.is-admin-page main,
+body.is-admin-page [class$="-page"] {
+  padding-bottom: max(32px, calc(env(safe-area-inset-bottom) + 24px));
+}
+@media (hover: hover) {
+  body.is-admin-page button:not(:disabled) { cursor: pointer; }
+}

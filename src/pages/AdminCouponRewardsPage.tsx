@@ -3,6 +3,7 @@ import AdminHeader from "../components/AdminHeader";
 import { supabase } from "../lib/supabase";
 import "./AdminCouponRewardsPage.css";
 import { appDialog } from "../lib/appDialog";
+import Loading from "../components/Loading";
 
 type Reward = {
   id: string;
@@ -454,7 +455,7 @@ export default function AdminCouponRewardsPage() {
                     リセット
                   </button>
                   <button type="button" className="btn primary" onClick={onSave} disabled={saving}>
-                    {saving ? "保存中…" : isEditing ? "更新する" : "作成する"}
+                    {saving ? <><span className="btn-spinner" />保存中…</> : isEditing ? "更新する" : "作成する"}
                   </button>
                 </div>
               </div>
@@ -471,7 +472,7 @@ export default function AdminCouponRewardsPage() {
 
               <div className="list">
                 {loading ? (
-                  <div className="empty">読み込み中…</div>
+                  <Loading />
                 ) : rows.length === 0 ? (
                   <div className="empty">まだありません</div>
                 ) : (

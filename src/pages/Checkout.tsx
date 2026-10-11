@@ -10,6 +10,7 @@ import "./Checkout.css";
 // ✅ 追加：アプリ内ダイアログ
 import { appDialog } from "../lib/appDialog";
 import { fetchSaleLots, splitSaleQty, type SaleLot } from "../lib/lots";
+import { savePending } from "../lib/pendingPayment";
 
 type StoredItem = {
   productId: string | number;
@@ -97,6 +98,18 @@ function Checkout() {
   // ✅ 注文者情報の表示モード: "view"（確認表示）⇔ "edit"（入力画面を開く）
   //    参考サイト（shop_payment）と同じく、最初から入力画面は出さない
   const [infoMode, setInfoMode] = useState<"view" | "edit">("view");
+
+  // ✅ PayPayへ移動後に「戻る」で帰ってきた時、ボタンが「処理中…」のまま固まらないようにする
+  useEffect(() => {
+    const reset = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setIsProcessing(false);
+        setIsCheckingStock(false);
+      }
+    };
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
 
   const formatPrice = (value: number | string) => Number(value || 0).toLocaleString("ja-JP");
 
@@ -929,14 +942,17 @@ function Checkout() {
       }
 
       redirecting = true;
-      try { localStorage.setItem(
-            "nagazonpay_pending_order",
-            JSON.stringify({
-              orderId: data?.orderId || "",
-              token: data?.token || "",
-              merchantPaymentId: data?.merchantPaymentId || "",
-            })
-          ); } catch { /* ignore */ }
+      // ✅ 支払わずに戻ってきた場合に「支払い再開・取り消し」ができるよう保存
+      savePending({
+        orderId: String(data?.orderId || ""),
+        token: String(data?.token || ""),
+        merchantPaymentId: String(data?.merchantPaymentId || ""),
+        paypayUrl,
+        codeId: data?.codeId ? String(data.codeId) : undefined,
+        expiryDate: Number(data?.expiryDate || 0) || null,
+        total: payableTotal,
+        createdAt: Date.now(),
+      });
       window.location.href = paypayUrl;
     } catch (e) {
       console.error(e);
@@ -1535,7 +1551,7 @@ function Checkout() {
                   onClick={handleClickConfirmButton}
                   disabled={isProcessing || isCheckingStock}
                 >
-                  {isCheckingStock ? "在庫確認中..." : isProcessing ? "処理中..." : "購入を確定する"}
+                  {isCheckingStock ? <><span className="btn-spinner" />在庫確認中…</> : isProcessing ? <><span className="btn-spinner" />処理中…</> : "購入を確定する"}
                 </button>
               </div>
             </section>
@@ -1549,7 +1565,7 @@ function Checkout() {
           onClick={handleClickConfirmButton}
           disabled={isProcessing || isCheckingStock}
         >
-          {isCheckingStock ? "在庫確認中..." : isProcessing ? "処理中..." : "購入を確定する"}
+          {isCheckingStock ? <><span className="btn-spinner" />在庫確認中…</> : isProcessing ? <><span className="btn-spinner" />処理中…</> : "購入を確定する"}
         </button>
       </div>
 

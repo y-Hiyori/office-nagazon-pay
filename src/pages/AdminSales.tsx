@@ -9,6 +9,7 @@ import { fetchOrderLotCosts } from "../lib/lots";
 import AdminHeader from "../components/AdminHeader";
 import { exportSalesXlsx, type PrevData } from "../lib/excelExport";
 import "./AdminSales.css";
+import Loading from "../components/Loading";
 
 type SalesItem = {
   product_name: string;
@@ -926,11 +927,17 @@ export default function AdminSales() {
           </div>
 
           {loading ? (
-            <p className="admin-sales-loading">読み込み中...</p>
+            <Loading />
           ) : error ? (
             <p className="admin-sales-error">{error}</p>
           ) : (
             <>
+              <div className="as-correct-link">
+                <span>原価や廃棄ロスの金額が間違っている場合は</span>
+                <button type="button" onClick={() => navigate("/admin-corrections")}>
+                  🛠 緊急修正へ
+                </button>
+              </div>
               <div className="as-cards">
                 <div className="as-card as-card-main">
                   <div className="as-label">粗利（利益）</div>

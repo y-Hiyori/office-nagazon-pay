@@ -243,7 +243,7 @@ export default function CouponRedeem() {
                         onClick={onConfirm}
                         disabled={!canConfirm || isConfirming}
                       >
-                        {isConfirming ? "処理中…" : "受け取り完了"}
+                        {isConfirming ? <><span className="btn-spinner" />処理中…</> : "受け取り完了"}
                       </button>
                     </div>
 

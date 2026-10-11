@@ -138,7 +138,7 @@ function Signup() {
       {error && <p className="signup-error">{error}</p>}
 
       <button className="signup-button" onClick={handleSignup} disabled={submitting}>
-        {submitting ? "登録中..." : "登録する"}
+        {submitting ? <><span className="btn-spinner" />登録中...</> : "登録する"}
       </button>
 
       <button className="signup-link" onClick={() => navigate("/login")}>

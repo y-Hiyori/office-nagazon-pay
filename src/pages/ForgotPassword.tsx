@@ -68,7 +68,7 @@ function ForgotPassword() {
       {error && <p className="login-error">{error}</p>}
 
       <button className="login-button" onClick={handleSendResetMail} disabled={isSending}>
-        {isSending ? "送信中..." : "再設定メールを送信する"}
+        {isSending ? <><span className="btn-spinner" />送信中...</> : "再設定メールを送信する"}
       </button>
     </div>
   );

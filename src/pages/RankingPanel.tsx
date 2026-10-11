@@ -1,6 +1,7 @@
 // src/pages/RankingPanel.tsx
 import { useEffect, useState } from "react";
 import { fetchTopScores, type ScoreRow } from "./game/lib/scoreApi";
+import Loading from "../components/Loading";
 
 export default function RankingPanel() {
   const [rows, setRows] = useState<ScoreRow[]>([]);
@@ -30,7 +31,7 @@ export default function RankingPanel() {
         <h3 className="rankTitle">ランキング（全体）</h3>
       </div>
 
-      {loading && <div className="rankInfo">読み込み中…</div>}
+      {loading && <Loading variant="compact" />}
       {err && <div className="rankErr">取得失敗：{err}</div>}
 
       {!loading && !err && (

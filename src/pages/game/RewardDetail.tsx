@@ -6,6 +6,7 @@ import SiteFooter from "../../components/SiteFooter";
 import "./RewardDetail.css";
 import { supabase } from "../../lib/supabase";
 import { getOrCreateDeviceId } from "./lib/guestName";
+import Loading from "../../components/Loading";
 
 type RewardRow = {
   id: string;
@@ -161,7 +162,7 @@ export default function RewardDetail() {
               </div>
             </div>
 
-            {ui.status === "loading" && <div className="rewardDetailBody">読み込み中…</div>}
+            {ui.status === "loading" && <Loading />}
 
             {ui.status === "error" && (
               <div className="rewardDetailBody">

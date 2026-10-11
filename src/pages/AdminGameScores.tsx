@@ -11,6 +11,7 @@ import {
   adminDeleteScoresByRange,
   type AdminScoreRow,
 } from "./game/lib/adminScoreApi";
+import Loading from "../components/Loading";
 
 type DiffFilter = "all" | "easy" | "normal" | "hard";
 
@@ -199,7 +200,7 @@ export default function AdminGameScores() {
                 </label>
 
                 <button type="button" className="btnPrimary" onClick={load} disabled={loading}>
-                  {loading ? "読み込み中…" : "検索 / 更新"}
+                  {loading ? <><span className="btn-spinner" />読み込み中…</> : "検索 / 更新"}
                 </button>
 
                 <button
@@ -215,7 +216,7 @@ export default function AdminGameScores() {
             </div>
 
             {err && <div className="adminScoresErr">取得失敗：{err}</div>}
-            {!err && loading && <div className="adminScoresInfo">読み込み中…</div>}
+            {!err && loading && <Loading />}
 
             {!loading && !err && (
               <div className="adminScoresTableWrap" role="region" aria-label="スコア一覧">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-
-const LS_KEY = "nagazonpay_pending_order";
+import Loading from "../components/Loading";
+import { clearPending, loadPending, savePending } from "../lib/pendingPayment";
 
 export default function PayPayReturn() {
   const navigate = useNavigate();
@@ -12,17 +12,13 @@ export default function PayPayReturn() {
   const qToken = q.get("token") || "";
   const qMpid = q.get("merchantPaymentId") || "";
 
-  const [msg, setMsg] = useState("決済を確認しています…");
+  const [msg, setMsg] = useState("決済を確認しています");
+  const [sub, setSub] = useState("画面を閉じずにお待ちください");
 
   useEffect(() => {
     // PayPayは戻しURLにこちら側のパラメータを返すことを保証しないため、
     // 購入手続き時に保存した {orderId, token, merchantPaymentId} をフォールバックに使う
-    let saved: { orderId?: string; token?: string; merchantPaymentId?: string } | null = null;
-    try {
-      saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
-    } catch {
-      saved = null;
-    }
+    const saved = loadPending();
 
     const orderId = (qOrderId || saved?.orderId || "").trim();
     const token = (qToken || saved?.token || "").trim();
@@ -36,8 +32,9 @@ export default function PayPayReturn() {
     let stopped = false;
     const start = Date.now();
     let timer: number | null = null;
+    let pendingCount = 0;
 
-    const isPaid = (j: any) =>
+    const isPaid = (j: { paid?: boolean; status?: string; paypayStatus?: string } | null) =>
       j?.paid === true ||
       String(j?.status || "").toLowerCase() === "paid" ||
       j?.paypayStatus === "COMPLETED";
@@ -48,10 +45,20 @@ export default function PayPayReturn() {
         { replace: true }
       );
 
+    // 未払い（PayPay画面でキャンセル・閉じた）→ 支払い再開／取り消しを選べる画面へ
+    const unpaid = () => {
+      if (saved && saved.orderId === orderId) {
+        // 案内を即時に出せるよう作成時刻を少し前にする
+        savePending({ ...saved, createdAt: Math.min(Number(saved.createdAt || 0), Date.now() - 5000) });
+      }
+      navigate(`/paypay-failed?orderId=${encodeURIComponent(orderId || "")}&reason=UNPAID`, { replace: true });
+    };
+
     const tick = async () => {
       if (stopped) return;
       if (Date.now() - start > 30 * 1000) {
-        fail("TIMEOUT_30S");
+        // 30秒たっても支払い完了にならない＝支払っていない可能性が高い
+        unpaid();
         return;
       }
 
@@ -69,7 +76,7 @@ export default function PayPayReturn() {
         if (stopped) return;
 
         if (r.ok && isPaid(j)) {
-          try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
+          clearPending();
           const resolvedId = String(j?.orderDbId || orderId || "");
 
           // ✅ 入荷ロットを消費（冪等：二重に減りません）
@@ -94,15 +101,32 @@ export default function PayPayReturn() {
               console.error("consume_lots_for_order exception:", eLot);
             }
           }
-          navigate(`/purchase-complete/${resolvedId}?orderId=${encodeURIComponent(resolvedId)}&token=${encodeURIComponent(token)}&paid=1`, {
-            replace: true,
-          });
+          navigate(
+            `/purchase-complete/${resolvedId}?orderId=${encodeURIComponent(resolvedId)}&token=${encodeURIComponent(
+              token
+            )}&paid=1`,
+            { replace: true }
+          );
           return;
         }
 
         const st = String(j?.status || "").toUpperCase();
-        if (r.ok && (st === "PENDING" || st === "CREATED" || j?.paid === false)) {
-          setMsg("PayPayの支払い完了を待っています…");
+        const pst = String(j?.paypayStatus || "").toUpperCase();
+
+        // PayPay側で取り消し・期限切れ・失敗が確定している
+        if (["CANCELED", "EXPIRED", "FAILED", "AUTHORIZATION_EXPIRED"].includes(pst) || st === "CANCELED") {
+          unpaid();
+          return;
+        }
+
+        if (r.ok && (st === "PENDING" || st === "CREATED" || st === "FINALIZING" || j?.paid === false)) {
+          pendingCount++;
+          setMsg("PayPayの支払い完了を待っています");
+          setSub(
+            pendingCount >= 3
+              ? "支払いをしていない場合は、少し待つと「支払いを続ける／取り消す」を選べます"
+              : "画面を閉じずにお待ちください"
+          );
           timer = window.setTimeout(tick, 2500);
           return;
         }
@@ -128,10 +152,10 @@ export default function PayPayReturn() {
   }, [qOrderId, qToken, qMpid, navigate]);
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, boxSizing: "border-box" }}>
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
-        <div className="pc-spinner" aria-label="loading" />
-        <div style={{ fontSize: 16, marginTop: 14, opacity: 0.8 }}>{msg}</div>
+        <Loading variant="block" label={msg} />
+        <div style={{ fontSize: 13, marginTop: -24, color: "#64748b", lineHeight: 1.7 }}>{sub}</div>
       </div>
     </main>
   );

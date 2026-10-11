@@ -1,43 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import AdminHeader from "../components/AdminHeader";
+import { ADMIN_NAV } from "../lib/adminNav";
 import "./AdminMenu.css";
-
-type MenuItem = {
-  label: string;
-  path: string;
-  cls?: string;
-};
-
-type MenuGroup = {
-  title: string;
-  note?: string;
-  items: MenuItem[];
-};
-
-// ✅ v30/v31：項目をグループ分け（ゲーム関連は独立）
-const GROUPS: MenuGroup[] = [
-  {
-    title: "商品・販売",
-    items: [
-      { label: "商品管理", path: "/admin-page", cls: "is-main" },
-      { label: "お知らせ管理", path: "/admin-notices" },
-      { label: "クーポン管理", path: "/admin-coupons" },
-      { label: "ポイント管理", path: "/admin-points", cls: "is-danger" },
-      { label: "売上状況確認", path: "/admin-sales" },
-      { label: "ゲスト購入履歴", path: "/admin-guest-orders" },
-      { label: "アカウント管理", path: "/admin-users" },
-    ],
-  },
-  {
-    title: "ゲーム",
-    note: "ゲームのスコアと報酬（クーポン）の設定",
-    items: [
-      { label: "ゲームスコア管理", path: "/admin-game-scores" },
-      { label: "ゲーム報酬設定", path: "/admin-coupon-rewards" },
-    ],
-  },
-];
 
 function AdminMenu() {
   const navigate = useNavigate();
@@ -55,7 +20,7 @@ function AdminMenu() {
         <div className="admin-menu-container">
           <h2 className="admin-menu-title">管理者メニュー</h2>
 
-          {GROUPS.map((g) => (
+          {ADMIN_NAV.map((g) => (
             <section className="admin-menu-group" key={g.title}>
               <h3 className="admin-menu-group-title">
                 {g.title}
@@ -66,11 +31,16 @@ function AdminMenu() {
                 {g.items.map((it) => (
                   <button
                     key={it.path}
-                    className={`admin-menu-btn ${it.cls ?? ""}`}
+                    className={`admin-menu-btn ${it.tone ? "is-" + it.tone : ""}`}
                     onClick={() => navigate(it.path)}
                     type="button"
                   >
-                    {it.label}
+                    <span className="admin-menu-icon" aria-hidden="true">{it.icon}</span>
+                    <span className="admin-menu-text">
+                      <span className="admin-menu-label">{it.label}</span>
+                      <span className="admin-menu-desc">{it.desc}</span>
+                    </span>
+                    <span className="admin-menu-chev" aria-hidden="true">›</span>
                   </button>
                 ))}
               </div>

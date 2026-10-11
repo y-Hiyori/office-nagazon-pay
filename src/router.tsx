@@ -58,6 +58,7 @@ import AdminHomeSlideEdit from "./pages/AdminHomeSlideEdit";
 import AdminNotices from "./pages/AdminNotices";
 import AdminNoticeEdit from "./pages/AdminNoticeEdit";
 import AdminPoints from "./pages/AdminPoints";
+import AdminCorrections from "./pages/AdminCorrections";
 // ✅ 追加：仕入れ原価の登録
 
 // 追加 import
@@ -330,6 +331,16 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminPoints />
+          </AdminRoute>
+        ),
+      },
+
+      // ✅ 緊急修正（仕入れ原価・廃棄ロス）
+      {
+        path: "admin-corrections",
+        element: (
+          <AdminRoute>
+            <AdminCorrections />
           </AdminRoute>
         ),
       },

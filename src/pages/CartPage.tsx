@@ -243,7 +243,7 @@ function CartPage() {
           <div className="cart-summary">
             <p className="total">合計：{formatPrice(total)}円</p>
             <button className="buy-btn" onClick={handleProceedCheckout} disabled={checking} type="button">
-              {checking ? "在庫確認中…" : "購入へ進む"}
+              {checking ? <><span className="btn-spinner" />在庫確認中…</> : "購入へ進む"}
             </button>
           </div>
         )}

@@ -19,6 +19,7 @@ import {
   type ExpiryStatus,
 } from "../lib/lots";
 import { appDialog } from "../lib/appDialog";
+import Loading from "../components/Loading";
 
 type ViewMode = "all" | "selling" | "hidden" | "stock" | "expiry" | "expired" | "sale" | "missing";
 
@@ -1280,7 +1281,7 @@ function AdminPage() {
         </div>
 
         {loading ? (
-          <p className="ap-empty">読み込み中...</p>
+          <Loading />
         ) : shown.length === 0 ? (
           <p className="ap-empty">該当する商品がありません</p>
         ) : (
@@ -1580,7 +1581,7 @@ function AdminPage() {
                         disabled={busy}
                         onClick={() => saveProductEdit(openRow.p, openRow.info.count)}
                       >
-                        {busy ? "処理中..." : "この商品の設定を保存"}
+                        {busy ? <><span className="btn-spinner" />処理中...</> : "この商品の設定を保存"}
                       </button>
                     </div>
 
@@ -1694,7 +1695,7 @@ function AdminPage() {
                         disabled={busy}
                         onClick={() => applySale(openRow.p, openRow.info.stockNum)}
                       >
-                        {busy ? "処理中..." : "この内容でセール開始"}
+                        {busy ? <><span className="btn-spinner" />処理中...</> : "この内容でセール開始"}
                       </button>
                       <p className="ap-hint">
                         {saleDraft.mode === "per_order"
@@ -2092,7 +2093,7 @@ function AdminPage() {
                     disabled={busy || dirtyLots.length === 0}
                     onClick={saveAllLots}
                   >
-                    {busy ? "保存中..." : "変更を保存"}
+                    {busy ? <><span className="btn-spinner" />保存中...</> : "変更を保存"}
                   </button>
                 </div>
                 </div>
@@ -2255,7 +2256,7 @@ function AdminPage() {
                 キャンセル
               </button>
               <button className="ac-save" type="button" disabled={busy} onClick={confirmReduce}>
-                {busy ? "処理中..." : `選択した${selectedLotIds(adjust).length}個を削除`}
+                {busy ? <><span className="btn-spinner" />処理中...</> : `選択した${selectedLotIds(adjust).length}個を削除`}
               </button>
             </div>
           </div>
@@ -2486,7 +2487,7 @@ function AdminPage() {
                 キャンセル
               </button>
               <button className="ac-save" type="button" disabled={busy} onClick={submitAddProduct}>
-                {busy ? "処理中..." : "この内容で追加"}
+                {busy ? <><span className="btn-spinner" />処理中...</> : "この内容で追加"}
               </button>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminCoupons.css";
 import { appDialog } from "../lib/appDialog";
+import Loading from "../components/Loading";
 
 type CouponRow = {
   code: string;
@@ -228,7 +229,7 @@ export default function AdminCoupons() {
         </div>
 
         {loading ? (
-          <p className="ac-empty">読み込み中...</p>
+          <Loading />
         ) : filtered.length === 0 ? (
           <p className="ac-empty">該当するクーポンがありません</p>
         ) : (

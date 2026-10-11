@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminCouponEdit.css";
+import Loading from "../components/Loading";
 
 type Props = { mode: "new" | "edit" };
 
@@ -317,7 +318,7 @@ export default function AdminCouponEdit({ mode }: Props) {
     return (
       <>
         <AdminHeader />
-        <p className="ac-loading">読み込み中...</p>
+        <Loading />
       </>
     );
   }
@@ -655,7 +656,7 @@ export default function AdminCouponEdit({ mode }: Props) {
               キャンセル
             </button>
             <button className="btn primary" onClick={save} disabled={saving}>
-              {saving ? "保存中..." : mode === "new" ? "作成する" : "変更を保存"}
+              {saving ? <><span className="btn-spinner" />保存中...</> : mode === "new" ? "作成する" : "変更を保存"}
             </button>
           </div>
         </div>

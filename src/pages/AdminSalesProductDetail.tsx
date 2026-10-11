@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminSalesProductDetail.css";
+import Loading from "../components/Loading";
 
 type OrderBaseRow = {
   id: string;
@@ -369,7 +370,7 @@ export default function AdminSalesProductDetail() {
           )}
 
           {loading ? (
-            <p className="admin-sales-product-loading">読み込み中...</p>
+            <Loading />
           ) : error ? (
             <p className="admin-sales-product-error">{error}</p>
           ) : filtered.length === 0 ? (

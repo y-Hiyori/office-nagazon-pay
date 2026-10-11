@@ -95,7 +95,7 @@ function Login() {
         onClick={handleLogin}
         disabled={loggingIn} // ★ 処理中は押せない
       >
-        {loggingIn ? "ログイン中..." : "ログイン"}
+        {loggingIn ? <><span className="btn-spinner" />ログイン中...</> : "ログイン"}
       </button>
 
       {/* 新規登録ボタンは今まで通り大きいボタン */}

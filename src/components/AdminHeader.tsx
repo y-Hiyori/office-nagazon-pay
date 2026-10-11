@@ -1,32 +1,14 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useMemo, useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import "./AdminHeader.css";
 import { lockScroll, unlockScroll } from "../lib/scrollLock";
-
-type MenuItem = { label: string; to: string };
+import { ADMIN_NAV } from "../lib/adminNav";
 
 export default function AdminHeader() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const menuItems: MenuItem[] = useMemo(
-    () => [
-      { label: "管理者メニュー", to: "/admin-menu" },
-      { label: "商品管理", to: "/admin-page" },
-      { label: "お知らせ管理", to: "/admin-notices" },
-      { label: "クーポン管理", to: "/admin-coupons" },
-      { label: "ポイント管理", to: "/admin-points" },
-
-      // ✅ 追加：ゲームスコア管理
-      { label: "ゲームスコア管理", to: "/admin-game-scores" },
-      { label: "ゲーム報酬設定", to: "/admin-coupon-rewards" },
-
-      { label: "アカウント管理", to: "/admin-users" },
-      { label: "売上状況確認", to: "/admin-sales" },
-      { label: "ホーム画面へ戻る", to: "/" },
-    ],
-    []
-  );
+  const loc = useLocation();
 
   const go = (to: string) => {
     setOpen(false);
@@ -84,17 +66,39 @@ export default function AdminHeader() {
             </button>
 
             <aside className="admin-drawer" role="dialog" aria-modal="true" aria-label="管理メニュー">
+              <div className="admin-drawer-title">管理メニュー</div>
               <nav className="admin-drawer-nav">
-                {menuItems.map((item) => (
-                  <button
-                    key={item.to}
-                    type="button"
-                    className="admin-drawer-item"
-                    onClick={() => go(item.to)}
-                  >
-                    {item.label}
-                  </button>
+                <button
+                  type="button"
+                  className={`admin-drawer-item ${loc.pathname === "/admin-menu" ? "is-current" : ""}`}
+                  onClick={() => go("/admin-menu")}
+                >
+                  <span className="admin-drawer-icon" aria-hidden="true">🏠</span>
+                  管理者メニュー
+                </button>
+                {ADMIN_NAV.map((g) => (
+                  <div className="admin-drawer-group" key={g.title}>
+                    <div className="admin-drawer-group-title">{g.title}</div>
+                    {g.items.map((item) => (
+                      <button
+                        key={item.path}
+                        type="button"
+                        className={`admin-drawer-item ${loc.pathname.startsWith(item.path) ? "is-current" : ""} ${
+                          item.tone ? "is-" + item.tone : ""
+                        }`}
+                        aria-current={loc.pathname.startsWith(item.path) ? "page" : undefined}
+                        onClick={() => go(item.path)}
+                      >
+                        <span className="admin-drawer-icon" aria-hidden="true">{item.icon}</span>
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 ))}
+                <button type="button" className="admin-drawer-item is-home" onClick={() => go("/")}>
+                  <span className="admin-drawer-icon" aria-hidden="true">↩</span>
+                  お店の画面へ戻る
+                </button>
               </nav>
             </aside>
           </div>

@@ -17,6 +17,7 @@ import SiteHeader from "../components/SiteHeader";
 
 // ✅ 追加：アプリ内ダイアログ
 import { appDialog } from "../lib/appDialog";
+import Loading from "../components/Loading";
 
 const formatYen = (value: number) => (Number(value) || 0).toLocaleString("ja-JP");
 const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
@@ -249,7 +250,7 @@ function ProductDetail() {
       <div className="pdetail-wrap">
         <SiteHeader />
         <main className="pdetail-main">
-          <div className="pdetail-loading">読み込み中...</div>
+          <Loading />
         </main>
         <SiteFooter />
       </div>

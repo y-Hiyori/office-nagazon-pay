@@ -39,6 +39,7 @@ import {
   setSavedGuestName,
   normalizeGuestName,
 } from "./lib/guestName";
+import Loading from "../../components/Loading";
 
 /* =========================
    Utils
@@ -371,7 +372,7 @@ function RankTop50({ difficulty }: { difficulty: "all" | Difficulty }) {
         <div className="gSectionSub">{difficulty === "all" ? "全体" : difficulty.toUpperCase()}</div>
       </div>
 
-      {loading && <div className="gSectionInfo">読み込み中…</div>}
+      {loading && <Loading variant="compact" />}
       {err && <div className="gSectionErr">取得失敗：{err}</div>}
 
       {!loading && !err && (
@@ -1743,7 +1744,7 @@ export default function Game() {
                                   disabled={guestBusy}
                                   onClick={() => void confirmGuestName()}
                                 >
-                                  {guestBusy ? "確認中…" : "この名前で決定"}
+                                  {guestBusy ? <><span className="btn-spinner" />確認中…</> : "この名前で決定"}
                                 </button>
                                 <button
                                   type="button"
@@ -1895,7 +1896,7 @@ export default function Game() {
               </div>
 
               {rewardLoading ? (
-                <div className="gSectionInfo">読み込み中…</div>
+                <Loading variant="compact" />
               ) : rewardErr ? (
                 <div className="gSectionErr">取得失敗：{rewardErr}</div>
               ) : rewardRows.length === 0 ? (

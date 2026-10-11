@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import "./NoticeDetail.css";
+import Loading from "../components/Loading";
 
 type NoticeRow = {
   id: string;
@@ -68,7 +69,7 @@ export default function NoticeDetail() {
           </button>
 
           {loading ? (
-            <div className="notice-card">読み込み中...</div>
+            <Loading />
           ) : !row ? (
             <div className="notice-card">お知らせが見つかりませんでした。</div>
           ) : (

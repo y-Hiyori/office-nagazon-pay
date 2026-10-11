@@ -1749,3 +1749,67 @@
 .ap-adj-cost { font-weight: 800; color: #0f172a; }
 .ap-adj-exp { color: #64748b; }
 .ap-adj-memo { color: #475569; }
+
+/* ============================================================
+   v39：PC／スマホでの操作性改善
+============================================================ */
+/* ロット編集：スマホでも2列で縦長になりすぎないように */
+@media (max-width: 620px) {
+  .ap-lot-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: 8px 10px !important;
+  }
+  .ap-lot-fields label:nth-child(2) { grid-column: 1 / -1; }   /* 期限は1行使う */
+  .ap-lot-fields .ap-lot-check { grid-column: 1 / -1; }
+  .ap-lot { padding: 12px !important; }
+}
+
+/* 「変更を保存」バーはパネル下に固定して、いつでも押せるように */
+.ap-lot-savebar {
+  position: sticky;
+  bottom: calc(-1 * max(140px, env(safe-area-inset-bottom)) + 8px);
+  z-index: 5;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+/* パネルのヘッダー：スマホでボタンを押しやすく、×を右上に */
+.ap-modal-head { position: relative; padding-right: 18px; }
+.ap-close { min-height: 40px; padding: 8px 16px; }
+@media (max-width: 759px) {
+  .ap-modal-head { padding: 14px 14px 12px; }
+  .ap-modal-head-main h2 { font-size: 16px; padding-right: 4px; }
+  .ap-modal-head-actions { width: 100%; justify-content: flex-start; }
+  .ap-modal-head-actions > * { margin: 0 !important; }
+  .ap-modal-head-actions .ap-close { margin-left: auto !important; }
+}
+
+/* 商品カード一覧：スマホでも名前・在庫が潰れないよう */
+@media (max-width: 380px) {
+  .ap-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; gap: 10px !important; }
+}
+
+/* 入力欄・ボタンのタップ領域を確保 */
+.ap-modal-body input:not([type="checkbox"]):not([type="radio"]),
+.ap-modal-body select { min-height: 44px; }
+.ap-modal-body input[type="checkbox"] { width: 20px; height: 20px; }
+
+/* フィルタチップは横スクロール（スマホで何段にも折り返さない） */
+@media (max-width: 620px) {
+  .ap-chips {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-left: -4px;
+    margin-right: -4px;
+    padding: 2px 4px 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ap-chips::-webkit-scrollbar { display: none; }
+  .ap-chips > * { flex: 0 0 auto; }
+}

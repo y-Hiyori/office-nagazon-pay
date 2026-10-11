@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminNotices.css";
+import Loading from "../components/Loading";
 
 type NoticeRow = {
   id: string;
@@ -89,7 +90,7 @@ export default function AdminNotices() {
         </div>
 
         {loading ? (
-          <p className="an-loading">読み込み中...</p>
+          <Loading />
         ) : rows.length === 0 ? (
           <p className="an-loading">お知らせがありません</p>
         ) : (

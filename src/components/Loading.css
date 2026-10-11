@@ -1,0 +1,133 @@
+/* ============================================
+   共通ローディング表示
+============================================ */
+.app-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  animation: appLoadingFade 0.25s ease both;
+}
+.app-loading--block {
+  padding: 48px 16px;
+  min-height: 180px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.app-loading--compact {
+  padding: 18px 12px;
+  gap: 10px;
+  font-size: 13px;
+  flex-direction: row;
+}
+.app-loading--compact .app-spinner { width: 24px; height: 24px; border-width: 2.5px; }
+.app-loading--compact .app-spinner::after { inset: 4px; border-width: 2px; }
+.app-loading--full {
+  min-height: 70vh;
+  min-height: 70dvh;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.app-spinner {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3.5px solid rgba(15, 23, 42, 0.08);
+  border-top-color: #8b1e3f;
+  border-right-color: #c2416a;
+  animation: appSpin 0.8s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+.app-spinner::after {
+  /* 内側のリングを逆回転させて「動いている感」を強める */
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  border-bottom-color: rgba(139, 30, 63, 0.45);
+  animation: appSpin 1.2s linear infinite reverse;
+}
+.app-spinner--sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+.app-spinner--sm::after { display: none; }
+
+.app-loading-label { display: inline-flex; align-items: baseline; }
+.app-loading-dots i {
+  font-style: normal;
+  display: inline-block;
+  animation: appDot 1.2s ease-in-out infinite;
+}
+.app-loading-dots i:nth-child(2) { animation-delay: 0.15s; }
+.app-loading-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+.app-loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ボタン内のスピナー（処理中…表示用） */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: appSpin 0.7s linear infinite;
+  opacity: 0.9;
+}
+
+/* 上部のプログレスバー（画面遷移・読み込み中） */
+.app-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 99999;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgba(139, 30, 63, 0.12);
+}
+.app-topbar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #8b1e3f, #c2416a, transparent);
+  animation: appBar 1.1s ease-in-out infinite;
+}
+
+@keyframes appSpin { to { transform: rotate(360deg); } }
+@keyframes appDot {
+  0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+@keyframes appBar {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+@keyframes appLoadingFade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-spinner, .app-spinner::after, .btn-spinner { animation-duration: 2.4s; }
+  .app-loading-dots i, .app-topbar::before { animation: none; }
+}

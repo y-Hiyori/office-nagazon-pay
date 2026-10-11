@@ -6,6 +6,7 @@ import AdminHeader from "../components/AdminHeader";
 import { appDialog } from "../lib/appDialog";
 import "./AdminOrderDetail.css";
 import { findProductImage } from "../data/products";
+import Loading from "../components/Loading";
 
 type OrderRow = {
   id: string;
@@ -278,7 +279,7 @@ export default function AdminOrderDetail() {
           </header>
 
           {loading ? (
-            <p className="admin-order-state">読み込み中...</p>
+            <Loading />
           ) : errorMsg || !order ? (
             <p className="admin-order-state">{errorMsg || "注文が見つかりませんでした。"}</p>
           ) : (

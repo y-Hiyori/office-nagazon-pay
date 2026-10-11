@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminUserDetail.css";
+import Loading from "../components/Loading";
 
 type Profile = {
   id: string;
@@ -175,7 +176,7 @@ const handleSendResetMail = async () => {
           </header>
 
           {loading || !profile ? (
-            <p className="admin-user-detail-loading">読み込み中...</p>
+            <Loading />
           ) : (
             <>
               <section className="admin-user-detail-card">
@@ -209,7 +210,7 @@ const handleSendResetMail = async () => {
                 </div>
 
                 {pointLoading ? (
-                  <p className="admin-user-detail-loading">読み込み中...</p>
+                  <Loading variant="compact" />
                 ) : pointErr ? (
                   <p className="admin-user-detail-error">{pointErr}</p>
                 ) : pointTxs.length === 0 ? (
@@ -270,7 +271,7 @@ const handleSendResetMail = async () => {
                   type="button"
                   disabled={sending}
                 >
-                  {sending ? "送信中..." : "パスワード再設定メールを送る"}
+                  {sending ? <><span className="btn-spinner" />送信中...</> : "パスワード再設定メールを送る"}
                 </button>
               </section>
 

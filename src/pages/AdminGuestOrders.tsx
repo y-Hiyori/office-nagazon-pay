@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminGuestOrders.css";
+import Loading from "../components/Loading";
 
 type GuestOrder = {
   id: string;
@@ -133,7 +134,7 @@ export default function AdminGuestOrders() {
         </div>
 
         {loading ? (
-          <p className="admin-guest-empty">読み込み中...</p>
+          <Loading />
         ) : filtered.length === 0 ? (
           <p className="admin-guest-empty">ゲスト購入の履歴はありません</p>
         ) : (

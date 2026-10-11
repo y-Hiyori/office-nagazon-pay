@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminUserOrders.css";
+import Loading from "../components/Loading";
 
 type OrderRow = {
   id: string;
@@ -132,7 +133,7 @@ export default function AdminUserOrders() {
           </header>
 
           {loading ? (
-            <p className="admin-orders-state">読み込み中...</p>
+            <Loading />
           ) : filtered.length === 0 ? (
             <p className="admin-orders-state">
               {query.trim() ? "該当する注文がありません" : "購入履歴はありません"}

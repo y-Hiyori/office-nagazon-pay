@@ -6,6 +6,7 @@ import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import "./OrderDetail.css";
 import { findProductImage } from "../data/products";
+import Loading from "../components/Loading";
 
 type OrderRow = {
   id: string;
@@ -167,7 +168,7 @@ function OrderDetail() {
         </header>
 
         {loading ? (
-          <p className="orders-loading">読み込み中...</p>
+          <Loading />
         ) : errorMsg || !order ? (
           <p className="no-orders">{errorMsg || "注文が見つかりませんでした。"}</p>
         ) : (

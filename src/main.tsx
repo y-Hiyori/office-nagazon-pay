@@ -4,6 +4,7 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import router from "./router";
 import "./index.css";
+import "./components/Loading.css";
 
 import { ProductProvider } from "./context/ProductContext";
 import { CartProvider } from "./context/CartContext";

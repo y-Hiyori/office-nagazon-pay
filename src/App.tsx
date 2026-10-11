@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import AppDialogHost from "./components/AppDialogHost";
+import PendingPaymentNotice from "./components/PendingPaymentNotice";
 import { resetScrollLocks } from "./lib/scrollLock";
 
 function App() {
@@ -23,6 +24,9 @@ function App() {
 
       {/* ✅ 全ページ共通のアプリ内ダイアログ置き場 */}
       <AppDialogHost />
+
+      {/* ✅ PayPayで支払わずに戻ってきた時の案内（支払い再開・取り消し） */}
+      <PendingPaymentNotice />
     </>
   );
 }

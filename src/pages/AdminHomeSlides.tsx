@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { appDialog } from "../lib/appDialog";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminHomeSlides.css";
+import Loading from "../components/Loading";
 
 type SlideRow = {
   id: string;              // ✅ uuid
@@ -112,7 +113,7 @@ export default function AdminHomeSlides() {
         </div>
 
         {loading ? (
-          <p style={{ padding: 16 }}>読み込み中...</p>
+          <Loading />
         ) : rows.length === 0 ? (
           <p style={{ padding: 16 }}>スライドがありません</p>
         ) : (
