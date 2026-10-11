@@ -53,8 +53,8 @@
 .signup-back:active { transform: scale(0.97); }
 .signup-back:focus-visible {
   outline: none;
-  border-color: rgba(17, 24, 39, 0.35);
-  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.15);
+  border-color: rgba(139, 30, 63, 0.35);
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.15);
 }
 
 .signup-title {
@@ -89,17 +89,17 @@
 }
 
 .signup-input:focus {
-  border-color: rgba(17, 24, 39, 0.35);
+  border-color: rgba(139, 30, 63, 0.35);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
 }
 
 .signup-error {
   margin: 6px 0 8px;
   padding: 10px 14px;
   border-radius: 10px;
-  background: var(--plist-accent-soft, #f4f4f5);
-  color: var(--plist-accent, #111111);
+  background: var(--plist-accent-soft, #f7ecef);
+  color: var(--plist-accent, #8b1e3f);
   font-size: 12px;
   font-weight: 600;
   text-align: center;
@@ -118,14 +118,14 @@
   letter-spacing: 0.06em;
   color: #ffffff;
   cursor: pointer;
-  background: var(--plist-accent, #111111);
-  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.22);
+  background: var(--plist-accent, #8b1e3f);
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
   transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .signup-button:hover:not(:disabled) {
-  background: #000000;
-  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.28);
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
 }
 .signup-button:active:not(:disabled) { transform: scale(0.98); }
 .signup-button:disabled { opacity: 0.4; cursor: not-allowed; }

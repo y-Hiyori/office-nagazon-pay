@@ -25,7 +25,7 @@
   --od-text: var(--plist-text, #1d1d1f);
   --od-text-sub: var(--plist-text-sub, #6e6e73);
   --od-text-muted: var(--plist-text-muted, #a1a1a6);
-  --od-accent: var(--plist-accent, #111111);
+  --od-accent: var(--plist-accent, #8b1e3f);
 
   --od-shadow-1:
     0 1px 2px rgba(15, 23, 42, 0.04),

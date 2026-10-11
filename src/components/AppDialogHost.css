@@ -147,14 +147,14 @@
 
 /* プライマリ（ワインレッド） */
 .appdlg-primary {
-  background: var(--plist-accent, #111111);
+  background: var(--plist-accent, #8b1e3f);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.22);
+  box-shadow: 0 4px 12px rgba(139, 30, 63, 0.22);
 }
 
 .appdlg-primary:hover {
-  background: #000000;
-  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.28);
+  background: #75182f;
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.28);
 }
 
 /* サブ（キャンセル） */

@@ -76,7 +76,7 @@
 .home-btn {
   margin-top: 20px;
   padding: 14px 24px;
-  background: var(--plist-accent, #111111);
+  background: var(--plist-accent, #8b1e3f);
   color: #ffffff;
   border: none;
   border-radius: 12px;
@@ -88,13 +88,13 @@
   width: 100%;
   max-width: 320px;
   box-sizing: border-box;
-  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.22);
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
   transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .home-btn:hover:not(:disabled) {
-  background: #000000;
-  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.28);
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
 }
 .home-btn:active:not(:disabled) { transform: scale(0.98); }
 .home-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -123,7 +123,7 @@
   border-radius: 999px;
   margin: 16px auto;
   border: 3px solid var(--plist-border, rgba(15, 23, 42, 0.08));
-  border-top-color: var(--plist-accent, #111111);
+  border-top-color: var(--plist-accent, #8b1e3f);
   animation: pcSpin 0.8s linear infinite;
 }
 

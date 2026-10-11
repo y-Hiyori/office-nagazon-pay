@@ -11,9 +11,9 @@
 
 .crPage{
   /* ✅ 変数は :root じゃなく .crPage に閉じる（他ページと衝突しない） */
-  --cr-bg: #f6f6f7;
+  --cr-bg: #f4f6fb;
   --cr-card: #ffffff;
-  --cr-panel: #fafafa;
+  --cr-panel: #f7f8fc;
   --cr-line: rgba(17,24,39,0.10);
   --cr-text: #111827;
   --cr-sub: rgba(17,24,39,0.65);
@@ -24,13 +24,14 @@
   --cr-radius: 18px;
   --cr-safe-x: clamp(12px, 3vw, 20px);
 
-  --cr-primary: #111111;
-  --cr-primary2: #000000;
+  --cr-primary: #2563eb;
+  --cr-primary2: #1d4ed8;
   --cr-ok: #16a34a;
 
   min-height: 100svh;
   background:
-    radial-gradient(900px 480px at 20% 0%, rgba(17,24,39,0.05), rgba(0,0,0,0) 60%),
+    radial-gradient(900px 480px at 20% 0%, rgba(37,99,235,0.10), rgba(0,0,0,0) 60%),
+    radial-gradient(700px 400px at 90% 20%, rgba(14,165,233,0.10), rgba(0,0,0,0) 55%),
     var(--cr-bg);
   color: var(--cr-text);
 
@@ -71,7 +72,7 @@
 .crHead{
   padding: 18px 18px 14px;
   border-bottom: 1px solid rgba(17,24,39,0.08);
-  background: linear-gradient(180deg, rgba(17,24,39,0.06), rgba(255,255,255,0));
+  background: linear-gradient(180deg, rgba(37,99,235,0.06), rgba(255,255,255,0));
 }
 
 .crHeadTop{
@@ -101,7 +102,7 @@
 }
 .tag.ok{ background: rgba(22,163,74,0.10); color:#0f6b31; border-color: rgba(22,163,74,0.25); }
 .tag.ng{ background: rgba(239,68,68,0.10); color:#9b1c1c; border-color: rgba(239,68,68,0.25); }
-.tag.wait{ background: rgba(17,24,39,0.10); color:#111111; border-color: rgba(17,24,39,0.25); }
+.tag.wait{ background: rgba(14,165,233,0.10); color:#075985; border-color: rgba(14,165,233,0.25); }
 
 .crErr{
   margin-top: 10px;
@@ -187,8 +188,8 @@
   font-weight: 900;
 }
 .crPw:focus{
-  border-color: rgba(17,24,39,0.40);
-  box-shadow: 0 0 0 4px rgba(17,24,39,0.12);
+  border-color: rgba(37,99,235,0.40);
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
   outline: none;
 }
 
@@ -211,7 +212,7 @@
 .crBtn.primary{
   background: var(--cr-primary);
   color: #fff;
-  border-color: rgba(17,24,39,0.20);
+  border-color: rgba(37,99,235,0.20);
 }
 .crBtn.primary:hover{ background: var(--cr-primary2); }
 .crBtn.ghost{ background:#fff; }

@@ -26,8 +26,8 @@
   --a-text: var(--plist-text, #1d1d1f);
   --a-text-sub: var(--plist-text-sub, #6e6e73);
   --a-text-muted: var(--plist-text-muted, #a1a1a6);
-  --a-accent: var(--plist-accent, #111111);
-  --a-accent-soft: var(--plist-accent-soft, #f4f4f5);
+  --a-accent: var(--plist-accent, #8b1e3f);
+  --a-accent-soft: var(--plist-accent-soft, #f7ecef);
 
   --a-shadow-1:
     0 1px 2px rgba(15, 23, 42, 0.04),
@@ -76,7 +76,7 @@
   font-weight: 700;
   font-size: 22px;
   letter-spacing: 0.02em;
-  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.28);
+  box-shadow: 0 4px 12px rgba(139, 30, 63, 0.28);
 }
 
 .account-profile-text {
@@ -263,7 +263,7 @@
 
 .acc-btn:focus-visible {
   outline: none;
-  background: rgba(17, 24, 39, 0.06);
+  background: rgba(139, 30, 63, 0.06);
 }
 
 .acc-btn-admin {
@@ -327,7 +327,7 @@
 }
 
 .account-points-history:hover {
-  border-color: rgba(17, 24, 39, 0.25);
+  border-color: rgba(139, 30, 63, 0.25);
   background: #ffffff;
 }
 

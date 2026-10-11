@@ -140,7 +140,7 @@ function drawBigXTarget(ctx: CanvasRenderingContext2D, x: number, y: number, r: 
   ctx.shadowColor = "rgba(58,134,255,0.55)";
   ctx.shadowBlur = Math.max(10, r * 0.35);
 
-  ctx.fillStyle = "rgba(17,24,39,0.04)";
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
@@ -174,7 +174,7 @@ function drawBigOTarget(ctx: CanvasRenderingContext2D, x: number, y: number, r: 
   ctx.shadowColor = "rgba(255,77,109,0.55)";
   ctx.shadowBlur = Math.max(10, r * 0.35);
 
-  ctx.fillStyle = "rgba(17,24,39,0.04)";
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
@@ -1245,11 +1245,11 @@ export default function Game() {
       const pNow = phaseRef.current;
 
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = "#0b0f19";
       ctx.fillRect(0, 0, w, h);
 
       ctx.globalAlpha = 0.1;
-      ctx.strokeStyle = "#111827";
+      ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2;
       ctx.strokeRect(10, 10, w - 20, h - 20);
       ctx.globalAlpha = 1;
@@ -1627,7 +1627,7 @@ export default function Game() {
         for (const o of obstaclesRef.current) {
           ctx.save();
           ctx.globalAlpha = 0.75;
-          ctx.fillStyle = "rgba(17,24,39,0.16)";
+          ctx.fillStyle = "rgba(255,255,255,0.18)";
           roundRect(ctx, o.x - o.w / 2, o.y - o.h / 2, o.w, o.h, 10);
           ctx.fill();
           ctx.restore();
@@ -1642,7 +1642,7 @@ export default function Game() {
 
           if (t.hp > 1) {
             ctx.save();
-            ctx.strokeStyle = "rgba(17,24,39,0.55)";
+            ctx.strokeStyle = "rgba(255,255,255,0.9)";
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(t.x, t.y, t.r - 3, 0, Math.PI * 2);
@@ -1683,7 +1683,7 @@ export default function Game() {
 
         ctx.save();
         ctx.globalAlpha = 0.82;
-        ctx.fillStyle = "rgba(17,24,39,0.16)";
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
 
         roundRect(ctx, barX - vW / 2, vY1, vW, vH, 10);
         ctx.fill();
@@ -1703,10 +1703,10 @@ export default function Game() {
           const maxW = w * 0.82;
           const lines = wrapText(ctx, txt, maxW).slice(0, 2);
           const boxH = lines.length * (fs + 4) + 16;
-          ctx.fillStyle = "rgba(255,255,255,0.94)";
+          ctx.fillStyle = "rgba(10,14,24,0.78)";
           roundRect(ctx, w / 2 - maxW / 2 - 8, 12, maxW + 16, boxH, 12);
           ctx.fill();
-          ctx.fillStyle = "#111111";
+          ctx.fillStyle = "#ffffff";
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
           lines.forEach((ln, i) => ctx.fillText(ln, w / 2, 20 + i * (fs + 4)));
@@ -1717,7 +1717,7 @@ export default function Game() {
       // draw paddle
       ctx.save();
       ctx.globalAlpha = 0.88;
-      ctx.fillStyle = "#111111";
+      ctx.fillStyle = "#e6e6e6";
       roundRect(ctx, p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 12);
       ctx.fill();
       ctx.restore();
@@ -1725,7 +1725,7 @@ export default function Game() {
       // draw ball
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.fillStyle = "#111111";
+      ctx.fillStyle = "#ffffff";
       ctx.fill();
 
       ctx.beginPath();
@@ -1736,17 +1736,17 @@ export default function Game() {
       // countdown overlay
       if (pNow === "countdown" || pNow === "serve_auto" || pNow === "quiz_countdown") {
         ctx.save();
-        ctx.fillStyle = "rgba(255,255,255,0.72)";
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
         ctx.fillRect(0, 0, w, h);
 
-        ctx.fillStyle = "#111111";
+        ctx.fillStyle = "#fff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.font = `900 ${Math.max(52, Math.min(w, h) * 0.12)}px system-ui`;
         ctx.fillText(String(countdown), w / 2, h / 2 - 10);
 
         ctx.font = `800 ${Math.max(14, Math.min(w, h) * 0.028)}px system-ui`;
-        ctx.fillStyle = "rgba(17,24,39,0.65)";
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
         const sub = pNow === "quiz_countdown" ? "クイズ開始…" : "スタート…";
         ctx.fillText(sub, w / 2, h / 2 + 44);
         ctx.restore();
@@ -1755,10 +1755,10 @@ export default function Game() {
       // quiz result overlay
       if (pNow === "quiz_result" && quizResult) {
         ctx.save();
-        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
         ctx.fillRect(0, 0, w, h);
 
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "rgba(12,16,28,0.96)";
         roundRect(ctx, w * 0.18, h * 0.38, w * 0.64, h * 0.18, 18);
         ctx.fill();
 
@@ -1768,7 +1768,7 @@ export default function Game() {
         ctx.font = `900 ${Math.max(26, Math.min(w, h) * 0.055)}px system-ui`;
         ctx.fillText(quizResult.correct ? "正解！" : "不正解…", w / 2, h * 0.44);
 
-        ctx.fillStyle = "rgba(17,24,39,0.8)";
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
         ctx.font = "800 16px system-ui";
         const s = quizResult.delta >= 0 ? `+${quizResult.delta}` : `${quizResult.delta}`;
         ctx.fillText(`${s} / x${multiplierRef.current.toFixed(1)}`, w / 2, h * 0.5);
@@ -1873,11 +1873,11 @@ export default function Game() {
                                 style={{
                                   width: "100%",
                                   padding: "12px 12px",
-                                  borderRadius: 12,
-                                  border: "1px solid rgba(17,24,39,0.16)",
-                                  background: "#ffffff",
-                                  color: "#111111",
-                                  fontWeight: 800,
+                                  borderRadius: 14,
+                                  border: "1px solid rgba(255,255,255,0.16)",
+                                  background: "rgba(255,255,255,0.06)",
+                                  color: "#fff",
+                                  fontWeight: 900,
                                   outline: "none",
                                 }}
                               />

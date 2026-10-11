@@ -16,8 +16,8 @@
   --pd-text: var(--plist-text, #1d1d1f);
   --pd-text-sub: var(--plist-text-sub, #6e6e73);
   --pd-text-muted: var(--plist-text-muted, #a1a1a6);
-  --pd-accent: var(--plist-accent, #111111);
-  --pd-accent-soft: var(--plist-accent-soft, #f4f4f5);
+  --pd-accent: var(--plist-accent, #8b1e3f);
+  --pd-accent-soft: var(--plist-accent-soft, #f7ecef);
 
   --pd-shadow-1:
     0 1px 2px rgba(15, 23, 42, 0.04),
@@ -257,14 +257,14 @@
 }
 
 .pdetail-chip.member {
-  background: #f4f4f5;
-  color: #111111;
+  background: #e7f0ff;
+  color: #1e6fd9;
 }
 
 .pdetail-chip.shipping {
-  background: #f4f4f5;
-  color: #111111;
-  border: 1px solid #e4e4e7;
+  background: #eaf2fd;
+  color: #1e6fd9;
+  border: 1px solid #bcd4f4;
 }
 
 .pdetail-name {
@@ -315,7 +315,7 @@
 }
 
 .pdetail-price.is-member {
-  color: #111111;
+  color: #1e6fd9;
 }
 
 .pdetail-pricePanel {
@@ -378,7 +378,7 @@
 .pdetail-points-num {
   font-weight: 800;
   font-size: 15px;
-  color: #111111;
+  color: #1e6fd9;
 }
 
 .pdetail-points.guest {
@@ -539,12 +539,12 @@
 .pdetail-btn.primary {
   background: var(--pd-accent);
   color: #fff;
-  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.22);
+  box-shadow: 0 6px 16px rgba(139, 30, 63, 0.22);
 }
 
 .pdetail-btn.primary:hover:not(:disabled) {
-  background: #000000;
-  box-shadow: 0 8px 22px rgba(17, 24, 39, 0.28);
+  background: #75182f;
+  box-shadow: 0 8px 22px rgba(139, 30, 63, 0.28);
 }
 
 .pdetail-btn.secondary {
@@ -570,9 +570,9 @@
   margin-top: 10px;
   font-size: 12.5px;
   font-weight: 800;
-  color: #111111;
+  color: #1e6fd9;
   background: #f2f7fd;
-  border: 1px dashed #e4e4e7;
+  border: 1px dashed #bcd4f4;
   border-radius: 8px;
   padding: 8px 10px;
 }
@@ -715,11 +715,11 @@
 .pdetail-bottomBtn.primary {
   background: var(--pd-accent);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.22);
+  box-shadow: 0 4px 12px rgba(139, 30, 63, 0.22);
 }
 
 .pdetail-bottomBtn.primary:hover:not(:disabled) {
-  background: #000000;
+  background: #75182f;
 }
 
 .pdetail-bottomBtn.secondary {
@@ -763,15 +763,15 @@
 /* ---------- 補助スタイル ---------- */
 
 .plist-price.is-member {
-  color: #111111;
+  color: #1e6fd9;
 }
 
 .plist-memberTag {
   flex: 0 0 auto;
   padding: 2px 8px;
   border-radius: 6px;
-  background: #f4f4f5;
-  color: #111111;
+  background: #e7f0ff;
+  color: #1e6fd9;
   font-size: 11px;
   font-weight: 700;
   margin-right: 6px;
@@ -781,7 +781,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: #111111;
+  background: #1e6fd9;
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -808,7 +808,7 @@
 .ae-shipping-toggle input {
   width: 18px;
   height: 18px;
-  accent-color: #111111;
+  accent-color: #1e6fd9;
 }
 
 .ae-help {
@@ -827,9 +827,9 @@
 }
 
 .co-fulfillBanner.shipping {
-  background: #f4f4f5;
-  color: #111111;
-  border: 1px solid #e4e4e7;
+  background: #eaf2fd;
+  color: #1e6fd9;
+  border: 1px solid #bcd4f4;
 }
 
 .co-fulfillBanner.pickup {
@@ -854,8 +854,8 @@
 }
 
 .co-item-tag.shipping {
-  background: #f4f4f5;
-  color: #111111;
+  background: #eaf2fd;
+  color: #1e6fd9;
 }
 
 .co-item-tag.pickup {
