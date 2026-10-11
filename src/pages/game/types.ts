@@ -68,6 +68,11 @@ export type Obstacle = {
   w: number;
   h: number;
   vx: number;
+  // 上下ゆれ（バリエーション用・任意）
+  baseY?: number;
+  amp?: number;
+  phase?: number;
+  spd?: number;
 };
 
 export type QuizChoice = "X" | "O";

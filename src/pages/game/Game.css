@@ -842,3 +842,60 @@ html{
     max-width: 100% !important;
   }
 }
+
+/* =========================
+   ✅ コンボ＆フィーバー / クイズ演出 / 報酬チップ
+========================= */
+.hudCombo {
+  background: rgba(255, 209, 102, 0.18);
+  border-color: rgba(255, 209, 102, 0.5);
+  color: #ffd166;
+}
+.hudCombo.is-fever {
+  background: linear-gradient(90deg, rgba(255, 80, 120, 0.4), rgba(255, 180, 0, 0.4));
+  border-color: rgba(255, 130, 90, 0.75);
+  color: #fff;
+  animation: feverPulse 0.7s ease-in-out infinite;
+}
+@keyframes feverPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 120, 80, 0); }
+  50% { transform: scale(1.06); box-shadow: 0 0 14px rgba(255, 120, 80, 0.6); }
+}
+
+.gRewardDiff {
+  display: inline-block;
+  margin: 0 8px 0 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  background: rgba(99, 102, 241, 0.22);
+  color: #c7d2fe;
+  border: 1px solid rgba(129, 140, 248, 0.45);
+}
+
+.quizLegend {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+.quizLegendO,
+.quizLegendX {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.quizLegendO {
+  background: rgba(56, 176, 120, 0.22);
+  color: #b7f7d4;
+  border: 1px solid rgba(56, 176, 120, 0.5);
+}
+.quizLegendX {
+  background: rgba(255, 80, 120, 0.2);
+  color: #ffc2cf;
+  border: 1px solid rgba(255, 80, 120, 0.5);
+}

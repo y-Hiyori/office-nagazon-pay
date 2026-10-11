@@ -47,6 +47,22 @@ import Loading from "../../components/Loading";
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
+// 日本語はスペースが無いので1文字ずつ折り返す
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const lines: string[] = [];
+  let cur = "";
+  for (const ch of Array.from(text)) {
+    if (cur && ctx.measureText(cur + ch).width > maxWidth) {
+      lines.push(cur);
+      cur = ch;
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -472,6 +488,16 @@ export default function Game() {
   const [timeLeft, setTimeLeft] = useState<number>(rules.timeSec);
   const timeRef = useRef<number>(rules.timeSec);
 
+  // ✅ コンボ＆フィーバー
+  const comboRef = useRef(0);
+  const [comboUi, setComboUi] = useState(0);
+  const feverTRef = useRef(0); // フィーバー残り秒
+  const [feverOn, setFeverOn] = useState(false);
+  const FEVER_AT = 6; // このコンボ数でフィーバー突入
+  const FEVER_SEC = 6; // フィーバー継続秒
+  const FEVER_MULT = 2; // フィーバー中の得点倍率
+  const obTRef = useRef(0); // 障害物の上下ゆれ用の経過時間
+
   // ✅ 難易度を切り替えた瞬間に rules の値へ同期（easy固定を消す）
   useEffect(() => {
     multiplierRef.current = rules.startMultiplier;
@@ -675,11 +701,13 @@ export default function Game() {
     for (let idx = 0; idx < total; idx++) {
       const isQuiz = quizIdx.has(idx);
       const motion = params.moveSet[idx % params.moveSet.length] as Motion;
+      // ✅ バリエーション：一部の的は2回当てないと壊れない（EASY以外）
+      const armored = !isQuiz && difficulty !== "easy" && idx % 6 === 3;
 
       let placed: Target | null = null;
 
       for (let attempt = 0; attempt < 60; attempt++) {
-        const r = baseR * rand(0.88, 1.06);
+        const r = baseR * rand(0.88, 1.06) * (armored ? 1.14 : 1);
         const x = rand(areaLeft + r, areaRight - r);
         const y = rand(areaTop + r, areaBottom - r);
 
@@ -701,8 +729,8 @@ export default function Game() {
           r,
           baseX: x,
           baseY: y,
-          color: isQuiz ? quizColor : normalColors[idx % normalColors.length],
-          hp: 1,
+          color: isQuiz ? quizColor : armored ? "#f97316" : normalColors[idx % normalColors.length],
+          hp: armored ? 2 : 1,
           isQuiz,
           quizId: isQuiz && quiz ? quiz.id : undefined,
 
@@ -772,18 +800,24 @@ export default function Game() {
   const makeObstacles = (w: number, h: number) => {
     const list: Obstacle[] = [];
     for (let i = 0; i < params.obstacleCount; i++) {
-      const ww = clamp(w * 0.28, 160, 320);
-      const hh = 16;
-      const y = clamp(h * (0.62 + i * 0.1), Math.floor(h * 0.55), h - 210);
+      const ww = clamp(w * rand(0.2, 0.34), 130, 340);
+      const hh = rand(0, 1) < 0.35 ? 14 : 18;
+      const baseY = clamp(h * (0.6 + i * 0.1), Math.floor(h * 0.55), h - 200);
       const vx = rand(150, 260) * (Math.random() < 0.5 ? -1 : 1);
+      const sway = i % 2 === 1; // 1本おきに上下ゆれ（バリエーション）
+      const amp = sway ? clamp(h * 0.035, 10, 34) : 0;
 
       list.push({
         id: `o_${i}_${Math.random().toString(16).slice(2)}`,
         x: rand(ww / 2 + 18, w - ww / 2 - 18),
-        y,
+        y: baseY,
         w: ww,
         h: hh,
         vx,
+        baseY,
+        amp,
+        phase: rand(0, Math.PI * 2),
+        spd: rand(0.8, 1.6),
       });
     }
     obstaclesRef.current = list;
@@ -813,6 +847,12 @@ export default function Game() {
 
     scoreRef.current = 0;
     setScore(0);
+
+    comboRef.current = 0;
+    setComboUi(0);
+    feverTRef.current = 0;
+    setFeverOn(false);
+    obTRef.current = 0;
 
     // ✅ rules連動
     multiplierRef.current = rules.startMultiplier;
@@ -1212,9 +1252,25 @@ export default function Game() {
       ctx.strokeRect(10, 10, w - 20, h - 20);
       ctx.globalAlpha = 1;
 
+      // ✅ フィーバー中の背景演出
+      if (feverTRef.current > 0) {
+        const g = ctx.createLinearGradient(0, 0, 0, h);
+        g.addColorStop(0, "rgba(255,80,120,0.20)");
+        g.addColorStop(1, "rgba(255,170,0,0.10)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      }
+
       // ✅ time (rules.timeSec 連動)
       if (pNow === "playing") {
         timeRef.current -= dt;
+        if (feverTRef.current > 0) {
+          feverTRef.current -= dt;
+          if (feverTRef.current <= 0) {
+            feverTRef.current = 0;
+            setFeverOn(false);
+          }
+        }
         if (timeRef.current <= 0) {
           timeRef.current = 0;
           setTimeLeft(0);
@@ -1321,6 +1377,9 @@ export default function Game() {
 
       // obstacles movement
       if (pNow === "playing") {
+        obTRef.current += dt;
+        const oyMin = Math.floor(h * 0.52);
+        const oyMax = h - 150;
         for (const o of obstaclesRef.current) {
           o.x += o.vx * dt;
           if (o.x - o.w / 2 < 18) {
@@ -1330,6 +1389,13 @@ export default function Game() {
           if (o.x + o.w / 2 > w - 18) {
             o.x = w - 18 - o.w / 2;
             o.vx *= -1;
+          }
+          if (o.amp && o.baseY != null) {
+            o.y = clamp(
+              o.baseY + Math.sin(obTRef.current * (o.spd ?? 1) + (o.phase ?? 0)) * o.amp,
+              oyMin,
+              oyMax,
+            );
           }
         }
       }
@@ -1480,10 +1546,22 @@ export default function Game() {
 
                 if (t.hp <= 0) {
                   if (!t.isQuiz) {
-                    // ✅ rules.ts の点数
-                    const add = Math.round(rules.hitBaseScore * multiplierRef.current);
+                    // ✅ コンボ＆フィーバー
+                    comboRef.current += 1;
+                    setComboUi(comboRef.current);
+
+                    const fever = feverTRef.current > 0;
+                    const comboBonus = 1 + Math.min(comboRef.current - 1, 10) * 0.1;
+                    const add = Math.round(
+                      rules.hitBaseScore * multiplierRef.current * (fever ? FEVER_MULT : 1) * comboBonus,
+                    );
                     scoreRef.current += add;
                     setScore(scoreRef.current);
+
+                    if (!fever && comboRef.current >= FEVER_AT) {
+                      feverTRef.current = FEVER_SEC;
+                      setFeverOn(true);
+                    }
                   } else {
                     const q = getQuizById(t.quizId);
                     setActiveQuiz(q);
@@ -1527,8 +1605,13 @@ export default function Game() {
 
           // ball lost
           if (b.y - b.r > h + 28) {
-            if (pNow === "playing") setPhase("gameover");
-            else if (pNow === "quiz_play") {
+            if (pNow === "playing") {
+              comboRef.current = 0;
+              setComboUi(0);
+              feverTRef.current = 0;
+              setFeverOn(false);
+              setPhase("gameover");
+            } else if (pNow === "quiz_play") {
               b.released = false;
               runCountdown("quiz_play", true);
             }
@@ -1554,6 +1637,16 @@ export default function Game() {
         for (const t of targetsRef.current) {
           if (t.hp <= 0) continue;
           drawCell(ctx, t.x, t.y, t.r, t.color);
+
+          if (t.hp > 1) {
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,255,255,0.9)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, t.r - 3, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
 
           if (t.isQuiz) {
             ctx.save();
@@ -1597,6 +1690,26 @@ export default function Game() {
         ctx.fill();
 
         ctx.restore();
+
+        // ✅ プレイ中も問題文を表示（読みながら狙える）
+        const q = activeQuizRef.current;
+        if (q) {
+          const txt = ensureQuizSuffix(q.statement);
+          const fs = Math.max(13, Math.min(w, h) * 0.03);
+          ctx.save();
+          ctx.font = `900 ${fs}px system-ui`;
+          const maxW = w * 0.82;
+          const lines = wrapText(ctx, txt, maxW).slice(0, 2);
+          const boxH = lines.length * (fs + 4) + 16;
+          ctx.fillStyle = "rgba(10,14,24,0.78)";
+          roundRect(ctx, w / 2 - maxW / 2 - 8, 12, maxW + 16, boxH, 12);
+          ctx.fill();
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          lines.forEach((ln, i) => ctx.fillText(ln, w / 2, 20 + i * (fs + 4)));
+          ctx.restore();
+        }
       }
 
       // draw paddle
@@ -1647,12 +1760,13 @@ export default function Game() {
         roundRect(ctx, w * 0.18, h * 0.38, w * 0.64, h * 0.18, 18);
         ctx.fill();
 
-        ctx.fillStyle = "white";
+        ctx.fillStyle = quizResult.correct ? "#7cffb2" : "#ff8fa3";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.font = `900 ${Math.max(26, Math.min(w, h) * 0.055)}px system-ui`;
         ctx.fillText(quizResult.correct ? "正解！" : "不正解…", w / 2, h * 0.44);
 
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
         ctx.font = "800 16px system-ui";
         const s = quizResult.delta >= 0 ? `+${quizResult.delta}` : `${quizResult.delta}`;
         ctx.fillText(`${s} / x${multiplierRef.current.toFixed(1)}`, w / 2, h * 0.5);
@@ -1690,6 +1804,11 @@ export default function Game() {
               <div className="hudItem">
                 <MultiplierText multiplier={multiplierUi} />
               </div>
+              {comboUi >= 2 && (
+                <div className={`hudItem hudCombo${feverOn ? " is-fever" : ""}`}>
+                  {feverOn ? "🔥 FEVER" : `COMBO x${comboUi}`}
+                </div>
+              )}
             </div>
 
             <canvas
@@ -1864,9 +1983,14 @@ export default function Game() {
                 <div className="overlayCard">
                   <div className="overlayTitle">○×クイズ</div>
                   <div className="overlayText quizQuestion">{quizText}</div>
+                  <div className="quizLegend">
+                    <span className="quizLegendO">◯ 正しいと思う</span>
+                    <span className="quizLegendX">✕ ちがうと思う</span>
+                  </div>
                   <button type="button" className="overlayPrimary" onClick={onQuizConfirm}>
                     クイズ開始
                   </button>
+                  <div className="overlayHint">ボールを当てて答えよう</div>
                 </div>
               </div>
             )}
