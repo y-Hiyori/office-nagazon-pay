@@ -40,6 +40,19 @@ import {
   normalizeGuestName,
 } from "./lib/guestName";
 import Loading from "../../components/Loading";
+import {
+  unlockAudio,
+  isMuted,
+  setMuted,
+  seHit,
+  seCombo,
+  seFever,
+  seCorrect,
+  seWrong,
+  seCount,
+  seStart,
+  seGameover,
+} from "./lib/sfx";
 
 /* =========================
    Utils
@@ -239,6 +252,12 @@ const REWARD_DIFF_LABEL: Record<string, string> = {
   hard: "HARD",
 };
 const rewardDiffLabel = (d?: string | null) => REWARD_DIFF_LABEL[String(d ?? "any").toLowerCase()] ?? "全難易度";
+
+const DIFF_DESC: Record<string, string> = {
+  easy: "やさしい：的が少なくゆっくり。まずはここから。",
+  normal: "ふつう：的が増えて動く。バランス重視。",
+  hard: "上級：的が多く速い。高得点＆高難度。",
+};
 
 /* ✅ クーポン（報酬ごと1回） */
 function isInValidWindow(r: CouponRewardRow, now = new Date()): boolean {
@@ -500,6 +519,27 @@ export default function Game() {
   const FEVER_MULT = 2; // フィーバー中の得点倍率
   const obTRef = useRef(0); // 障害物の上下ゆれ用の経過時間
 
+  // ✅ 演出：ヒット時のパーティクル
+  const particlesRef = useRef<{ x: number; y: number; vx: number; vy: number; life: number; max: number; color: string }[]>([]);
+  const spawnBurst = (x: number, y: number, color: string, n = 9) => {
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(40, 220);
+      const max = rand(0.35, 0.7);
+      particlesRef.current.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: max, max, color });
+    }
+    if (particlesRef.current.length > 220) particlesRef.current.splice(0, particlesRef.current.length - 220);
+  };
+
+  // ✅ サウンド ON/OFF
+  const [mutedUi, setMutedUi] = useState(isMuted());
+  const toggleMute = () => {
+    unlockAudio();
+    const next = !mutedUi;
+    setMuted(next);
+    setMutedUi(next);
+  };
+
   // ✅ 難易度を切り替えた瞬間に rules の値へ同期（easy固定を消す）
   useEffect(() => {
     multiplierRef.current = rules.startMultiplier;
@@ -528,6 +568,7 @@ export default function Game() {
   const pointerRef = useRef<{ active: boolean; x: number }>({ active: false, x: 0 });
 
   const lastTsRef = useRef(0);
+  const feverGradRef = useRef<{ key: string; grad: CanvasGradient } | null>(null);
 
   const scoreSentRef = useRef(false);
   const couponTriedRef = useRef(false);
@@ -855,6 +896,7 @@ export default function Game() {
     feverTRef.current = 0;
     setFeverOn(false);
     obTRef.current = 0;
+    particlesRef.current = [];
 
     // ✅ rules連動
     multiplierRef.current = rules.startMultiplier;
@@ -1032,6 +1074,8 @@ export default function Game() {
         return;
       }
 
+      seCount();
+
       setCountdown((c) => {
         if (token !== countdownTokenRef.current) return c;
 
@@ -1084,6 +1128,8 @@ export default function Game() {
 
     // ✅ resetGameの中で time/mul を rules でセット済み → 二重セットしない
     resetGame(true);
+    unlockAudio();
+    seStart();
     runCountdown("playing", true);
   };
 
@@ -1126,6 +1172,9 @@ export default function Game() {
 
     setScore(scoreRef.current);
     setMultiplierUi(multiplierRef.current);
+
+    if (correct) seCorrect();
+    else seWrong();
 
     setQuizResult({ correct, delta });
     setPhase("quiz_result");
@@ -1254,12 +1303,16 @@ export default function Game() {
       ctx.strokeRect(10, 10, w - 20, h - 20);
       ctx.globalAlpha = 1;
 
-      // ✅ フィーバー中の背景演出
+      // ✅ フィーバー中の背景演出（グラデはサイズごとにキャッシュ）
       if (feverTRef.current > 0) {
-        const g = ctx.createLinearGradient(0, 0, 0, h);
-        g.addColorStop(0, "rgba(255,80,120,0.20)");
-        g.addColorStop(1, "rgba(255,170,0,0.10)");
-        ctx.fillStyle = g;
+        const key = `${w}x${h}`;
+        if (!feverGradRef.current || feverGradRef.current.key !== key) {
+          const g = ctx.createLinearGradient(0, 0, 0, h);
+          g.addColorStop(0, "rgba(255,80,120,0.20)");
+          g.addColorStop(1, "rgba(255,170,0,0.10)");
+          feverGradRef.current = { key, grad: g };
+        }
+        ctx.fillStyle = feverGradRef.current.grad;
         ctx.fillRect(0, 0, w, h);
       }
 
@@ -1545,12 +1598,15 @@ export default function Game() {
               if (dist2(b.x, b.y, t.x, t.y) <= rr * rr) {
                 b.vy *= -1;
                 t.hp -= 1;
+                seHit();
 
                 if (t.hp <= 0) {
+                  spawnBurst(t.x, t.y, t.color, t.isQuiz ? 14 : 9);
                   if (!t.isQuiz) {
                     // ✅ コンボ＆フィーバー
                     comboRef.current += 1;
                     setComboUi(comboRef.current);
+                    seCombo(comboRef.current);
 
                     const fever = feverTRef.current > 0;
                     const comboBonus = 1 + Math.min(comboRef.current - 1, 10) * 0.1;
@@ -1563,6 +1619,7 @@ export default function Game() {
                     if (!fever && comboRef.current >= FEVER_AT) {
                       feverTRef.current = FEVER_SEC;
                       setFeverOn(true);
+                      seFever();
                     }
                   } else {
                     const q = getQuizById(t.quizId);
@@ -1612,6 +1669,7 @@ export default function Game() {
               setComboUi(0);
               feverTRef.current = 0;
               setFeverOn(false);
+              seGameover();
               setPhase("gameover");
             } else if (pNow === "quiz_play") {
               b.released = false;
@@ -1733,6 +1791,29 @@ export default function Game() {
       ctx.fillStyle = "rgba(0,0,0,0.12)";
       ctx.fill();
 
+      // ✅ パーティクル（ヒット演出）
+      if (particlesRef.current.length) {
+        const ps = particlesRef.current;
+        for (let i = ps.length - 1; i >= 0; i--) {
+          const pt = ps[i];
+          pt.life -= dt;
+          if (pt.life <= 0) {
+            ps.splice(i, 1);
+            continue;
+          }
+          pt.x += pt.vx * dt;
+          pt.y += pt.vy * dt;
+          pt.vy += 420 * dt;
+          const a = Math.max(0, pt.life / pt.max);
+          ctx.globalAlpha = a;
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 3 * a + 1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
       // countdown overlay
       if (pNow === "countdown" || pNow === "serve_auto" || pNow === "quiz_countdown") {
         ctx.save();
@@ -1799,6 +1880,7 @@ export default function Game() {
         <div className="gameWrap" ref={wrapRef}>
           <div className="canvasShell">
             <div className="hudBar">
+              <div className="hudItem hudDiff">{difficulty.toUpperCase()}</div>
               <div className="hudItem">TIME: {timeLeft}s</div>
               <div className="hudItem">
                 <ScoreText score={score} />
@@ -1811,6 +1893,15 @@ export default function Game() {
                   {feverOn ? "🔥 FEVER" : `COMBO x${comboUi}`}
                 </div>
               )}
+              <button
+                type="button"
+                className="hudItem hudMute"
+                onClick={toggleMute}
+                aria-label={mutedUi ? "サウンドをONにする" : "サウンドをOFFにする"}
+                title={mutedUi ? "サウンド：OFF" : "サウンド：ON"}
+              >
+                {mutedUi ? "🔇" : "🔊"}
+              </button>
             </div>
 
             <canvas
@@ -1953,6 +2044,8 @@ export default function Game() {
                           HARD
                         </button>
                       </div>
+
+                      <div className="diffDesc">{DIFF_DESC[difficulty]}</div>
 
                       <button
                         type="button"

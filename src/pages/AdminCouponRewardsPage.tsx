@@ -28,13 +28,6 @@ type RewardForm = Omit<Reward, "id" | "created_at" | "updated_at" | "redeem_pass
   redeem_password: string; // UI入力（平文はDBに保存しない）
 };
 
-type DiscountCoupon = {
-  code: string;
-  is_active: boolean;
-  discount_type: string | null;
-  discount_value: number | null;
-};
-
 const DIFF_LABEL: Record<string, string> = {
   any: "全難易度共通",
   easy: "EASY のみ",
@@ -46,12 +39,6 @@ const MODE_LABEL: Record<string, string> = {
   qr: "QRコード",
   code: "割引クーポンのコード",
 };
-
-function couponSummary(c: DiscountCoupon): string {
-  const v = Number(c.discount_value ?? 0);
-  const d = c.discount_type === "percent" ? `${v}%引き` : `${v}円引き`;
-  return `${c.code}（${d}）`;
-}
 
 const emptyForm: RewardForm = {
   is_active: true,
@@ -100,7 +87,6 @@ function formatYMDHM(iso?: string | null) {
 export default function AdminCouponRewardsPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Reward[]>([]);
-  const [coupons, setCoupons] = useState<DiscountCoupon[]>([]);
   const [form, setForm] = useState<RewardForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -111,13 +97,7 @@ export default function AdminCouponRewardsPage() {
 
   const load = async () => {
     setLoading(true);
-    const [{ data, error }, couponRes] = await Promise.all([
-      supabase.from("coupon_rewards").select("*").order("created_at", { ascending: false }),
-      supabase
-        .from("coupons")
-        .select("code,is_active,discount_type,discount_value")
-        .order("created_at", { ascending: false }),
-    ]);
+    const { data, error } = await supabase.from("coupon_rewards").select("*").order("created_at", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -127,7 +107,6 @@ export default function AdminCouponRewardsPage() {
     }
 
     setRows((data ?? []) as Reward[]);
-    setCoupons((couponRes.data ?? []) as DiscountCoupon[]);
     setLoading(false);
   };
 
@@ -423,23 +402,16 @@ export default function AdminCouponRewardsPage() {
                 ) : (
                   <label className="field">
                     <div className="fieldLabel">
-                      割引クーポン <span className="req">必須</span>
+                      割引クーポンのコード <span className="req">必須</span>
                     </div>
-                    <select
+                    <input
                       className="input"
                       value={form.coupon_code}
                       onChange={(e) => setForm((p) => ({ ...p, coupon_code: e.target.value }))}
-                    >
-                      <option value="">選択してください</option>
-                      {coupons.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {couponSummary(c)}
-                          {c.is_active ? "" : "（停止中）"}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="例：NAGAZON0909"
+                    />
                     <div className="miniNote">
-                      ※お客様のクーポン画面にこのコードを表示します。購入時（お会計）に入力すると割引が受けられます。
+                      ※「クーポン管理」で作成したクーポンのコードを入力してください。お客様のクーポン画面にこのコードを表示し、購入時（お会計）に入力すると割引が受けられます。
                     </div>
                   </label>
                 )}

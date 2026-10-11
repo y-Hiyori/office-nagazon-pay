@@ -29,8 +29,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden; /* clipより確実に止まる端末がある */
-  overscroll-behavior: none;
+  overflow-x: clip; /* 横のはみ出しだけ止める（縦スクロールは親に任せる＝スクロール可） */
 }
 .gamePage, .gamePage *{ box-sizing: border-box; }
 
@@ -137,8 +136,9 @@
   place-items:center;
 
   padding:14px;
-  background: radial-gradient(circle at 50% 40%, rgba(0,0,0,0.18), rgba(0,0,0,0.58));
+  background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.5), rgba(255,255,255,0.85));
   overflow:hidden;
+  touch-action: pan-y;
   z-index:5;
 
   min-width: 0;
@@ -906,14 +906,14 @@ html{
   max-width: 340px;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid rgba(17, 24, 39, 0.12);
-  background: #fafafa;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
 }
 .gGotCodeLabel {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
 }
 .gGotCodeValue {
@@ -922,7 +922,38 @@ html{
   font-weight: 900;
   letter-spacing: 0.1em;
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  color: #111111;
+  color: #ffffff;
   word-break: break-all;
 }
-.gGotCodeHint { font-size: 11.5px; color: #6b7280; line-height: 1.6; }
+.gGotCodeHint { font-size: 11.5px; color: rgba(255,255,255,0.65); line-height: 1.6; }
+
+/* =========================
+   ✅ HUD：見やすさ・難易度・サウンド
+========================= */
+.hudItem{
+  font-size: 14px;
+  font-weight: 800;
+}
+.hudDiff{
+  background: #ffffff;
+  color: #111111;
+  border-color: #ffffff;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.hudMute{
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 6px 10px;
+}
+.hudMute:hover{ background: rgba(255,255,255,0.18); }
+
+.diffDesc{
+  margin: 8px 0 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.72);
+  text-align: center;
+  line-height: 1.6;
+}
