@@ -180,10 +180,10 @@ export default function AdminCouponRewardsPage() {
     try {
       setSaving(true);
 
-      if (!form.store_name.trim() || !form.product_name.trim()) {
+      if (!form.store_name.trim()) {
         await appDialog.alert({
           title: "入力不足",
-          message: "店名と商品名は必須です。",
+          message: "店名は必須です。",
           okText: "OK",
         });
         return;
@@ -226,7 +226,6 @@ export default function AdminCouponRewardsPage() {
       const summary = [
         `状態：${form.is_active ? "ON（配布）" : "OFF（停止）"}`,
         `店名：${form.store_name}`,
-        `商品名：${form.product_name}`,
         `対象難易度：${DIFF_LABEL[form.difficulty] ?? form.difficulty}`,
         `しきい値：${form.score_threshold} 点`,
         `表示方法：${MODE_LABEL[form.display_mode] ?? form.display_mode}`,
@@ -328,7 +327,7 @@ export default function AdminCouponRewardsPage() {
               <div className="panelHead">
                 <div className="panelHeadLeft">
                   <h2>{isEditing ? "編集" : "新規作成"}</h2>
-                  <div className="panelSub">必須：店名 / 商品名 /（新規は店舗パスワード）</div>
+                  <div className="panelSub">必須：店名 /（新規は店舗パスワード）</div>
                 </div>
 
                 {isEditing ? (
@@ -439,29 +438,15 @@ export default function AdminCouponRewardsPage() {
                   />
                 </label>
 
-                <div className="formRow">
-                  <label className="field">
-                    <div className="fieldLabel">
-                      商品名 <span className="req">必須</span>
-                    </div>
-                    <input
-                      className="input"
-                      value={form.product_name}
-                      onChange={(e) => setForm((p) => ({ ...p, product_name: e.target.value }))}
-                      placeholder="例：店内ドリンク100円引き"
-                    />
-                  </label>
-
-                  <label className="field">
-                    <div className="fieldLabel">クーポンタイトル</div>
-                    <input
-                      className="input"
-                      value={form.coupon_title}
-                      onChange={(e) => setForm((p) => ({ ...p, coupon_title: e.target.value }))}
-                      placeholder="例：ドリンク割引クーポン"
-                    />
-                  </label>
-                </div>
+                <label className="field">
+                  <div className="fieldLabel">クーポンタイトル</div>
+                  <input
+                    className="input"
+                    value={form.coupon_title}
+                    onChange={(e) => setForm((p) => ({ ...p, coupon_title: e.target.value }))}
+                    placeholder="例：ドリンク割引クーポン"
+                  />
+                </label>
 
                 <label className="field">
                   <div className="fieldLabel">説明</div>

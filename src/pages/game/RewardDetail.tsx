@@ -82,6 +82,7 @@ export default function RewardDetail() {
   const [issued, setIssued] = useState<IssuedState>({ status: "checking" });
   const [issuedErr, setIssuedErr] = useState<string | null>(null);
   const [inWindow, setInWindow] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   // ① reward 本体
   useEffect(() => {
@@ -164,6 +165,18 @@ export default function RewardDetail() {
 
   const achieved = issued.status === "has";
 
+  const copyCode = async () => {
+    const code = ui.status === "ready" ? (ui.reward.coupon_code ?? "").trim() : "";
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="rewardDetailPage">
       <SiteHeader />
@@ -207,36 +220,16 @@ export default function RewardDetail() {
                         </div>
                       ) : null}
                     </div>
-                  ) : achieved ? (
-                    <>
-                      <div className="rewardStatusLeft">
-                        <div className="rewardStatusTitle">
-                          <span className="badge ok">達成済み</span>
-                        </div>
-                        <div className="rewardStatusText">
-                          {ui.reward.display_mode === "code"
-                            ? "この報酬は獲得済みです。クーポン詳細（コード）を開けます。"
-                            : "この報酬は獲得済みです。クーポン詳細（QR）を開けます。"}
-                        </div>
-                      </div>
-
-                      <div className="rewardStatusActions">
-                        <button
-                          type="button"
-                          className="rBtn"
-                          onClick={() =>
-                            nav(
-                              `/game/coupon?token=${encodeURIComponent(
-                                (issued as { status: "has"; token: string }).token
-                              )}`
-                            )
-                          }
-                        >
-                          クーポンを開く
-                        </button>
-                      </div>
-                    </>
-                  ) : (
+                   ) : achieved ? (
+                     <div className="rewardStatusLeft">
+                       <div className="rewardStatusTitle">
+                         <span className="badge ok">達成済み</span>
+                       </div>
+                       <div className="rewardStatusText">
+                         この報酬は獲得済みです。下にクーポンを表示しています。
+                       </div>
+                     </div>
+                   ) : (
                     <div className="rewardStatusLeft">
                       <div className="rewardStatusTitle">
                         <span className="badge ng">未達成</span>
@@ -254,9 +247,43 @@ export default function RewardDetail() {
                 </div>
 
                 <div className="rewardDetailBody">
+                  {achieved ? (
+                    <div className="rewardGetBox">
+                      <div className="rewardGetLabel">獲得したクーポン</div>
+                      {(ui.reward.display_mode ?? "qr") === "code" && ui.reward.coupon_code?.trim() ? (
+                        <>
+                          <div className="rewardGetCode">{ui.reward.coupon_code.trim()}</div>
+                          <button type="button" className="rBtn" onClick={() => void copyCode()}>
+                            {copied ? "コピーしました ✓" : "コードをコピー"}
+                          </button>
+                          <div className="rewardGetHint">
+                            購入手続きのお会計でクーポン欄に入力すると割引が受けられます。
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="rBtn"
+                            onClick={() =>
+                              nav(
+                                `/game/coupon?token=${encodeURIComponent(
+                                  (issued as { status: "has"; token: string }).token
+                                )}`
+                              )
+                            }
+                          >
+                            クーポンを開く（QR）
+                          </button>
+                          <div className="rewardGetHint">店舗スタッフがQRを読み取って受け取り完了します。</div>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
+
                   <div className="rewardGrid">
                     <div className="rewardBlock">
-                      <div className="rewardBlockTitle">条件</div>
+                      <div className="rewardBlockTitle">獲得条件</div>
 
                       <div className="rewardRow">
                         <div className="k">必要スコア</div>
@@ -269,67 +296,48 @@ export default function RewardDetail() {
                       </div>
 
                       <div className="rewardRow">
-                        <div className="k">提示方法</div>
-                        <div className="v">{(ui.reward.display_mode ?? "qr") === "code" ? "割引クーポンのコード" : "QRコード"}</div>
-                      </div>
-
-                      <div className="rewardRow">
-                        <div className="k">配布状態</div>
+                        <div className="k">受け取り方法</div>
                         <div className="v">
-                          {!ui.reward.is_active ? (
-                            <span className="badge ng">停止</span>
-                          ) : !inWindow ? (
-                            <span className="badge ng">期間外</span>
-                          ) : (
-                            <span className="badge ok">配布中</span>
-                          )}
+                          {(ui.reward.display_mode ?? "qr") === "code" ? "割引クーポンのコード" : "QRコード"}
                         </div>
                       </div>
 
                       <div className="rewardRow">
-                        <div className="k">開始</div>
-                        <div className="v">{formatDateTime(ui.reward.valid_from)}</div>
-                      </div>
-
-                      <div className="rewardRow">
-                        <div className="k">期限</div>
-                        <div className="v">{formatDateTime(ui.reward.valid_to)}</div>
+                        <div className="k">配布期間</div>
+                        <div className="v">
+                          {ui.reward.valid_from || ui.reward.valid_to
+                            ? `${formatDateTime(ui.reward.valid_from)} 〜 ${formatDateTime(ui.reward.valid_to)}`
+                            : "無期限"}
+                        </div>
                       </div>
                     </div>
 
                     <div className="rewardBlock">
-                      <div className="rewardBlockTitle">内容</div>
+                      <div className="rewardBlockTitle">景品の内容</div>
 
                       <div className="rewardRow">
                         <div className="k">タイトル</div>
                         <div className="v">{ui.reward.coupon_title?.trim() || "（未設定）"}</div>
                       </div>
 
-                      {(ui.reward.display_mode ?? "qr") === "code" ? (
-                        <div className="rewardRow">
-                          <div className="k">割引クーポンコード</div>
-                          <div className={`v ${achieved ? "strong" : ""}`}>
-                            {achieved && ui.reward.coupon_code?.trim()
-                              ? ui.reward.coupon_code.trim()
-                              : "達成すると表示されます"}
-                          </div>
-                        </div>
-                      ) : null}
-
                       <div className="rewardRow">
                         <div className="k">店舗名</div>
                         <div className="v">{ui.reward.store_name?.trim() || "（未設定）"}</div>
                       </div>
 
-                      <div className="rewardRow">
-                        <div className="k">商品名</div>
-                        <div className="v">{ui.reward.product_name?.trim() || "（未設定）"}</div>
-                      </div>
+                      {ui.reward.product_name?.trim() ? (
+                        <div className="rewardRow">
+                          <div className="k">商品名</div>
+                          <div className="v">{ui.reward.product_name.trim()}</div>
+                        </div>
+                      ) : null}
 
-                      <div className="rewardRow">
-                        <div className="k">説明</div>
-                        <div className="v desc">{ui.reward.description?.trim() || "（未設定）"}</div>
-                      </div>
+                      {ui.reward.description?.trim() ? (
+                        <div className="rewardRow">
+                          <div className="k">説明</div>
+                          <div className="v desc">{ui.reward.description.trim()}</div>
+                        </div>
+                      ) : null}
 
                       {ui.reward.store_info?.trim() ? (
                         <div className="rewardRow">
@@ -338,10 +346,6 @@ export default function RewardDetail() {
                         </div>
                       ) : null}
                     </div>
-                  </div>
-
-                  <div className="rewardNote">
-                    ※この画面は「報酬の内容確認」用です。クーポン発行はゲーム終了時に行われます。
                   </div>
                 </div>
 

@@ -533,6 +533,16 @@ export default function Game() {
 
   // ✅ サウンド ON/OFF
   const [mutedUi, setMutedUi] = useState(isMuted());
+  const [codeCopied, setCodeCopied] = useState(false);
+  const copyGotCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCodeCopied(true);
+      window.setTimeout(() => setCodeCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  };
   const toggleMute = () => {
     unlockAudio();
     const next = !mutedUi;
@@ -1046,15 +1056,6 @@ export default function Game() {
     return xCss * dpr;
   };
 
-  const toCanvasY = (clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return clientY;
-    const rect = canvas.getBoundingClientRect();
-    const yCss = clientY - rect.top;
-    const dpr = canvas.height / rect.height;
-    return yCss * dpr;
-  };
-
   const onPointerDown = (e: React.PointerEvent) => {
     const pNow = phaseRef.current;
     if (
@@ -1067,25 +1068,14 @@ export default function Game() {
       return;
     }
 
-    // ✅ ○×クイズ中は、○／×のマスをタップで直接回答できる（狙った側に選べない時の保険）
+    // ✅ ○×クイズは「タップで選択のみ」。左半分＝ちがう(×)、右半分＝正しい(○)
     if (pNow === "quiz_play") {
       const canvas = canvasRef.current;
       if (canvas) {
-        const x = toCanvasX(e.clientX);
-        const y = toCanvasY(e.clientY);
         const w = canvas.width;
-        const h = canvas.height;
-        const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
-        const yBig = h * 0.3;
-        const pad = rBig * 1.2;
-        if (dist2(x, y, w * 0.32, yBig) <= pad * pad) {
-          resolveQuiz("X");
-          return;
-        }
-        if (dist2(x, y, w * 0.68, yBig) <= pad * pad) {
-          resolveQuiz("O");
-          return;
-        }
+        const x = toCanvasX(e.clientX);
+        resolveQuiz(x < w / 2 ? "X" : "O");
+        return;
       }
     }
 
@@ -1184,7 +1174,8 @@ export default function Game() {
   ========================= */
   const onQuizConfirm = () => {
     if (phaseRef.current !== "quiz_prompt") return;
-    runCountdown("quiz_play", true);
+    // ✅ ○×クイズはタップ選択のみ（ボールは使わない）
+    setPhase("quiz_play");
   };
 
   const resolveQuiz = (ans: QuizChoice) => {
@@ -1688,26 +1679,6 @@ export default function Game() {
             }
           }
 
-          // quiz answer hits
-          if (pNow === "quiz_play") {
-            const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
-            const yBig = h * 0.3;
-
-            const left = { x: w * 0.32, y: yBig, r: rBig };
-            const right = { x: w * 0.68, y: yBig, r: rBig };
-
-            if (dist2(b.x, b.y, left.x, left.y) <= (b.r + left.r) ** 2) {
-              b.released = false;
-              resolveQuiz("X");
-              break;
-            }
-            if (dist2(b.x, b.y, right.x, right.y) <= (b.r + right.r) ** 2) {
-              b.released = false;
-              resolveQuiz("O");
-              break;
-            }
-          }
-
           // ball lost
           if (b.y - b.r > h + 28) {
             if (pNow === "playing") {
@@ -1766,38 +1737,25 @@ export default function Game() {
         }
       }
 
-      // draw quiz stage
+      // draw quiz stage（○×＝タップで選択のみ）
       if (pNow === "quiz_play") {
         const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
-        const yBig = h * 0.3;
+        const yBig = h * 0.34;
 
         drawBigXTarget(ctx, w * 0.32, yBig, rBig);
         drawBigOTarget(ctx, w * 0.68, yBig, rBig);
 
-        const barW = clamp(Math.min(w, h) * 0.6, 220, 440);
-        const barH = 16;
-        const barX = w / 2;
-        const barY = h * 0.52;
-
-        const vW = 16;
-        const topWall = 14;
-        const vY1 = topWall;
-        const vY2 = barY - barH / 2;
-        const vH = Math.max(0, vY2 - vY1);
-
+        const labelFs = Math.max(12, Math.min(w, h) * 0.026);
         ctx.save();
-        ctx.globalAlpha = 0.82;
-        ctx.fillStyle = "rgba(255,255,255,0.18)";
-
-        roundRect(ctx, barX - vW / 2, vY1, vW, vH, 10);
-        ctx.fill();
-
-        roundRect(ctx, barX - barW / 2, barY - barH / 2, barW, barH, 10);
-        ctx.fill();
-
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.font = `800 ${labelFs}px system-ui`;
+        ctx.fillText("ちがう", w * 0.32, yBig + rBig + 12);
+        ctx.fillText("正しい", w * 0.68, yBig + rBig + 12);
         ctx.restore();
 
-        // ✅ プレイ中も問題文を表示（読みながら狙える）
+        // 問題文
         const q = activeQuizRef.current;
         if (q) {
           const txt = ensureQuizSuffix(q.statement);
@@ -1817,33 +1775,38 @@ export default function Game() {
           ctx.restore();
         }
 
+        // タップ案内
         ctx.save();
-        ctx.fillStyle = "rgba(255,255,255,0.55)";
-        ctx.font = `800 ${Math.max(11, Math.min(w, h) * 0.022)}px system-ui`;
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.font = `800 ${labelFs}px system-ui`;
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
-        ctx.fillText("◯×をタップでも回答できます", w / 2, h - 16);
+        ctx.fillText("タップで回答（左＝ちがう／右＝正しい）", w / 2, h - 18);
         ctx.restore();
       }
 
-      // draw paddle
-      ctx.save();
-      ctx.globalAlpha = 0.88;
-      ctx.fillStyle = "#e6e6e6";
-      roundRect(ctx, p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 12);
-      ctx.fill();
-      ctx.restore();
+      // draw paddle（○×クイズ中は非表示）
+      if (pNow !== "quiz_play") {
+        ctx.save();
+        ctx.globalAlpha = 0.88;
+        ctx.fillStyle = "#e6e6e6";
+        roundRect(ctx, p.x - p.w / 2, p.y - p.h / 2, p.w, p.h, 12);
+        ctx.fill();
+        ctx.restore();
+      }
 
-      // draw ball
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
+      // draw ball（○×クイズ中は非表示）
+      if (pNow !== "quiz_play") {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
 
-      ctx.beginPath();
-      ctx.arc(b.x - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.35, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0,0,0,0.12)";
-      ctx.fill();
+        ctx.beginPath();
+        ctx.arc(b.x - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0,0,0,0.12)";
+        ctx.fill();
+      }
 
       // ✅ パーティクル（ヒット演出）
       if (particlesRef.current.length) {
@@ -2139,7 +2102,7 @@ export default function Game() {
                   <button type="button" className="overlayPrimary" onClick={onQuizConfirm}>
                     クイズ開始
                   </button>
-                  <div className="overlayHint">ボールを当てる／◯×をタップでもOK</div>
+                  <div className="overlayHint">◯×をタップして答えよう</div>
                 </div>
               </div>
             )}
@@ -2157,20 +2120,29 @@ export default function Game() {
                   )}
 
                   {couponUi.status === "issued" ? (
-                    <div style={{ textAlign: "center", marginTop: 14 }}>
-                      <div style={{ fontWeight: 900, marginBottom: 10 }}>🎉 クーポン獲得！</div>
+                    <div className="gGotWrap">
+                      <div className="gGotTitle">🎉 クーポン獲得！</div>
+                      {couponUi.coupon.coupon_title?.trim() ? (
+                        <div className="gGotName">{couponUi.coupon.coupon_title.trim()}</div>
+                      ) : null}
                       {couponUi.coupon.display_mode === "code" && couponUi.coupon.coupon_code ? (
                         <div className="gGotCode">
                           <div className="gGotCodeLabel">割引クーポンコード</div>
                           <div className="gGotCodeValue">{couponUi.coupon.coupon_code}</div>
+                          <button
+                            type="button"
+                            className="overlayPrimary"
+                            style={{ width: "auto", padding: "8px 16px", marginTop: 8 }}
+                            onClick={() => void copyGotCode(couponUi.coupon.coupon_code ?? "")}
+                          >
+                            {codeCopied ? "コピーしました ✓" : "コードをコピー"}
+                          </button>
                           <div className="gGotCodeHint">お会計のクーポン欄に入力すると割引が受けられます</div>
                         </div>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="overlayPrimary"
-                        onClick={() => nav("/game/coupons")}
-                      >
+                      ) : (
+                        <div className="gGotCodeHint">獲得したクーポンからQRコードを表示できます</div>
+                      )}
+                      <button type="button" className="overlayPrimary" onClick={() => nav("/game/coupons")}>
                         獲得クーポン一覧を見る
                       </button>
                     </div>

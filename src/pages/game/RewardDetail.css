@@ -251,3 +251,33 @@ button:focus-visible{
   .rewardDetailBody{ padding: 14px 12px; }
   .rewardRow{ grid-template-columns: 84px 1fr; }
 }
+/* 獲得したクーポン（達成時のみ表示） */
+.rewardGetBox {
+  margin: 0 0 16px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(120, 200, 150, 0.35);
+  background: rgba(120, 200, 150, 0.08);
+  text-align: center;
+}
+.rewardGetLabel {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(150, 255, 190, 0.9);
+}
+.rewardGetCode {
+  margin: 8px 0 12px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  color: #ffffff;
+  word-break: break-all;
+}
+.rewardGetHint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}

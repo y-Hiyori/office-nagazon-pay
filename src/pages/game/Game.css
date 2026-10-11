@@ -964,3 +964,14 @@ html{
   color: #ffb4b4;
   border-color: rgba(255,90,90,0.45);
 }
+
+/* ゲーム終了：クーポン獲得エリア */
+.gGotWrap {
+  text-align: center;
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+.gGotTitle { font-weight: 900; }
+.gGotName { font-size: 13px; color: rgba(255,255,255,0.8); }

@@ -367,10 +367,12 @@ export default function CouponDetail() {
                         <div className="v">{storeName || "（未設定）"}</div>
                       </div>
 
-                      <div className="couponInfoRow">
-                        <div className="k">商品名</div>
-                        <div className="v">{productName || "（未設定）"}</div>
-                      </div>
+                      {productName ? (
+                        <div className="couponInfoRow">
+                          <div className="k">商品名</div>
+                          <div className="v">{productName}</div>
+                        </div>
+                      ) : null}
 
                       <div className="couponInfoRow">
                         <div className="k">説明</div>

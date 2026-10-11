@@ -124,10 +124,12 @@ export default function CouponsList() {
                           <span className="k">店舗</span>
                           <span className="v">{c.store_name?.trim() || "（未設定）"}</span>
                         </div>
-                        <div className="m">
-                          <span className="k">商品</span>
-                          <span className="v">{c.product_name?.trim() || "（未設定）"}</span>
-                        </div>
+                        {c.product_name?.trim() ? (
+                          <div className="m">
+                            <span className="k">商品</span>
+                            <span className="v">{c.product_name.trim()}</span>
+                          </div>
+                        ) : null}
                         <div className="m">
                           <span className="k">期限</span>
                           <span className="v">{formatDateTime(c.expires_at)}</span>
