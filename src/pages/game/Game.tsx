@@ -1037,6 +1037,15 @@ export default function Game() {
     return xCss * dpr;
   };
 
+  const toCanvasY = (clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return clientY;
+    const rect = canvas.getBoundingClientRect();
+    const yCss = clientY - rect.top;
+    const dpr = canvas.height / rect.height;
+    return yCss * dpr;
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     const pNow = phaseRef.current;
     if (
@@ -1047,6 +1056,28 @@ export default function Game() {
       pNow === "timeup"
     ) {
       return;
+    }
+
+    // ✅ ○×クイズ中は、○／×のマスをタップで直接回答できる（狙った側に選べない時の保険）
+    if (pNow === "quiz_play") {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const x = toCanvasX(e.clientX);
+        const y = toCanvasY(e.clientY);
+        const w = canvas.width;
+        const h = canvas.height;
+        const rBig = clamp(Math.min(w, h) * 0.1 * 1.65, 78, 150);
+        const yBig = h * 0.3;
+        const pad = rBig * 1.2;
+        if (dist2(x, y, w * 0.32, yBig) <= pad * pad) {
+          resolveQuiz("X");
+          return;
+        }
+        if (dist2(x, y, w * 0.68, yBig) <= pad * pad) {
+          resolveQuiz("O");
+          return;
+        }
+      }
     }
 
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -1558,7 +1589,7 @@ export default function Game() {
 
           // quiz arena collision
           if (pNow === "quiz_play") {
-            const barW = clamp(Math.min(w, h) * 0.72, 260, 520);
+            const barW = clamp(Math.min(w, h) * 0.6, 220, 440);
             const barH = 16;
             const barX = w / 2;
             const barY = h * 0.52;
@@ -1734,7 +1765,7 @@ export default function Game() {
         drawBigXTarget(ctx, w * 0.32, yBig, rBig);
         drawBigOTarget(ctx, w * 0.68, yBig, rBig);
 
-        const barW = clamp(Math.min(w, h) * 0.72, 260, 520);
+        const barW = clamp(Math.min(w, h) * 0.6, 220, 440);
         const barH = 16;
         const barX = w / 2;
         const barY = h * 0.52;
@@ -1776,6 +1807,14 @@ export default function Game() {
           lines.forEach((ln, i) => ctx.fillText(ln, w / 2, 20 + i * (fs + 4)));
           ctx.restore();
         }
+
+        ctx.save();
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.font = `800 ${Math.max(11, Math.min(w, h) * 0.022)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillText("◯×をタップでも回答できます", w / 2, h - 16);
+        ctx.restore();
       }
 
       // draw paddle
@@ -2091,7 +2130,7 @@ export default function Game() {
                   <button type="button" className="overlayPrimary" onClick={onQuizConfirm}>
                     クイズ開始
                   </button>
-                  <div className="overlayHint">ボールを当てて答えよう</div>
+                  <div className="overlayHint">ボールを当てる／◯×をタップでもOK</div>
                 </div>
               </div>
             )}
