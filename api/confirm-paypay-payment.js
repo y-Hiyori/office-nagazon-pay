@@ -132,40 +132,37 @@ export default async function handler(req, res) {
     }
 
     // ========= ここから「確定処理」 =========
-    const current = String(order.status || "").toLowerCase();
+    // ✅ 同時実行ガード：pending/created → finalizing にできた1本だけが確定処理を行う
+    //    （finalizing 中の別リクエストがここを通り抜けて二重に在庫を減らすのを防ぐ）
+    const { data: locked, error: lockErr } = await supabaseAdmin
+      .from("orders")
+      .update({ status: "finalizing" })
+      .eq("id", orderId)
+      .in("status", ["pending", "created"])
+      .select("id,status")
+      .maybeSingle();
 
-    // ✅ 同時実行ガード：pending/created だけ finalizing にできる
-    if (current !== "finalizing") {
-      const { data: locked, error: lockErr } = await supabaseAdmin
+    if (lockErr) {
+      return res.status(500).json({ ok: false, status: "LOCK_FAILED", message: lockErr.message });
+    }
+
+    // 0件更新（誰かが先にfinalizing/paidにした等）→ 確定処理はその1本に任せる
+    if (!locked) {
+      const { data: again } = await supabaseAdmin
         .from("orders")
-        .update({ status: "finalizing" })
-        .eq("id", orderId)
-        .in("status", ["pending", "created"])
         .select("id,status")
+        .eq("id", orderId)
         .maybeSingle();
 
-      if (lockErr) {
-        return res.status(500).json({ ok: false, status: "LOCK_FAILED", message: lockErr.message });
-      }
-
-      // 0件更新（誰かが先にfinalizing/paidにした等）
-      if (!locked) {
-        const { data: again } = await supabaseAdmin
-          .from("orders")
-          .select("id,status")
-          .eq("id", orderId)
-          .maybeSingle();
-
-        const st = String(again?.status || "UNKNOWN").toLowerCase();
-        return res.status(200).json({
-          ok: true,
-          paid: st === "paid",
-          finalized: st === "paid",
-          status: again?.status ?? "UNKNOWN",
-          paypayStatus,
-          orderId,
-        });
-      }
+      const st = String(again?.status || "UNKNOWN").toLowerCase();
+      return res.status(200).json({
+        ok: true,
+        paid: st === "paid",
+        finalized: st === "paid",
+        status: again?.status ?? "UNKNOWN",
+        paypayStatus,
+        orderId,
+      });
     }
 
     // ✅ order_items取得（在庫減算用）

@@ -396,24 +396,44 @@ app.post("/api/confirm-paypay-payment", async (req, res) => {
     const paypayStatus = extractPayPayStatus(body);
 
     if (paypayStatus === "COMPLETED") {
-      await sb
+      // ✅ 二重確定ガード：pending/created → finalizing にできた1本だけが確定処理を行う
+      //    （戻り画面のポーリング等で confirm が並行しても在庫を二重に減らさない）
+      const { data: claimed, error: claimErr } = await sb
         .from("orders")
-        .update({ status: "paid", paid_at: new Date().toISOString() })
-        .eq("id", orderId);
+        .update({ status: "finalizing" })
+        .eq("id", orderId)
+        .in("status", ["pending", "created"])
+        .select("id");
+
+      if (claimErr) {
+        return res.status(500).json({ ok: false, status: "LOCK_FAILED", message: claimErr.message });
+      }
+      if (!claimed || claimed.length === 0) {
+        const { data: again } = await sb.from("orders").select("status").eq("id", orderId).maybeSingle();
+        const st2 = String(again?.status || "UNKNOWN").toLowerCase();
+        return res.json({ ok: true, paid: st2 === "paid", status: again?.status ?? "UNKNOWN", orderDbId: order.id });
+      }
 
       // ✅ 在庫減算（finalize-order が存在しない場合に備えて confirm 側でも実施）
       try {
         const { data: oi } = await sb.from("order_items").select("product_id,quantity").eq("order_id", orderId);
         for (const it of oi || []) {
           await sb.rpc("decrement_stock", { p_product_id: Number(it.product_id), p_qty: Number(it.quantity) });
-      // ✅ 入荷ロットも消費（失敗しても購入は止めない・冪等）
-      try {
-        await sb.rpc("consume_lots_for_order", { p_order_id: orderId });
-      } catch (eLot) { console.error("[LOT_CONSUME_ERR]", eLot && eLot.message); }
         }
       } catch (eStock) {
         console.error("[STOCK_DEDUCT_ERR]", eStock && eStock.message);
       }
+
+      // ✅ 入荷ロットも消費（失敗しても購入は止めない・冪等）
+      try {
+        await sb.rpc("consume_lots_for_order", { p_order_id: orderId });
+      } catch (eLot) { console.error("[LOT_CONSUME_ERR]", eLot && eLot.message); }
+
+      // ✅ paid 反映（在庫・ロット処理のあとに確定）
+      await sb
+        .from("orders")
+        .update({ status: "paid", paid_at: new Date().toISOString() })
+        .eq("id", orderId);
 
       // ✅ ポイント使用（ポイント購入済み注文の場合）
       if (Number(order.points_used || 0) > 0) {

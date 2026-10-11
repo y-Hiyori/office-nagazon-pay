@@ -149,7 +149,10 @@ serve(async (req: Request) => {
 
     const orderId = crypto.randomUUID();
 
-    // ① orders 作成（user_id = NULL でゲスト注文、即 paid）
+    // ① orders 作成（user_id = NULL でゲスト注文）
+    //    ※ 先に paid にすると「入荷ロット消費」のトリガが商品明細の挿入前に走り、
+    //      ロットが消費されないまま lots_consumed_at だけ立ってしまう。
+    //      そのため pending で作成し、明細・在庫・ロット処理のあとに paid にする。
     const { error: oErr } = await sb.from("orders").insert({
       id: orderId,
       user_id: null,
@@ -159,8 +162,7 @@ serve(async (req: Request) => {
       discount_amount: discount,
       coupon_code: coupon || null,
       points_used: 0,
-      status: "paid",
-      paid_at: new Date().toISOString(),
+      status: "pending",
       paypay_return_token: token,
       email: bEmail,
       name: bName,
@@ -200,13 +202,20 @@ serve(async (req: Request) => {
       }
     }
 
-    // ✅ v36：入荷ロットも消費（ゲスト購入でも在庫とロットを一致させる）
+    // ✅ v36/v37：入荷ロットも消費（ゲスト購入でも在庫とロットを一致させる）
     try {
       const { error: lotErr } = await sb.rpc("consume_lots_for_order", { p_order_id: orderId });
       if (lotErr) console.error("consume_lots_for_order failed:", lotErr);
     } catch (eLot) {
       console.error("consume_lots_for_order exception:", eLot);
     }
+
+    // ④ paid 反映（明細・在庫・ロット処理のあとに確定）
+    const { error: pErr } = await sb
+      .from("orders")
+      .update({ status: "paid", paid_at: new Date().toISOString() })
+      .eq("id", orderId);
+    if (pErr) console.error("guest order paid update failed:", pErr);
 
     return json({ ok: true, orderId, token });
   } catch (e: unknown) {

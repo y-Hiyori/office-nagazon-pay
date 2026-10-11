@@ -185,18 +185,21 @@ function AdminAdd() {
       return;
     }
 
-    // ✅ 在庫ぶんの入荷ロットを登録（原価・期限つき）
+    // ✅ 在庫ぶんの入荷ロットを登録（1個＝1ロット・原価・期限つき）
+    //    在庫追加（AdminPage）と同じ作り方に揃える
     if (stockNum > 0) {
-      const { error: eLot } = await supabase.from("product_lots").insert({
-        product_id: idNum,
-        lot_label: "初回入荷",
-        cost: costNum ?? 0,
-        quantity: stockNum,
-        remaining: stockNum,
-        expiry_date: noExpiry ? null : expiryDate.trim(),
-        expiry_type: expiryType,
-        no_expiry: noExpiry,
-      });
+      const { error: eLot } = await supabase.from("product_lots").insert(
+        Array.from({ length: stockNum }, () => ({
+          product_id: idNum,
+          lot_label: "初回入荷",
+          cost: costNum ?? 0,
+          quantity: 1,
+          remaining: 1,
+          expiry_date: noExpiry ? null : expiryDate.trim(),
+          expiry_type: expiryType,
+          no_expiry: noExpiry,
+        }))
+      );
 
       if (eLot) {
         await appDialog.alert({
