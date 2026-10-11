@@ -24,6 +24,8 @@ type IssuedCouponView = {
   valid_from?: string | null;
   valid_to?: string | null;
 
+  coupon_code?: string | null; // 管理画面で設定した表示用コード
+
   // ✅ 表示用（あれば出す）
   user_name?: string | null;
   is_guest?: boolean | null;
@@ -49,6 +51,8 @@ type CouponStatus =
         description: string | null;
         valid_from: string | null;
         valid_to: string | null;
+        coupon_code?: string | null;
+        difficulty?: string | null;
       } | null;
     }
   | { ok: true; found: false }
@@ -166,6 +170,7 @@ export default function CouponDetail() {
         valid_to: res.reward.valid_to ?? coupon.valid_to ?? null,
         expires_at: coupon.expires_at ?? res.reward.valid_to ?? null,
         title: coupon.title ?? res.reward.coupon_title ?? "クーポン",
+        coupon_code: res.reward.coupon_code ?? coupon.coupon_code ?? null,
         // ✅ 使用者名も返ってくるなら保存してOK
         user_name: res.user_name ?? coupon.user_name ?? null,
         is_guest: typeof res.is_guest === "boolean" ? res.is_guest : coupon.is_guest ?? null,
@@ -211,6 +216,18 @@ export default function CouponDetail() {
   const storeName = (coupon?.store_name ?? "").trim();
   const productName = (coupon?.product_name ?? "").trim();
   const description = (coupon?.description ?? "").trim();
+  const couponCode = (coupon?.coupon_code ?? "").trim();
+  const [copied, setCopied] = useState(false);
+  const copyCode = async () => {
+    if (!couponCode) return;
+    try {
+      await navigator.clipboard.writeText(couponCode);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  };
 
   const who =
     ((status?.ok === true && status.found === true ? status.user_name : null) ??
@@ -281,6 +298,19 @@ export default function CouponDetail() {
                         <div className="couponAltNote">✅ 受取済みのため、QRコードは表示されません</div>
                       </div>
                     )}
+
+                    {couponCode ? (
+                      <div className="couponCodeBox">
+                        <div className="couponCodeLabel">クーポンコード</div>
+                        <div className="couponCodeValue">{couponCode}</div>
+                        <button type="button" className="couponCopyBtn" onClick={() => void copyCode()}>
+                          {copied ? "コピーしました ✓" : "コードをコピー"}
+                        </button>
+                        <div className="couponCodeHint">
+                          店舗でQRが読み取れない場合は、この番号をスタッフにお伝えください。
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* 右：情報 */}

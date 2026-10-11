@@ -141,3 +141,10 @@ button:focus-visible{
   outline: 2px solid rgba(255,255,255,0.55);
   outline-offset: 2px;
 }
+/* クーポンコード（一覧） */
+.couponCodeMono {
+  font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #c7d2fe;
+}

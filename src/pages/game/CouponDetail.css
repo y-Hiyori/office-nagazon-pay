@@ -351,3 +351,51 @@
     grid-template-columns: 1fr;
   }
 }
+/* ✅ 設定したクーポンコード表示 */
+.couponCodeBox {
+  width: 100%;
+  max-width: 320px;
+  margin-top: 4px;
+  padding: 14px 14px 12px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color: #0f172a;
+  text-align: center;
+}
+.couponCodeLabel {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+.couponCodeValue {
+  margin: 4px 0 10px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  color: #4338ca;
+  word-break: break-all;
+}
+.couponCopyBtn {
+  min-height: 40px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid #4338ca;
+  background: #4338ca;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+}
+.couponCopyBtn:hover { background: #3730a3; border-color: #3730a3; }
+.couponCodeHint {
+  margin-top: 8px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #64748b;
+}

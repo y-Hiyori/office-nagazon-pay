@@ -188,6 +188,8 @@ type CouponRewardRow = {
   description: string | null;
   valid_from?: string | null;
   valid_to?: string | null;
+  difficulty?: string | null; // any / easy / normal / hard
+  coupon_code?: string | null;
 };
 
 type IssuedCouponView = {
@@ -202,6 +204,7 @@ type IssuedCouponView = {
   product_name: string | null;
   description: string | null;
   score_threshold: number | null;
+  coupon_code: string | null;
 };
 
 type CouponUiState =
@@ -211,6 +214,14 @@ type CouponUiState =
 
 const COUPON_STORAGE_KEY = "game_last_coupon_v1";
 const COUPON_STORAGE_KEY_ARRAY = "game_last_coupons_v1";
+
+const REWARD_DIFF_LABEL: Record<string, string> = {
+  any: "全難易度",
+  easy: "EASY",
+  normal: "NORMAL",
+  hard: "HARD",
+};
+const rewardDiffLabel = (d?: string | null) => REWARD_DIFF_LABEL[String(d ?? "any").toLowerCase()] ?? "全難易度";
 
 /* ✅ クーポン（報酬ごと1回） */
 function isInValidWindow(r: CouponRewardRow, now = new Date()): boolean {
@@ -226,7 +237,7 @@ async function fetchActiveRewards(): Promise<
   const { data, error } = await supabase
     .from("coupon_rewards")
     .select(
-      "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to",
+      "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to,difficulty,coupon_code",
     )
     .eq("is_active", true)
     .order("score_threshold", { ascending: true });
@@ -235,10 +246,22 @@ async function fetchActiveRewards(): Promise<
   return { ok: true, rows: (data ?? []) as CouponRewardRow[] };
 }
 
-function pickEligibleReward(rewards: CouponRewardRow[], score: number): CouponRewardRow | null {
+// 景品の難易度がプレイした難易度に合うか（any/未設定は共通）
+function rewardDifficultyMatches(r: CouponRewardRow, difficulty: Difficulty): boolean {
+  const d = String(r.difficulty ?? "any").trim().toLowerCase();
+  if (!d || d === "any") return true;
+  return d === difficulty;
+}
+
+function pickEligibleReward(
+  rewards: CouponRewardRow[],
+  score: number,
+  difficulty: Difficulty,
+): CouponRewardRow | null {
   const now = new Date();
   const eligible = rewards
     .filter((r) => r.is_active)
+    .filter((r) => rewardDifficultyMatches(r, difficulty))
     .filter((r) => Number(r.score_threshold) <= score)
     .filter((r) => isInValidWindow(r, now));
 
@@ -327,6 +350,7 @@ async function issueCouponByEdge(args: {
       product_name: typeof reward?.product_name === "string" ? (reward.product_name as string) : null,
       description: typeof reward?.description === "string" ? (reward.description as string) : null,
       score_threshold: typeof reward?.score_threshold === "number" ? (reward.score_threshold as number) : null,
+      coupon_code: typeof reward?.coupon_code === "string" ? (reward.coupon_code as string) : null,
     };
 
     return { ok: true, issued: true, coupon };
@@ -1103,7 +1127,7 @@ export default function Game() {
 
     (async () => {
       if (rewardRows.length > 0) {
-        const eligible = pickEligibleReward(rewardRows, scoreRef.current);
+        const eligible = pickEligibleReward(rewardRows, scoreRef.current, difficulty);
         if (!eligible) return;
         setCouponUi({ status: "issuing" });
       }
@@ -1892,18 +1916,27 @@ export default function Game() {
             <div className="gSectionCard">
               <div className="gSectionHead">
                 <div className="gSectionTitle">スコア達成で報酬ゲット</div>
-                <div className="gSectionSub">達成するとクーポンが出る（報酬ごとに端末1回）</div>
+                <div className="gSectionSub">
+                  {difficulty.toUpperCase()} で達成できる報酬（報酬ごとに端末1回）
+                </div>
               </div>
 
               {rewardLoading ? (
                 <Loading variant="compact" />
               ) : rewardErr ? (
                 <div className="gSectionErr">取得失敗：{rewardErr}</div>
-              ) : rewardRows.length === 0 ? (
-                <div className="gSectionInfo">現在、配布中の報酬がありません</div>
+              ) : rewardRows.filter((r) => {
+                  const d = String(r.difficulty ?? "any").trim().toLowerCase();
+                  return !d || d === "any" || d === difficulty;
+                }).length === 0 ? (
+                <div className="gSectionInfo">この難易度で配布中の報酬はありません</div>
               ) : (
                 <ul className="gRewardList">
                   {rewardRows
+                    .filter((r) => {
+                      const d = String(r.difficulty ?? "any").trim().toLowerCase();
+                      return !d || d === "any" || d === difficulty;
+                    })
                     .slice()
                     .sort((a, b) => Number(a.score_threshold) - Number(b.score_threshold))
                     .map((r) => (
@@ -1914,6 +1947,7 @@ export default function Game() {
                           onClick={() => nav(`/game/reward/${r.id}`)}
                         >
                           <span className="badge">{r.score_threshold}点</span>
+                          <span className="gRewardDiff">{rewardDiffLabel(r.difficulty)}</span>
                           {r.coupon_title || "（タイトル未設定）"}
                         </button>
                       </li>

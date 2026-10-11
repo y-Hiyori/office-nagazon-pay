@@ -19,6 +19,15 @@ type RewardRow = {
   description: string | null;
   valid_from: string | null;
   valid_to: string | null;
+  difficulty: string | null;
+  coupon_code: string | null;
+};
+
+const DIFF_LABEL: Record<string, string> = {
+  any: "全難易度共通",
+  easy: "EASY のみ",
+  normal: "NORMAL のみ",
+  hard: "HARD のみ",
 };
 
 type Ui =
@@ -86,7 +95,7 @@ export default function RewardDetail() {
       const { data, error } = await supabase
         .from("coupon_rewards")
         .select(
-          "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to"
+          "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to,difficulty,coupon_code"
         )
         .eq("id", rewardId)
         .maybeSingle();
@@ -241,6 +250,11 @@ export default function RewardDetail() {
                       </div>
 
                       <div className="rewardRow">
+                        <div className="k">対象の難易度</div>
+                        <div className="v">{DIFF_LABEL[ui.reward.difficulty ?? "any"] ?? "全難易度共通"}</div>
+                      </div>
+
+                      <div className="rewardRow">
                         <div className="k">配布状態</div>
                         <div className="v">
                           {ui.reward.is_active ? (
@@ -269,6 +283,13 @@ export default function RewardDetail() {
                         <div className="k">タイトル</div>
                         <div className="v">{ui.reward.coupon_title?.trim() || "（未設定）"}</div>
                       </div>
+
+                      {ui.reward.coupon_code?.trim() ? (
+                        <div className="rewardRow">
+                          <div className="k">クーポンコード</div>
+                          <div className="v strong">{ui.reward.coupon_code.trim()}</div>
+                        </div>
+                      ) : null}
 
                       <div className="rewardRow">
                         <div className="k">店舗名</div>

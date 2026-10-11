@@ -17,12 +17,21 @@ type Reward = {
   valid_from: string | null;
   valid_to: string | null;
   redeem_password_hash: string | null;
+  difficulty: string;
+  coupon_code: string;
   created_at: string;
   updated_at: string;
 };
 
 type RewardForm = Omit<Reward, "id" | "created_at" | "updated_at" | "redeem_password_hash"> & {
   redeem_password: string; // UI入力（平文はDBに保存しない）
+};
+
+const DIFF_LABEL: Record<string, string> = {
+  any: "全難易度共通",
+  easy: "EASY のみ",
+  normal: "NORMAL のみ",
+  hard: "HARD のみ",
 };
 
 const emptyForm: RewardForm = {
@@ -35,6 +44,8 @@ const emptyForm: RewardForm = {
   description: "",
   valid_from: null,
   valid_to: null,
+  difficulty: "any",
+  coupon_code: "",
   redeem_password: "",
 };
 
@@ -116,6 +127,8 @@ export default function AdminCouponRewardsPage() {
       description: r.description,
       valid_from: r.valid_from,
       valid_to: r.valid_to,
+      difficulty: r.difficulty ?? "any",
+      coupon_code: r.coupon_code ?? "",
       redeem_password: "",
     });
 
@@ -183,7 +196,9 @@ export default function AdminCouponRewardsPage() {
         `状態：${form.is_active ? "ON（配布）" : "OFF（停止）"}`,
         `店名：${form.store_name}`,
         `商品名：${form.product_name}`,
+        `対象難易度：${DIFF_LABEL[form.difficulty] ?? form.difficulty}`,
         `しきい値：${form.score_threshold} 点`,
+        `クーポンコード：${form.coupon_code.trim() || "（未設定）"}`,
         `タイトル：${form.coupon_title || "—"}`,
         `期間：${formatYMDHM(form.valid_from)} 〜 ${formatYMDHM(form.valid_to)}`,
         `店舗パスワード：${!isEditing ? "新規設定" : changePw ? "変更する" : "変更しない"}`,
@@ -207,6 +222,8 @@ export default function AdminCouponRewardsPage() {
         description: form.description,
         valid_from: form.valid_from,
         valid_to: form.valid_to,
+        difficulty: form.difficulty,
+        coupon_code: form.coupon_code.trim(),
       };
 
       let payload: Record<string, unknown> = basePayload;
@@ -324,6 +341,32 @@ export default function AdminCouponRewardsPage() {
                       min={0}
                       value={form.score_threshold}
                       onChange={(e) => setForm((p) => ({ ...p, score_threshold: Number(e.target.value || 0) }))}
+                    />
+                  </label>
+                </div>
+
+                <div className="formRow">
+                  <label className="field">
+                    <div className="fieldLabel">対象の難易度</div>
+                    <select
+                      className="input"
+                      value={form.difficulty}
+                      onChange={(e) => setForm((p) => ({ ...p, difficulty: e.target.value }))}
+                    >
+                      <option value="any">全難易度共通</option>
+                      <option value="easy">EASY のみ</option>
+                      <option value="normal">NORMAL のみ</option>
+                      <option value="hard">HARD のみ</option>
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <div className="fieldLabel">クーポンコード（お客様に表示）</div>
+                    <input
+                      className="input"
+                      value={form.coupon_code}
+                      onChange={(e) => setForm((p) => ({ ...p, coupon_code: e.target.value }))}
+                      placeholder="例：NGZ-GAME10"
                     />
                   </label>
                 </div>
@@ -489,8 +532,12 @@ export default function AdminCouponRewardsPage() {
                         </div>
 
                         <div className="itemMeta">
+                          <div className="metaChip">難易度：{DIFF_LABEL[r.difficulty] ?? r.difficulty ?? "全難易度共通"}</div>
                           <div className="metaChip">しきい値：{r.score_threshold}</div>
                           <div className="metaChip">{r.coupon_title}</div>
+                          {r.coupon_code ? (
+                            <div className="metaChip">コード：{r.coupon_code}</div>
+                          ) : null}
                           <div className={`metaChip ${r.redeem_password_hash ? "ok" : "ng"}`}>
                             店舗PW：{r.redeem_password_hash ? "設定済み" : "未設定"}
                           </div>

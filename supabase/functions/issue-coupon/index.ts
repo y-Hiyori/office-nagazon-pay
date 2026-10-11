@@ -22,6 +22,8 @@ type RewardRow = {
   valid_from: string | null;
   valid_to: string | null;
   is_active: boolean | null;
+  difficulty: string | null; // any / easy / normal / hard
+  coupon_code: string | null; // お客様に表示するコード
 };
 
 type IssueOkIssued = {
@@ -134,6 +136,14 @@ function isActiveAndInRange(r: RewardRow, now = new Date()) {
   return true;
 }
 
+// 景品の難易度が、プレイした難易度に合うか（any/未設定は共通でOK）
+function difficultyMatches(r: RewardRow, difficulty: string) {
+  const d = String(r.difficulty ?? "any").trim().toLowerCase();
+  if (!d || d === "any") return true;
+  if (!difficulty) return true; // 難易度未指定（旧クライアント）は制限しない
+  return d === difficulty;
+}
+
 serve(async (req: Request) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -142,6 +152,8 @@ serve(async (req: Request) => {
     const body = (await req.json().catch(() => ({}))) as Body;
 
     const score = clampScore(body.score);
+    const difficulty =
+      typeof body.difficulty === "string" ? body.difficulty.trim().toLowerCase() : "";
     const deviceId = typeof body.device_id === "string" ? body.device_id.trim() : "";
     if (!deviceId) return json({ ok: false, error: "device_id missing" } satisfies IssueNg, 200);
 
@@ -164,7 +176,7 @@ serve(async (req: Request) => {
     if (rewardId) {
       const { data, error } = await supabase
         .from("coupon_rewards")
-        .select("id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active")
+        .select("id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active, difficulty, coupon_code")
         .eq("id", rewardId)
         .maybeSingle<RewardRow>();
 
@@ -175,6 +187,9 @@ serve(async (req: Request) => {
       if (!isActiveAndInRange(data, now)) {
         return json({ ok: true, issued: false, reason: "no_reward" } satisfies IssueOkNotIssued, 200);
       }
+      if (!difficultyMatches(data, difficulty)) {
+        return json({ ok: true, issued: false, reason: "not_eligible" } satisfies IssueOkNotIssued, 200);
+      }
       if (typeof data.score_threshold === "number" && score < data.score_threshold) {
         return json({ ok: true, issued: false, reason: "not_eligible" } satisfies IssueOkNotIssued, 200);
       }
@@ -183,14 +198,16 @@ serve(async (req: Request) => {
       // ✅ 1) スコア条件を満たす候補を高い順で取る
       const { data: rewards, error: rewErr } = await supabase
         .from("coupon_rewards")
-        .select("id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active")
+        .select("id, store_name, store_info, product_name, score_threshold, coupon_title, description, valid_from, valid_to, is_active, difficulty, coupon_code")
         .lte("score_threshold", score)
         .order("score_threshold", { ascending: false })
         .limit(100);
 
       if (rewErr) throw rewErr;
 
-      const candidates = (rewards ?? []).filter((r: RewardRow) => isActiveAndInRange(r, now));
+      const candidates = (rewards ?? [])
+        .filter((r: RewardRow) => isActiveAndInRange(r, now))
+        .filter((r: RewardRow) => difficultyMatches(r, difficulty));
       if (candidates.length === 0) {
         return json({ ok: true, issued: false, reason: "no_reward" } satisfies IssueOkNotIssued, 200);
       }
