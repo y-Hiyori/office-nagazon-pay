@@ -84,6 +84,7 @@ export default function AdminGuestOrders() {
     let paid = 0;
     let discount = 0;
     for (const r of filtered) {
+      if (String(r.status || "").toLowerCase() === "canceled") continue;
       paid += Number(r.total) || 0;
       discount += Number(r.discount_amount) || 0;
     }
@@ -150,6 +151,9 @@ export default function AdminGuestOrders() {
                   <div className="gi-top">
                     <span className="gi-name">{r.name || "(名前なし)"}</span>
                     <span className="gi-badge">ゲスト</span>
+                    {String(r.status || "").toLowerCase() === "canceled" && (
+                      <span className="gi-canceled">キャンセル済み</span>
+                    )}
                     {r.coupon_code && <span className="gi-coupon">クーポン {r.coupon_code}</span>}
                     {r.fulfillment_type === "shipping" && (
                       <span className="gi-ship">

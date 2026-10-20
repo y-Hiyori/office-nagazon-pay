@@ -7,6 +7,8 @@
  * - /api/send-admin-order-email
  * - /api/send-buyer-order-email
  * - /api/send-contact-email
+ * - /api/cancel-paypay-order       （未払い注文の取消）
+ * - /api/admin-cancel-order        （支払済み注文のキャンセル＋PayPay返金）
  *
  * 必須ENV（最低限）
  *  - SUPABASE_URL
@@ -179,6 +181,50 @@ function paypayGetDetails(merchantPaymentId) {
       } catch (e2) {
         return reject(e2);
       }
+    }
+  });
+}
+
+function paypayRefund(payload) {
+  return new Promise((resolve, reject) => {
+    try {
+      PAYPAY.PaymentRefund(payload, (response) => {
+        const body = response && response.BODY;
+        if (!body) return reject(new Error("NO_PAYPAY_BODY"));
+
+        const ri = body.resultInfo;
+        if (!ri || ri.code !== "SUCCESS") {
+          const msg = ri ? `${ri.code}:${ri.message || ""}` : "PAYPAY_ERROR";
+          const e = new Error(msg);
+          e.detail = body;
+          return reject(e);
+        }
+        return resolve(body);
+      });
+    } catch (e) {
+      return reject(e);
+    }
+  });
+}
+
+function paypayGetRefundDetails(merchantRefundId) {
+  return new Promise((resolve, reject) => {
+    try {
+      PAYPAY.GetRefundDetails([merchantRefundId], (response) => {
+        const body = response && response.BODY;
+        if (!body) return reject(new Error("NO_PAYPAY_BODY"));
+
+        const ri = body.resultInfo;
+        if (!ri || ri.code !== "SUCCESS") {
+          const msg = ri ? `${ri.code}:${ri.message || ""}` : "PAYPAY_ERROR";
+          const e = new Error(msg);
+          e.detail = body;
+          return reject(e);
+        }
+        return resolve(body);
+      });
+    } catch (e) {
+      return reject(e);
     }
   });
 }
@@ -873,6 +919,225 @@ async function sweepPendingOrders() {
   }
 }
 
+
+// =====================
+// admin-cancel-order（管理者：支払済み注文のキャンセル＋PayPay返金）
+// body: { orderId, accessToken, reason, revokeEarnedPoints }
+//   ・発送済みの注文はキャンセル不可
+//   ・PayPay決済（total>0）は返金APIを実行してから canceled にする
+//   ・0円購入（クーポン/ポイント）は返金なしで canceled にする
+//   ・在庫/ロット・クーポン・ポイントの戻しはDB関数 apply_order_cancel が行う
+// =====================
+app.post("/api/admin-cancel-order", async (req, res) => {
+  try {
+    const missing = envMissing(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+    if (missing.length) return res.status(500).json({ ok: false, status: "ENV_MISSING", missing });
+
+    const sb = supabaseAdmin();
+
+    const orderId = String(req.body?.orderId || "").trim();
+    const accessToken = String(req.body?.accessToken || "").trim();
+    const reason = String(req.body?.reason || "").trim();
+    const revokeEarnedPoints = req.body?.revokeEarnedPoints !== false;
+
+    if (!orderId || !accessToken) {
+      return res.status(400).json({ ok: false, status: "MISSING" });
+    }
+
+    // 管理者チェック
+    const { data: authData, error: authErr } = await sb.auth.getUser(accessToken);
+    if (authErr || !authData?.user) {
+      return res.status(401).json({ ok: false, status: "UNAUTHORIZED" });
+    }
+
+    const { data: me, error: meErr } = await sb
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+    if (meErr || !me?.is_admin) {
+      return res.status(403).json({ ok: false, status: "NOT_ADMIN" });
+    }
+
+    const { data: order, error: orderErr } = await sb
+      .from("orders")
+      .select(
+        "id,status,total,payment_method,paypay_merchant_payment_id,fulfillment_type,shipping_status,refund_id,refund_amount,points_used,points_earned,points_awarded_at"
+      )
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (orderErr || !order) {
+      return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
+    }
+
+    const st = String(order.status || "").toLowerCase();
+    if (st === "canceled") {
+      return res.json({
+        ok: true,
+        already: true,
+        status: "canceled",
+        refundId: order.refund_id || null,
+        refundAmount: Number(order.refund_amount || 0),
+      });
+    }
+    if (st !== "paid") {
+      return res.status(409).json({ ok: false, status: "NOT_PAID", orderStatus: order.status });
+    }
+    if (
+      String(order.fulfillment_type || "pickup") === "shipping" &&
+      String(order.shipping_status || "preparing") === "shipped"
+    ) {
+      return res.status(409).json({ ok: false, status: "ALREADY_SHIPPED" });
+    }
+
+    const total = toIntYen(order.total);
+    let refundId = order.refund_id ? String(order.refund_id) : null;
+    let refundAmount = Number(order.refund_amount || 0);
+
+    if (total > 0) {
+      const mpid = String(order.paypay_merchant_payment_id || "");
+      if (!mpid) {
+        return res.status(409).json({ ok: false, status: "REFUND_UNAVAILABLE" });
+      }
+
+      const missingPayPay = envMissing(["PAYPAY_API_KEY", "PAYPAY_API_SECRET", "PAYPAY_MERCHANT_ID"]);
+      if (missingPayPay.length) {
+        return res.status(500).json({ ok: false, status: "ENV_MISSING", missing: missingPayPay });
+      }
+      configurePayPay();
+
+      // すでに返金済み（返金ID・金額が記録済み）ならPayPayは再実行しない
+      if (!(refundAmount > 0)) {
+        const merchantRefundId = `nzrefund-${orderId}`;
+
+        // 二重実行防止（返金処理中フラグを立てる）
+        if (!refundId) {
+          const { data: claimed } = await sb
+            .from("orders")
+            .update({ refund_id: merchantRefundId, refund_started_at: new Date().toISOString() })
+            .eq("id", orderId)
+            .eq("status", "paid")
+            .is("refund_id", null)
+            .select("id");
+          if (!claimed || claimed.length === 0) {
+            return res.status(409).json({ ok: false, status: "CANCEL_IN_PROGRESS" });
+          }
+          refundId = merchantRefundId;
+        }
+
+        const clearClaim = async () => {
+          await sb
+            .from("orders")
+            .update({ refund_id: null, refund_started_at: null })
+            .eq("id", orderId)
+            .eq("status", "paid")
+            .is("refund_amount", null)
+            .then(() => {}, () => {});
+        };
+
+        try {
+          const detail = await paypayGetDetails(mpid);
+          if (extractPayPayStatus(detail) !== "COMPLETED") {
+            await clearClaim();
+            return res.status(409).json({ ok: false, status: "NOT_COMPLETED" });
+          }
+
+          const data = detail?.data;
+          const paymentId =
+            (data && data.paymentId) ||
+            (Array.isArray(data) && data[0] && data[0].paymentId) ||
+            "";
+          if (!paymentId) {
+            await clearClaim();
+            return res.status(502).json({ ok: false, status: "NO_PAYMENT_ID" });
+          }
+
+          let refundBody;
+          try {
+            refundBody = await paypayRefund({
+              merchantRefundId,
+              paymentId,
+              amount: { amount: total, currency: "JPY" },
+              reason: "注文キャンセル",
+            });
+          } catch (eRefund) {
+            // タイムアウト等で実は返金済みの可能性を確認する
+            try {
+              const check = await paypayGetRefundDetails(merchantRefundId);
+              refundBody = check;
+            } catch (_eCheck) {
+              await clearClaim();
+              console.error("[ADMIN_CANCEL_REFUND_ERR]", orderId, eRefund?.message || eRefund);
+              return res.status(502).json({
+                ok: false,
+                status: "REFUND_FAILED",
+                message: String(eRefund?.message || eRefund),
+              });
+            }
+          }
+
+          refundId =
+            (refundBody?.data && (refundBody.data.refundId || refundBody.data.merchantRefundId)) ||
+            merchantRefundId;
+          refundAmount = total;
+
+          // 返金成功を記録（この後のDB反映に失敗しても再返金しないため）
+          await sb
+            .from("orders")
+            .update({ refund_id: refundId, refund_amount: refundAmount })
+            .eq("id", orderId)
+            .eq("status", "paid");
+        } catch (eDetail) {
+          await clearClaim();
+          console.error("[ADMIN_CANCEL_DETAIL_ERR]", orderId, eDetail?.message || eDetail);
+          return res.status(502).json({
+            ok: false,
+            status: "PAYPAY_DETAIL_FAILED",
+            message: String(eDetail?.message || eDetail),
+          });
+        }
+      }
+    }
+
+    // 在庫・クーポン・ポイントを戻して canceled にする
+    const { data: applied, error: applyErr } = await sb.rpc("apply_order_cancel", {
+      p_order_id: orderId,
+      p_admin_id: authData.user.id,
+      p_reason: reason || null,
+      p_refund_id: refundId,
+      p_refund_amount: refundAmount,
+      p_revoke_earned: revokeEarnedPoints,
+    });
+
+    if (applyErr) {
+      console.error("[ADMIN_CANCEL_APPLY_ERR]", orderId, applyErr.message);
+      return res.status(500).json({
+        ok: false,
+        status: "DB_APPLY_FAILED",
+        message: applyErr.message,
+        refundId,
+        refundAmount,
+      });
+    }
+    if (!applied?.ok) {
+      return res.status(409).json({ ok: false, status: "APPLY_REJECTED", result: applied, refundId, refundAmount });
+    }
+
+    return res.json({
+      ok: true,
+      status: "canceled",
+      refundId,
+      refundAmount,
+      pointsUsed: Number(order.points_used || 0),
+      pointsEarned: revokeEarnedPoints ? Number(order.points_earned || 0) : 0,
+      result: applied,
+    });
+  } catch (e) {
+    console.error("admin-cancel-order fatal:", e);
+    return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
+  }
+});
 
 // =====================
 // cancel-paypay-order（PayPayで支払わずに戻った注文を取り消す）

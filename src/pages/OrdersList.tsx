@@ -24,6 +24,10 @@ type OrderRow = {
   // ✅ 発送ステータス（ordersにある想定・SQL適用後）
   fulfillment_type?: string | null;
   shipping_status?: string | null;
+
+  // ✅ キャンセル・返金
+  canceled_at?: string | null;
+  refund_amount?: number | null;
 };
 
 type OrderItemRow = {
@@ -60,6 +64,7 @@ function OrdersList() {
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [itemsByOrderId, setItemsByOrderId] = useState<Record<string, OrderItemRow[]>>({});
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
@@ -119,6 +124,7 @@ function OrdersList() {
       setErrorMsg("");
       setOrders([]);
       setItemsByOrderId({});
+      setRequestedIds(new Set());
 
       // 1) ログイン中ユーザー
       const {
@@ -141,7 +147,7 @@ function OrdersList() {
         .from("orders")
         .select("*")
         .eq("user_id", user.id)
-        .eq("status", "paid")
+        .in("status", ["paid", "canceled"])
         .order("created_at", { ascending: false });
 
       if (ordersErr) {
@@ -190,6 +196,16 @@ function OrdersList() {
       });
 
       setItemsByOrderId(grouped);
+
+      // ✅ キャンセル申請中かどうか
+      const { data: reqData } = await supabase
+        .from("order_cancel_requests")
+        .select("order_id,status")
+        .in("order_id", orderIds)
+        .eq("status", "requested");
+
+      setRequestedIds(new Set(((reqData ?? []) as { order_id: string }[]).map((r) => r.order_id)));
+
       setLoading(false);
     };
 
@@ -263,6 +279,12 @@ function OrdersList() {
                       <h3>日時：{formatDateTime(o.created_at)}</h3>
 
                       <div style={{ display: "flex", gap: 8 }}>
+                        {String(o.status || "").toLowerCase() === "canceled" && (
+                          <span className="order-badge order-badge-canceled">キャンセル済み</span>
+                        )}
+                        {String(o.status || "").toLowerCase() === "paid" && requestedIds.has(o.id) && (
+                          <span className="order-badge order-badge-requested">キャンセル申請中</span>
+                        )}
                         {hasCoupon && <span className="order-badge">クーポン適用</span>}
                         {hasPoints && <span className="order-badge order-badge-points">ポイント使用</span>}
                         {o.fulfillment_type === "shipping" && (
@@ -340,6 +362,17 @@ function OrdersList() {
                         <span>支払合計</span>
                         <span className="calc-total">{formatPrice(total)}円</span>
                       </div>
+
+                      {String(o.status || "").toLowerCase() === "canceled" && (
+                        <div className="calc-row">
+                          <span>返金</span>
+                          <span className="points-amount">
+                            {Number(o.refund_amount || 0) > 0
+                              ? `${formatPrice(o.refund_amount)}円を返金済み`
+                              : "返金なし（ポイント返還済み）"}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="orders-open">詳細を見る ＞</div>

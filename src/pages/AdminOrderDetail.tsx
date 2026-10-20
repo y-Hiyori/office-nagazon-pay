@@ -11,9 +11,20 @@ import Loading from "../components/Loading";
 type OrderRow = {
   id: string;
   user_id?: string | null;
+  name?: string | null;
+  email?: string | null;
   total?: number | null; // 支払合計
   created_at?: string | null;
   subtotal?: number | null; // DBにあるなら使う（無ければ明細から計算）
+
+  // ✅ キャンセル・返金
+  status?: string | null;
+  canceled_at?: string | null;
+  cancel_reason?: string | null;
+  refund_id?: string | null;
+  refund_amount?: number | null;
+  refunded_at?: string | null;
+  points_earned?: number | null;
 
   // ✅ クーポン
   coupon_code?: string | null;
@@ -33,6 +44,16 @@ type OrderRow = {
   fulfillment_type?: string | null;
   shipping_status?: string | null;
   paypay_return_token?: string | null;
+};
+
+type CancelRequestRow = {
+  id: string;
+  order_id: string;
+  reason?: string | null;
+  status: "requested" | "approved" | "rejected" | string;
+  admin_note?: string | null;
+  created_at?: string | null;
+  handled_at?: string | null;
 };
 
 type OrderItemRow = {
@@ -56,6 +77,27 @@ export default function AdminOrderDetail() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [shipBusy, setShipBusy] = useState(false);
+
+  // ✅ キャンセル申請・返金
+  const [cancelReq, setCancelReq] = useState<CancelRequestRow | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [revokePoints, setRevokePoints] = useState(true);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  const fmtDateTime = (iso?: string | null) => {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "-";
+    return d.toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const formatPrice = (value: any) => (Number(value) || 0).toLocaleString("ja-JP");
 
@@ -142,11 +184,22 @@ export default function AdminOrderDetail() {
 
       if (itemErr) {
         setItems([]);
-        setLoading(false);
-        return;
+      } else {
+        setItems((itemData || []) as OrderItemRow[]);
       }
 
-      setItems((itemData || []) as OrderItemRow[]);
+      // ✅ キャンセル申請（最新1件）
+      const { data: reqData } = await supabase
+        .from("order_cancel_requests")
+        .select("id,order_id,reason,status,admin_note,created_at,handled_at")
+        .eq("order_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setCancelReq((reqData as CancelRequestRow) || null);
+      setCancelReason(String((reqData as CancelRequestRow)?.reason || ""));
+
       setLoading(false);
     };
 
@@ -265,6 +318,141 @@ export default function AdminOrderDetail() {
     }
   };
 
+  // ✅ キャンセル（返金）実行
+  const handleCancelOrder = async (fromRequest: boolean) => {
+    if (!order || cancelBusy) return;
+
+    const isPayPay = Number(order.total || 0) > 0;
+    const refundText = isPayPay
+      ? `PayPayで ${formatPrice(order.total)}円 を全額返金します。`
+      : "0円購入のため返金はありません（使用ポイントは戻します）。";
+
+    const pointText =
+      revokePoints && Number(order.points_earned || 0) > 0
+        ? `\n付与済みの ${Number(order.points_earned || 0)}pt も取り消します。`
+        : "\n付与済みポイントは残します。";
+
+    const ok = await appDialog.confirm({
+      title: fromRequest ? "キャンセル申請を承認" : "注文をキャンセル",
+      message:
+        `${refundText}${pointText}\n\n` +
+        "在庫・クーポン使用回数も自動で戻します。\nこの操作は取り消せません。よろしいですか？",
+      okText: fromRequest ? "承認して返金する" : "キャンセルして返金する",
+      cancelText: "やめる",
+    });
+    if (!ok) return;
+
+    setCancelBusy(true);
+    setNotice("");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || "";
+      if (!accessToken) {
+        await appDialog.alert({ message: "ログイン情報を取得できませんでした。再ログインしてください。" });
+        return;
+      }
+
+      const res = await fetch("/api/admin-cancel-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          accessToken,
+          reason: cancelReason,
+          revokeEarnedPoints: revokePoints,
+        }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.ok) {
+        const code = String(json?.status || "");
+        const msg =
+          code === "ALREADY_SHIPPED"
+            ? "発送済みの注文はキャンセルできません。"
+            : code === "REFUND_FAILED"
+              ? "PayPayの返金に失敗しました。時間をおいて再度お試しください。"
+              : code === "REFUND_UNAVAILABLE"
+                ? "この注文はPayPay以外の決済のため、自動返金できません。"
+                : code === "CANCEL_IN_PROGRESS"
+                  ? "別の操作でキャンセル処理中です。少し待ってから更新してください。"
+                  : code === "DB_APPLY_FAILED"
+                    ? "返金は完了しましたが、注文データの更新に失敗しました。もう一度「キャンセル」を実行してください。"
+                    : `キャンセルに失敗しました（${code || res.status}）。`;
+        await appDialog.alert({ message: msg });
+        return;
+      }
+
+      setOrder({
+        ...order,
+        status: "canceled",
+        canceled_at: new Date().toISOString(),
+        cancel_reason: cancelReason,
+        refund_id: json.refundId ?? order.refund_id ?? null,
+        refund_amount: Number(json.refundAmount ?? order.refund_amount ?? 0),
+        refunded_at: new Date().toISOString(),
+      });
+      setCancelReq((prev) =>
+        prev && prev.status === "requested" ? { ...prev, status: "approved" } : prev
+      );
+
+      await appDialog.alert({
+        message:
+          Number(json.refundAmount || 0) > 0
+            ? `${formatPrice(json.refundAmount)}円をPayPayで返金しました。\n注文をキャンセル済みにしました。`
+            : "注文をキャンセルしました。\n使用ポイントは返還しました。",
+      });
+    } catch (e) {
+      console.error(e);
+      await appDialog.alert({ message: "キャンセル処理中にエラーが発生しました。" });
+    } finally {
+      setCancelBusy(false);
+    }
+  };
+
+  // ✅ キャンセル申請を却下
+  const handleRejectRequest = async () => {
+    if (!order || cancelBusy) return;
+
+    const ok = await appDialog.confirm({
+      title: "キャンセル申請を却下",
+      message: "この申請を却下します。お客様の購入履歴には「却下」として残ります。よろしいですか？",
+      okText: "却下する",
+      cancelText: "やめる",
+    });
+    if (!ok) return;
+
+    setCancelBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("reject_order_cancel", {
+        p_order_id: order.id,
+        p_admin_note: "",
+      });
+      if (error) {
+        await appDialog.alert({ message: `却下できませんでした（${error.message}）` });
+        return;
+      }
+      if (!data?.ok) {
+        await appDialog.alert({ message: "却下できませんでした。申請がすでに処理された可能性があります。" });
+        return;
+      }
+      setCancelReq((prev) => (prev ? { ...prev, status: "rejected" } : prev));
+      setNotice("キャンセル申請を却下しました。");
+    } catch (e) {
+      console.error(e);
+      await appDialog.alert({ message: "却下処理中にエラーが発生しました。" });
+    } finally {
+      setCancelBusy(false);
+    }
+  };
+
+  const statusLower = String(order?.status || "").toLowerCase();
+  const isCanceled = statusLower === "canceled";
+  const isPaid = statusLower === "paid";
+  const isShipped = String(order?.shipping_status || "") === "shipped";
+  const canCancel = isPaid && !isShipped;
+  const pendingRequest = cancelReq?.status === "requested" ? cancelReq : null;
+
   return (
     <>
       <AdminHeader />
@@ -284,10 +472,54 @@ export default function AdminOrderDetail() {
             <p className="admin-order-state">{errorMsg || "注文が見つかりませんでした。"}</p>
           ) : (
             <>
+              {notice && <div className="admin-order-notice">{notice}</div>}
+
+              {isCanceled ? (
+                <div className="admin-cancel-status is-canceled">
+                  <div className="acs-head">
+                    <span className="acs-title">キャンセル済み</span>
+                    <span className="acs-date">{fmtDateTime(order.canceled_at)}</span>
+                  </div>
+                  <p>
+                    {Number(order.refund_amount || 0) > 0
+                      ? `PayPayで ${formatPrice(order.refund_amount)}円 を返金しました。`
+                      : "0円購入のため返金はありません（ポイントは返還済み）。"}
+                  </p>
+                  {order.cancel_reason && <p>理由：{order.cancel_reason}</p>}
+                  {order.refund_id && <p className="acs-sub">返金ID：{order.refund_id}</p>}
+                </div>
+              ) : pendingRequest ? (
+                <div className="admin-cancel-request">
+                  <div className="acr-head">
+                    <span className="acr-badge">キャンセル申請中</span>
+                    <span className="acr-date">{fmtDateTime(pendingRequest.created_at)}</span>
+                  </div>
+                  <p className="acr-reason">
+                    <strong>お客様の理由：</strong>
+                    {pendingRequest.reason || "（理由なし）"}
+                  </p>
+                  <p className="acr-note">
+                    内容を確認して、返金するか却下するかを選んでください。
+                  </p>
+                </div>
+              ) : isPaid && isShipped ? (
+                <div className="admin-cancel-status is-shipped">
+                  <span className="acs-title">発送済み</span>
+                  <p>発送済みの注文はキャンセル（自動返金）できません。返品対応は個別に行ってください。</p>
+                </div>
+              ) : null}
+
               <div className="admin-order-info">
                 <p>
                   <strong>注文ID：</strong> {order.id}
                 </p>
+
+                {(order.name || order.email) && (
+                  <p>
+                    <strong>購入者：</strong> {order.name || "-"}
+                    {order.email ? `（${order.email}）` : ""}
+                  </p>
+                )}
 
                 <p>
                   <strong>user_id：</strong> {order.user_id || "-"}
@@ -359,7 +591,78 @@ export default function AdminOrderDetail() {
 </div>
               </div>
 
-              {order.fulfillment_type === "shipping" && (
+              {canCancel && (
+                <div className={`admin-cancel-box ${pendingRequest ? "is-request" : ""}`}>
+                  <div className="acb-head">
+                    <h3>{pendingRequest ? "キャンセル申請への対応" : "この注文をキャンセル"}</h3>
+                    {!pendingRequest && <span className="acb-sub">支払済・発送前</span>}
+                  </div>
+
+                  <p className="acb-desc">
+                    {Number(order.total || 0) > 0
+                      ? `PayPayで ${formatPrice(order.total)}円 を全額返金します。`
+                      : "0円購入のため返金はありません（使用ポイントは戻します）。"}
+                    在庫・ロット・クーポン使用回数も自動で戻します。
+                  </p>
+
+                  <label className="acb-label" htmlFor="cancel-reason">
+                    キャンセル理由（任意）
+                  </label>
+                  <textarea
+                    id="cancel-reason"
+                    className="acb-textarea"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="例：お客様からの連絡、注文間違い など"
+                    rows={2}
+                  />
+
+                  <label className="acb-check">
+                    <input
+                      type="checkbox"
+                      checked={revokePoints}
+                      onChange={(e) => setRevokePoints(e.target.checked)}
+                    />
+                    <span>
+                      購入で付与したポイントも取り消す
+                      {Number(order.points_earned || 0) > 0 && (
+                        <small>（{Number(order.points_earned || 0)}pt）</small>
+                      )}
+                    </span>
+                  </label>
+
+                  {Number(order.points_used || 0) > 0 && (
+                    <p className="acb-points">使用された {Number(order.points_used || 0)}pt はお客様へ返還します。</p>
+                  )}
+
+                  <div className="acb-actions">
+                    {pendingRequest && (
+                      <button
+                        type="button"
+                        className="acb-reject"
+                        onClick={handleRejectRequest}
+                        disabled={cancelBusy}
+                      >
+                        申請を却下
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="acb-cancel"
+                      onClick={() => handleCancelOrder(!!pendingRequest)}
+                      disabled={cancelBusy}
+                    >
+                      {cancelBusy
+                        ? "処理中..."
+                        : pendingRequest
+                          ? "承認して全額返金する"
+                          : "キャンセルして全額返金する"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {order.fulfillment_type === "shipping" && !isCanceled && (
                 <div
                   className={`admin-ship-box ${
                     order.shipping_status === "shipped" ? "is-shipped" : "is-preparing"

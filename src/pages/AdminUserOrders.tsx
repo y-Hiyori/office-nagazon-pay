@@ -40,6 +40,10 @@ export default function AdminUserOrders() {
   const getBadge = (o: OrderRow) => {
     const st = getStatus(o);
 
+    if (st === "CANCELED" || st === "CANCELLED") {
+      return { label: "キャンセル済み", className: "is-canceled" as const };
+    }
+
     if (st === "PAID" || st === "COMPLETED") {
       return { label: "完了", className: "is-paid" as const };
     }

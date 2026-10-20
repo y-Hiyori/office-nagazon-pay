@@ -93,3 +93,13 @@
 .gi-total { font-size: 16px; font-weight: 900; }
 .gi-disc { font-size: 11.5px; font-weight: 800; color: #b91c1c; }
 .gi-open { margin-top: 6px; font-size: 11.5px; font-weight: 800; color: #8b1e3f; }
+
+/* キャンセル済み（v42） */
+.gi-canceled {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 10.5px;
+  font-weight: 900;
+}

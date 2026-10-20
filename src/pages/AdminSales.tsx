@@ -596,6 +596,7 @@ export default function AdminSales() {
           .from("orders")
           .select("id", { count: "exact", head: true })
           .is("user_id", null)
+          .eq("status", "paid")
           .gte("created_at", startIso)
           .lt("created_at", endIso);
         guestCount = Number(count ?? 0);

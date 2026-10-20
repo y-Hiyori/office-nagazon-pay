@@ -7,6 +7,7 @@ import SiteFooter from "../components/SiteFooter";
 import "./OrderDetail.css";
 import { findProductImage } from "../data/products";
 import Loading from "../components/Loading";
+import { appDialog } from "../lib/appDialog";
 
 type OrderRow = {
   id: string;
@@ -18,6 +19,24 @@ type OrderRow = {
   // ✅ 発送ステータス
   fulfillment_type?: string | null;
   shipping_status?: string | null;
+
+  // ✅ キャンセル・返金
+  status?: string | null;
+  canceled_at?: string | null;
+  cancel_reason?: string | null;
+  refund_amount?: number | null;
+  refund_id?: string | null;
+  points_used?: number | null;
+  points_earned?: number | null;
+};
+
+type CancelRequestRow = {
+  id: string;
+  order_id: string;
+  reason?: string | null;
+  status: string;
+  admin_note?: string | null;
+  created_at?: string | null;
 };
 
 type OrderItemRow = {
@@ -40,6 +59,12 @@ function OrderDetail() {
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // ✅ キャンセル申請
+  const [cancelReq, setCancelReq] = useState<CancelRequestRow | null>(null);
+  const [requestReason, setRequestReason] = useState("");
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const formatPrice = (value: any) => (Number(value) || 0).toLocaleString("ja-JP");
 
@@ -110,6 +135,18 @@ function OrderDetail() {
       }
 
       setItems((itemData || []) as OrderItemRow[]);
+
+      // ✅ キャンセル申請（最新1件）
+      const { data: reqData } = await supabase
+        .from("order_cancel_requests")
+        .select("id,order_id,reason,status,admin_note,created_at")
+        .eq("order_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setCancelReq((reqData as CancelRequestRow) || null);
+
       setLoading(false);
     };
 
@@ -152,6 +189,68 @@ function OrderDetail() {
       couponCode,
     };
   }, [order, items]);
+
+  // ✅ キャンセル申請を送る
+  const submitCancelRequest = async () => {
+    if (!order || requestBusy) return;
+
+    const ok = await appDialog.confirm({
+      title: "キャンセルを申請",
+      message:
+        "この注文のキャンセルを申請します。\n" +
+        "発送前の注文が対象です。お店が確認して返金します。\nよろしいですか？",
+      okText: "申請する",
+      cancelText: "やめる",
+    });
+    if (!ok) return;
+
+    setRequestBusy(true);
+    setNotice("");
+    try {
+      const { data, error } = await supabase.rpc("request_order_cancel", {
+        p_order_id: order.id,
+        p_reason: requestReason,
+      });
+
+      if (error) {
+        await appDialog.alert({ message: `申請できませんでした（${error.message}）` });
+        return;
+      }
+
+      if (!data?.ok) {
+        const code = String(data?.error || "");
+        const msg =
+          code === "ALREADY_SHIPPED"
+            ? "発送済みのため、この注文はキャンセル申請できません。"
+            : code === "NOT_PAID"
+              ? "支払いが完了していないため、キャンセル申請できません。"
+              : "キャンセル申請できませんでした。";
+        await appDialog.alert({ message: msg });
+        return;
+      }
+
+      setCancelReq({
+        id: String(data.requestId || ""),
+        order_id: order.id,
+        reason: requestReason,
+        status: "requested",
+        created_at: new Date().toISOString(),
+      });
+      setNotice("キャンセルを申請しました。お店からの連絡をお待ちください。");
+    } catch (e) {
+      console.error(e);
+      await appDialog.alert({ message: "申請中にエラーが発生しました。" });
+    } finally {
+      setRequestBusy(false);
+    }
+  };
+
+  const statusLower = String(order?.status || "").toLowerCase();
+  const isCanceled = statusLower === "canceled";
+  const isPaid = statusLower === "paid";
+  const isShipped = String(order?.shipping_status || "") === "shipped";
+  const pendingRequest = cancelReq?.status === "requested" ? cancelReq : null;
+  const canRequest = isPaid && !isShipped && !pendingRequest;
 
   return (
     <div className="orders-page-wrap">
@@ -239,6 +338,75 @@ function OrderDetail() {
                 </div>
               )}
             </div>
+
+            {notice && <div className="order-notice">{notice}</div>}
+
+            {isCanceled && (
+              <div className="order-canceled-box">
+                <div className="ocb-head">
+                  <strong>この注文はキャンセルされました</strong>
+                  <span className="ocb-badge">キャンセル済み</span>
+                </div>
+                <p>
+                  {Number(order.refund_amount || 0) > 0
+                    ? `${formatPrice(order.refund_amount)}円がPayPayに返金されました。`
+                    : "0円購入のため返金はありません（使用ポイントは返還済みです）。"}
+                </p>
+                {Number(order.points_used || 0) > 0 && (
+                  <p className="ocb-sub">使用した {Number(order.points_used || 0)}pt は返還済みです。</p>
+                )}
+                {order.cancel_reason && <p className="ocb-sub">理由：{order.cancel_reason}</p>}
+              </div>
+            )}
+
+            {pendingRequest && (
+              <div className="order-request-box is-pending">
+                <div className="orb-head">
+                  <strong>キャンセル申請中</strong>
+                  <span className="orb-badge">お店の確認待ち</span>
+                </div>
+                <p>お店が内容を確認しています。返金が完了するまでお待ちください。</p>
+                {pendingRequest.reason && <p className="orb-sub">申請理由：{pendingRequest.reason}</p>}
+              </div>
+            )}
+
+            {cancelReq?.status === "rejected" && !isCanceled && (
+              <div className="order-request-box is-rejected">
+                <div className="orb-head">
+                  <strong>キャンセル申請は却下されました</strong>
+                  <span className="orb-badge">却下</span>
+                </div>
+                <p>お店が申請を確認しました。ご不明な点はお問い合わせください。</p>
+                {cancelReq.admin_note && <p className="orb-sub">お店からのメモ：{cancelReq.admin_note}</p>}
+              </div>
+            )}
+
+            {canRequest && (
+              <div className="order-request-box">
+                <div className="orb-head">
+                  <strong>{cancelReq?.status === "rejected" ? "もう一度キャンセルを申請する" : "キャンセルを申請する"}</strong>
+                  <span className="orb-badge is-ok">発送前のみ</span>
+                </div>
+                <p className="orb-desc">
+                  発送前の注文はキャンセルを申請できます。お店が確認して、PayPayへ返金します。
+                </p>
+                <textarea
+                  className="orb-textarea"
+                  value={requestReason}
+                  onChange={(e) => setRequestReason(e.target.value)}
+                  placeholder="理由（任意）例：注文を間違えた、受け取りが難しくなった"
+                  rows={2}
+                />
+                <button
+                  type="button"
+                  className="orb-button"
+                  onClick={submitCancelRequest}
+                  disabled={requestBusy}
+                >
+                  {requestBusy ? "送信中..." : "キャンセルを申請する"}
+                </button>
+              </div>
+            )}
 
             <h3 className="items-title">購入した商品</h3>
 

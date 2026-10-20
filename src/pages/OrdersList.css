@@ -352,3 +352,15 @@
 /* ✅ 発送ステータス（購入履歴） */
 .order-badge-preparing{background:#fff3cd;color:#7a5a00;border-color:#e6c56a;}
 .order-badge-shipped{background:#d9f2e3;color:#1c6a3a;border-color:#a8d9bb;}
+
+/* ===== キャンセル（v42） ===== */
+.order-badge-canceled {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+.order-badge-requested {
+  background: #ffedd5 !important;
+  color: #b45309 !important;
+  border-color: #fdba74 !important;
+}

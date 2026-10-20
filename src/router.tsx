@@ -48,6 +48,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminUserOrders from "./pages/AdminUserOrders";
 import AdminOrderDetail from "./pages/AdminOrderDetail";
+import AdminOrders from "./pages/AdminOrders";
 import AdminSales from "./pages/AdminSales";
 import AdminGuestOrders from "./pages/AdminGuestOrders";
 import AdminSalesProductDetail from "./pages/AdminSalesProductDetail";
@@ -210,6 +211,14 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminUserOrders />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-orders",
+        element: (
+          <AdminRoute>
+            <AdminOrders />
           </AdminRoute>
         ),
       },

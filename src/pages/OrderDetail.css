@@ -242,3 +242,143 @@
 .order-ship-value{font-weight:800;font-size:13px;color:#7a5a00;}
 .order-ship-status.is-shipped .order-ship-value{color:#1c6a3a;}
 .order-ship-note{flex-basis:100%;font-size:11.5px;color:#9a8a5a;margin:4px 0 0;}
+
+/* ===== キャンセル申請（v42） ===== */
+.order-notice {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.order-canceled-box,
+.order-request-box {
+  margin: 14px 0;
+  padding: 14px 15px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.order-canceled-box {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.order-request-box.is-pending {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+
+.ocb-head,
+.orb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ocb-head strong,
+.orb-head strong {
+  font-size: 15px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.ocb-badge,
+.orb-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 900;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.orb-badge {
+  background: #ffedd5;
+  color: #b45309;
+}
+
+.orb-badge.is-ok {
+  background: #e8f8ee;
+  color: #1c6a3a;
+}
+
+.order-canceled-box p,
+.order-request-box p {
+  margin: 8px 0 0;
+  line-height: 1.7;
+}
+
+.ocb-sub,
+.orb-sub {
+  font-size: 12px;
+  color: #64748b;
+  word-break: break-word;
+}
+
+.orb-desc {
+  color: #475569;
+}
+
+.orb-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  background: #fbfcff;
+  font-size: 14px;
+  font-family: inherit;
+  color: #0f172a;
+  resize: vertical;
+}
+
+.orb-textarea:focus {
+  outline: none;
+  border-color: #1e6fd9;
+  box-shadow: 0 0 0 4px rgba(30, 111, 217, 0.12);
+}
+
+.orb-button {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  border: none;
+  border-radius: 12px;
+  background: #8b1e3f;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(139, 30, 63, 0.22);
+}
+
+.orb-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@media (max-width: 480px) {
+  .order-request-box,
+  .order-canceled-box {
+    padding: 13px;
+  }
+}
+
+.order-request-box.is-rejected {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}

@@ -25,6 +25,10 @@
       "dest": "http://161.33.19.160:3000/api/cancel-paypay-order"
     },
     {
+      "src": "/api/admin-cancel-order",
+      "dest": "http://161.33.19.160:3000/api/admin-cancel-order"
+    },
+    {
       "handle": "filesystem"
     },
     {

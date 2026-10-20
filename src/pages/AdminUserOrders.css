@@ -318,3 +318,9 @@
     font-size: 11px;
   }
 }
+/* キャンセル済み（v42） */
+.admin-orders-badge.is-canceled{
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
