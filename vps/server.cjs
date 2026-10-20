@@ -9,6 +9,7 @@
  * - /api/send-contact-email
  * - /api/cancel-paypay-order       （未払い注文の取消）
  * - /api/admin-cancel-order        （支払済み注文のキャンセル＋PayPay返金）
+ * - /api/admin-delete-order        （未払い・決済失敗の注文を削除）
  *
  * 必須ENV（最低限）
  *  - SUPABASE_URL
@@ -203,6 +204,16 @@ function paypayRefund(payload) {
       });
     } catch (e) {
       return reject(e);
+    }
+  });
+}
+
+function paypayPaymentCancel(merchantPaymentId) {
+  return new Promise((resolve) => {
+    try {
+      PAYPAY.PaymentCancel([merchantPaymentId], (response) => resolve(response || null));
+    } catch (e) {
+      resolve({ error: String(e?.message || e) });
     }
   });
 }
@@ -1135,6 +1146,97 @@ app.post("/api/admin-cancel-order", async (req, res) => {
     });
   } catch (e) {
     console.error("admin-cancel-order fatal:", e);
+    return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
+  }
+});
+
+// =====================
+// admin-delete-order（管理者：決済が完了していない注文を削除）
+// body: { orderId, accessToken }
+//   ・支払済み（paid_atあり）は絶対に削除しない
+//   ・pending はPayPay側が未払いであることを確認してから削除
+//   ・削除内容は order_deletion_logs に残す
+// =====================
+app.post("/api/admin-delete-order", async (req, res) => {
+  try {
+    const missing = envMissing(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+    if (missing.length) return res.status(500).json({ ok: false, status: "ENV_MISSING", missing });
+
+    const sb = supabaseAdmin();
+    const orderId = String(req.body?.orderId || "").trim();
+    const accessToken = String(req.body?.accessToken || "").trim();
+    if (!orderId || !accessToken) {
+      return res.status(400).json({ ok: false, status: "MISSING" });
+    }
+
+    const { data: authData, error: authErr } = await sb.auth.getUser(accessToken);
+    if (authErr || !authData?.user) {
+      return res.status(401).json({ ok: false, status: "UNAUTHORIZED" });
+    }
+
+    const { data: me, error: meErr } = await sb
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+    if (meErr || !me?.is_admin) {
+      return res.status(403).json({ ok: false, status: "NOT_ADMIN" });
+    }
+
+    const { data: order, error: orderErr } = await sb
+      .from("orders")
+      .select("id,status,paid_at,total,paypay_merchant_payment_id")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderErr || !order) {
+      return res.status(404).json({ ok: false, status: "ORDER_NOT_FOUND" });
+    }
+
+    const st = String(order.status || "").toLowerCase();
+    if (st === "paid" || order.paid_at) {
+      return res.status(409).json({ ok: false, status: "PAID" });
+    }
+
+    // pending は「本当に未払いか」をPayPay側で確認する
+    if (st === "pending" && order.paypay_merchant_payment_id) {
+      const missingPayPay = envMissing(["PAYPAY_API_KEY", "PAYPAY_API_SECRET", "PAYPAY_MERCHANT_ID"]);
+      if (missingPayPay.length) {
+        return res.status(500).json({ ok: false, status: "ENV_MISSING", missing: missingPayPay });
+      }
+      configurePayPay();
+
+      let detail;
+      try {
+        detail = await paypayGetDetails(String(order.paypay_merchant_payment_id));
+      } catch (eDetail) {
+        console.error("[ADMIN_DELETE_VERIFY_ERR]", orderId, eDetail?.message || eDetail);
+        return res.status(502).json({ ok: false, status: "CANNOT_VERIFY" });
+      }
+
+      if (extractPayPayStatus(detail) === "COMPLETED") {
+        return res.status(409).json({ ok: false, status: "PAID" });
+      }
+
+      // 未払いならQR決済を無効化しておく（すでに期限切れ等なら無視）
+      await paypayPaymentCancel(String(order.paypay_merchant_payment_id));
+    }
+
+    const { data: deleted, error: delErr } = await sb.rpc("admin_delete_unpaid_order", {
+      p_order_id: orderId,
+      p_admin_id: authData.user.id,
+    });
+
+    if (delErr) {
+      console.error("[ADMIN_DELETE_ERR]", orderId, delErr.message);
+      return res.status(500).json({ ok: false, status: "DB_ERROR", message: delErr.message });
+    }
+    if (!deleted?.ok) {
+      return res.status(409).json({ ok: false, status: "REJECTED", result: deleted });
+    }
+
+    return res.json({ ok: true, deleted: true, orderId });
+  } catch (e) {
+    console.error("admin-delete-order fatal:", e);
     return res.status(500).json({ ok: false, status: "ERROR", message: String(e?.message || e) });
   }
 });

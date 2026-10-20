@@ -85,6 +85,7 @@ export default function AdminOrderDetail() {
   const [cancelReason, setCancelReason] = useState("");
   const [revokePoints, setRevokePoints] = useState(true);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [notice, setNotice] = useState("");
 
   const fmtDateTime = (iso?: string | null) => {
@@ -448,6 +449,59 @@ export default function AdminOrderDetail() {
     }
   };
 
+  // ✅ 決済が完了していない注文の削除
+  const handleDeleteUnpaidOrder = async () => {
+    if (!order || deleteBusy) return;
+
+    const ok = await appDialog.confirm({
+      title: "決済が失敗した注文を削除",
+      message:
+        "この注文を削除します。\n" +
+        "支払い・在庫・ポイントへの影響はありません。\n" +
+        "削除した内容はログに残ります。よろしいですか？",
+      okText: "削除する",
+      cancelText: "やめる",
+    });
+    if (!ok) return;
+
+    setDeleteBusy(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || "";
+      if (!accessToken) {
+        await appDialog.alert({ message: "ログイン情報を取得できませんでした。再ログインしてください。" });
+        return;
+      }
+
+      const res = await fetch("/api/admin-delete-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, accessToken }),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.ok) {
+        const code = String(json?.status || "");
+        const msg =
+          code === "PAID"
+            ? "この注文は支払い済みのため削除できません。更新して状態を確認してください。"
+            : code === "CANNOT_VERIFY"
+              ? "PayPay側の支払い状況を確認できませんでした。時間をおいて再度お試しください。"
+              : `削除できませんでした（${code || res.status}）。`;
+        await appDialog.alert({ message: msg });
+        return;
+      }
+
+      await appDialog.alert({ message: "決済が完了していない注文を削除しました。" });
+      navigate("/admin-orders");
+    } catch (e) {
+      console.error(e);
+      await appDialog.alert({ message: "削除処理中にエラーが発生しました。" });
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
   const statusLower = String(order?.status || "").toLowerCase();
   const isCanceled = statusLower === "canceled";
   const isPaid = statusLower === "paid";
@@ -456,6 +510,8 @@ export default function AdminOrderDetail() {
   const unpaidCanceled = isUnpaidCanceled(order || {});
   const canCancel = isPaid && !isShipped;
   const pendingRequest = cancelReq?.status === "requested" ? cancelReq : null;
+  const canDeleteUnpaid =
+    !order?.paid_at && ["pending", "failed", "canceled"].includes(statusLower);
 
   return (
     <>
@@ -516,6 +572,29 @@ export default function AdminOrderDetail() {
                   <p>発送済みの注文はキャンセル（自動返金）できません。返品対応は個別に行ってください。</p>
                 </div>
               ) : null}
+
+              {canDeleteUnpaid && (
+                <div className="admin-delete-unpaid">
+                  <div className="adu-head">
+                    <strong>決済が完了していない注文</strong>
+                    <span className="adu-badge">削除できます</span>
+                  </div>
+                  <p>
+                    決済失敗・未払いの注文です。削除しても支払い・在庫・ポイントには影響ありません。
+                  </p>
+                  <p className="adu-sub">
+                    削除した内容はログに残ります。お客様が支払いを完了している可能性がある場合は、先に更新して状態を確認してください。
+                  </p>
+                  <button
+                    type="button"
+                    className="adu-button"
+                    onClick={handleDeleteUnpaidOrder}
+                    disabled={deleteBusy}
+                  >
+                    {deleteBusy ? "削除中..." : "この注文を削除"}
+                  </button>
+                </div>
+              )}
 
               <div className="admin-order-info">
                 <p>

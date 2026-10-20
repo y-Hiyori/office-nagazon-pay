@@ -29,6 +29,10 @@
       "dest": "http://161.33.19.160:3000/api/admin-cancel-order"
     },
     {
+      "src": "/api/admin-delete-order",
+      "dest": "http://161.33.19.160:3000/api/admin-delete-order"
+    },
+    {
       "handle": "filesystem"
     },
     {

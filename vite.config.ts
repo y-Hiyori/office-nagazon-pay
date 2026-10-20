@@ -10,6 +10,7 @@ const vpsApi = [
   '/api/confirm-paypay-payment',
   '/api/cancel-paypay-order',
   '/api/admin-cancel-order',
+  '/api/admin-delete-order',
   '/api/order-status',
 ]
 
