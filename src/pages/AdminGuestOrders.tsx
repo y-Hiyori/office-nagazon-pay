@@ -19,6 +19,7 @@ type GuestOrder = {
   coupon_code: string | null;
   payment_method: string | null;
   status: string | null;
+  paid_at: string | null;
   fulfillment_type: string | null;
   shipping_status: string | null;
 };
@@ -50,7 +51,7 @@ export default function AdminGuestOrders() {
     const { data, error } = await supabase
       .from("orders")
       .select(
-        "id,created_at,name,email,phone,subtotal,discount_amount,total,coupon_code,payment_method,status,fulfillment_type,shipping_status"
+        "id,created_at,name,email,phone,subtotal,discount_amount,total,coupon_code,payment_method,status,paid_at,fulfillment_type,shipping_status"
       )
       .is("user_id", null)
       .order("created_at", { ascending: false })
@@ -152,7 +153,7 @@ export default function AdminGuestOrders() {
                     <span className="gi-name">{r.name || "(名前なし)"}</span>
                     <span className="gi-badge">ゲスト</span>
                     {String(r.status || "").toLowerCase() === "canceled" && (
-                      <span className="gi-canceled">キャンセル済み</span>
+                      <span className="gi-canceled">{r.paid_at ? "キャンセル済み" : "未払い取消"}</span>
                     )}
                     {r.coupon_code && <span className="gi-coupon">クーポン {r.coupon_code}</span>}
                     {r.fulfillment_type === "shipping" && (

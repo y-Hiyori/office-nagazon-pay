@@ -6,6 +6,9 @@ import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import "./OrdersList.css";
 import Loading from "../components/Loading";
+import { appDialog } from "../lib/appDialog";
+import { findProductImage } from "../data/products";
+import { getCancelEligibility } from "../lib/orderCancel";
 
 type OrderRow = {
   id: string;
@@ -26,7 +29,9 @@ type OrderRow = {
   shipping_status?: string | null;
 
   // ✅ キャンセル・返金
+  paid_at?: string | null;
   canceled_at?: string | null;
+  cancel_reason?: string | null;
   refund_amount?: number | null;
 };
 
@@ -45,10 +50,13 @@ type OrderItemRow = {
 };
 
 // ✅ Vite: フォルダ内pngをまとめてURL化（eager）
-const LOCAL_PRODUCT_IMAGES = import.meta.glob("../data/商品画像/*.png", {
-  eager: true,
-  import: "default",
-}) as Record<string, string>;
+const LOCAL_PRODUCT_IMAGES = import.meta.glob(
+  "../data/商品画像/*.{png,jpg,jpeg,webp,avif}",
+  {
+    eager: true,
+    import: "default",
+  }
+) as Record<string, string>;
 
 const getLocalImageUrlByProductName = (productName?: string | null) => {
   const name = String(productName || "").trim();
@@ -67,6 +75,8 @@ function OrdersList() {
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [notice, setNotice] = useState("");
+  const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
 
   const formatPrice = (value: any) => (Number(value) || 0).toLocaleString("ja-JP");
 
@@ -125,6 +135,8 @@ function OrdersList() {
       setOrders([]);
       setItemsByOrderId({});
       setRequestedIds(new Set());
+      setNotice("");
+      setErrorMsg("");
 
       // 1) ログイン中ユーザー
       const {
@@ -156,7 +168,10 @@ function OrdersList() {
         return;
       }
 
-      const safeOrders = (ordersData || []) as OrderRow[];
+      // 未払いのまま取り消された注文（昔の決済中断）は購入履歴に出さない
+      const safeOrders = ((ordersData || []) as OrderRow[]).filter(
+        (o) => String(o.status || "").toLowerCase() !== "canceled" || !!o.paid_at
+      );
       setOrders(safeOrders);
 
       const orderIds = safeOrders.map((o) => o.id).filter(Boolean);
@@ -181,10 +196,14 @@ function OrdersList() {
       const rawItems = (itemsData || []) as OrderItemRow[];
 
       // 4) ローカル画像URLを埋め込む（products列は触らない）
-      const fixedItems: OrderItemRow[] = rawItems.map((it) => ({
-        ...it,
-        products: { image_url: getLocalImageUrlByProductName(it.product_name) },
-      }));
+      const fixedItems: OrderItemRow[] = rawItems.map((it) => {
+        const byId = it.product_id != null ? findProductImage(Number(it.product_id)) : undefined;
+        const byName = getLocalImageUrlByProductName(it.product_name);
+        return {
+          ...it,
+          products: { image_url: byId || byName || null },
+        };
+      });
 
       // 5) 注文IDごとにまとめる
       const grouped: Record<string, OrderItemRow[]> = {};
@@ -239,6 +258,55 @@ function OrdersList() {
     });
   }, [orders, itemsByOrderId]);
 
+  const handleCancelRequest = async (o: OrderRow) => {
+    if (cancelBusyId) return;
+
+    const ok = await appDialog.confirm({
+      title: "キャンセルを申請",
+      message:
+        "この注文のキャンセルを申請します。\n" +
+        "お店が内容を確認して、返金のお手続きをします。\nよろしいですか？",
+      okText: "申請する",
+      cancelText: "やめる",
+    });
+    if (!ok) return;
+
+    setCancelBusyId(o.id);
+    setNotice("");
+    try {
+      const { data, error } = await supabase.rpc("request_order_cancel", {
+        p_order_id: o.id,
+        p_reason: "",
+      });
+
+      if (error) {
+        await appDialog.alert({ message: `申請できませんでした（${error.message}）` });
+        return;
+      }
+      if (!data?.ok) {
+        const code = String(data?.error || "");
+        const msg =
+          code === "EXPIRED"
+            ? "キャンセル申請は注文から2日以内です。お問い合わせください。"
+            : code === "ALREADY_SHIPPED"
+              ? "発送済みのため申請できません。"
+              : code === "NOT_PAID"
+                ? "支払いが完了していないため申請できません。"
+                : "キャンセル申請できませんでした。";
+        await appDialog.alert({ message: msg });
+        return;
+      }
+
+      setRequestedIds((prev) => new Set(prev).add(o.id));
+      setNotice("キャンセルを申請しました。お店からの連絡をお待ちください。");
+    } catch (e) {
+      console.error(e);
+      await appDialog.alert({ message: "申請中にエラーが発生しました。" });
+    } finally {
+      setCancelBusyId(null);
+    }
+  };
+
   return (
     <div className="orders-page-wrap">
       <SiteHeader />
@@ -250,6 +318,8 @@ function OrdersList() {
           </button>
           <h2 className="orders-title">購入履歴</h2>
         </header>
+
+        {notice && <div className="orders-notice">{notice}</div>}
 
         {loading ? (
           <Loading />
@@ -263,6 +333,11 @@ function OrdersList() {
               ({ o, items, subtotal, couponDiscount, couponCode, hasCoupon, pointsUsed, hasPoints, total }) => {
                 const preview = items.slice(0, 2);
                 const remain = Math.max(0, items.length - preview.length);
+                const isRequested = requestedIds.has(o.id);
+                const canRequest =
+                  getCancelEligibility(o).allowed &&
+                  !isRequested &&
+                  String(o.status || "").toLowerCase() !== "canceled";
 
                 return (
                   <div
@@ -375,7 +450,23 @@ function OrdersList() {
                       )}
                     </div>
 
-                    <div className="orders-open">詳細を見る ＞</div>
+                    <div className="orders-card-actions">
+                      {canRequest && (
+                        <button
+                          type="button"
+                          className="orders-cancel-btn"
+                          disabled={cancelBusyId === o.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleCancelRequest(o);
+                          }}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          {cancelBusyId === o.id ? "送信中..." : "キャンセル申請"}
+                        </button>
+                      )}
+                      <span className="orders-open">詳細を見る ＞</span>
+                    </div>
                   </div>
                 );
               }

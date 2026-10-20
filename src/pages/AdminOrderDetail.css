@@ -347,3 +347,8 @@
     padding-right: 58px; /* 戻るボタンと釣り合う余白 */
   }
 }
+
+.admin-cancel-status.is-unpaid{
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}

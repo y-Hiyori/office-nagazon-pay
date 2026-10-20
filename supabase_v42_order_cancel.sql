@@ -101,9 +101,13 @@ begin
   if lower(coalesce(v_order.status, '')) <> 'paid' then
     return json_build_object('ok', false, 'error', 'NOT_PAID');
   end if;
-  if coalesce(v_order.fulfillment_type, 'pickup') = 'shipping'
-     and coalesce(v_order.shipping_status, 'preparing') = 'shipped' then
-    return json_build_object('ok', false, 'error', 'ALREADY_SHIPPED');
+  if coalesce(v_order.fulfillment_type, 'pickup') = 'shipping' then
+    if coalesce(v_order.shipping_status, 'preparing') = 'shipped' then
+      return json_build_object('ok', false, 'error', 'ALREADY_SHIPPED');
+    end if;
+  elsif v_order.created_at < now() - interval '48 hours' then
+    -- 受取商品（発送以外）は注文から2日以内だけ申請できる
+    return json_build_object('ok', false, 'error', 'EXPIRED');
   end if;
 
   select id into v_id

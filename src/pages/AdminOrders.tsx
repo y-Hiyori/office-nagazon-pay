@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import Loading from "../components/Loading";
+import { isUnpaidCanceled } from "../lib/orderCancel";
 import "./AdminOrders.css";
 
 type OrderRow = {
@@ -17,6 +18,7 @@ type OrderRow = {
   phone: string | null;
   total: number | null;
   status: string | null;
+  paid_at: string | null;
   payment_method: string | null;
   fulfillment_type: string | null;
   shipping_status: string | null;
@@ -86,7 +88,7 @@ export default function AdminOrders() {
     const { data: orderData, error: orderErr } = await supabase
       .from("orders")
       .select(
-        "id,created_at,user_id,name,email,phone,total,status,payment_method,fulfillment_type,shipping_status,refund_amount,canceled_at"
+        "id,created_at,user_id,name,email,phone,total,status,paid_at,payment_method,fulfillment_type,shipping_status,refund_amount,canceled_at"
       )
       .order("created_at", { ascending: false })
       .limit(400);
@@ -148,8 +150,9 @@ export default function AdminOrders() {
     let shipped = 0;
     let canceled = 0;
     for (const o of orders) {
-      if (isCanceled(o)) canceled++;
-      else if (isShipped(o)) shipped++;
+      if (isCanceled(o)) {
+        if (!isUnpaidCanceled(o)) canceled++;
+      } else if (isShipped(o)) shipped++;
       else if (isPaid(o)) paid++;
       if (requests[o.id]) requested++;
     }
@@ -162,7 +165,7 @@ export default function AdminOrders() {
       if (filter === "requested" && !requests[o.id]) return false;
       if (filter === "paid" && (!isPaid(o) || isShipped(o))) return false;
       if (filter === "shipped" && !isShipped(o)) return false;
-      if (filter === "canceled" && !isCanceled(o)) return false;
+      if (filter === "canceled" && (!isCanceled(o) || isUnpaidCanceled(o))) return false;
 
       if (!s) return true;
       const hay = [o.id, o.name, o.email, o.phone, o.user_id]
@@ -175,6 +178,7 @@ export default function AdminOrders() {
 
   const statusBadge = (o: OrderRow) => {
     const req = requests[o.id];
+    if (isUnpaidCanceled(o)) return { cls: "is-pending", text: "未払い取消" };
     if (isCanceled(o)) return { cls: "is-canceled", text: "キャンセル済み" };
     if (req) return { cls: "is-requested", text: "キャンセル申請中" };
     if (isShipped(o)) return { cls: "is-shipped", text: "発送済み" };

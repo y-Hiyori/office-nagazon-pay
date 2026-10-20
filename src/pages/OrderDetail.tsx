@@ -8,6 +8,7 @@ import "./OrderDetail.css";
 import { findProductImage } from "../data/products";
 import Loading from "../components/Loading";
 import { appDialog } from "../lib/appDialog";
+import { getCancelEligibility } from "../lib/orderCancel";
 
 type OrderRow = {
   id: string;
@@ -194,11 +195,15 @@ function OrderDetail() {
   const submitCancelRequest = async () => {
     if (!order || requestBusy) return;
 
+    const pickup = order.fulfillment_type !== "shipping";
     const ok = await appDialog.confirm({
       title: "キャンセルを申請",
       message:
         "この注文のキャンセルを申請します。\n" +
-        "発送前の注文が対象です。お店が確認して返金します。\nよろしいですか？",
+        (pickup
+          ? "注文から2日以内の受取商品が対象です。お店が確認して返金のお手続きをします。\n"
+          : "発送前の発送商品が対象です。お店が確認して返金のお手続きをします。\n") +
+        "よろしいですか？",
       okText: "申請する",
       cancelText: "やめる",
     });
@@ -248,9 +253,10 @@ function OrderDetail() {
   const statusLower = String(order?.status || "").toLowerCase();
   const isCanceled = statusLower === "canceled";
   const isPaid = statusLower === "paid";
-  const isShipped = String(order?.shipping_status || "") === "shipped";
   const pendingRequest = cancelReq?.status === "requested" ? cancelReq : null;
-  const canRequest = isPaid && !isShipped && !pendingRequest;
+  const cancelEligibility = getCancelEligibility(order);
+  const canRequest = cancelEligibility.allowed && !pendingRequest;
+  const isPickup = order?.fulfillment_type !== "shipping";
 
   return (
     <div className="orders-page-wrap">
@@ -272,6 +278,51 @@ function OrderDetail() {
           <p className="no-orders">{errorMsg || "注文が見つかりませんでした。"}</p>
         ) : (
           <>
+            {pendingRequest && (
+              <div className="order-request-box is-pending">
+                <div className="orb-head">
+                  <strong>キャンセル申請中</strong>
+                  <span className="orb-badge">お店の確認待ち</span>
+                </div>
+                <p>
+                  お店が内容を確認しています。返金が完了するまでお待ちください。
+                  返金方法はご利用の決済方法に準じます。
+                </p>
+                {pendingRequest.reason && <p className="orb-sub">申請理由：{pendingRequest.reason}</p>}
+              </div>
+            )}
+
+            {notice && <div className="order-notice">{notice}</div>}
+
+            {isCanceled && (
+              <div className="order-canceled-box">
+                <div className="ocb-head">
+                  <strong>この注文はキャンセルされました</strong>
+                  <span className="ocb-badge">キャンセル済み</span>
+                </div>
+                <p>
+                  {Number(order.refund_amount || 0) > 0
+                    ? `${formatPrice(order.refund_amount)}円をご利用の決済方法へ返金しました。`
+                    : "0円購入のため返金はありません（使用ポイントは返還済みです）。"}
+                </p>
+                {Number(order.points_used || 0) > 0 && (
+                  <p className="ocb-sub">使用した {Number(order.points_used || 0)}pt は返還済みです。</p>
+                )}
+                {order.cancel_reason && <p className="ocb-sub">理由：{order.cancel_reason}</p>}
+              </div>
+            )}
+
+            {cancelReq?.status === "rejected" && !isCanceled && (
+              <div className="order-request-box is-rejected">
+                <div className="orb-head">
+                  <strong>キャンセル申請は却下されました</strong>
+                  <span className="orb-badge">却下</span>
+                </div>
+                <p>お店が申請を確認しました。ご不明な点はお問い合わせください。</p>
+                {cancelReq.admin_note && <p className="orb-sub">お店からのメモ：{cancelReq.admin_note}</p>}
+              </div>
+            )}
+
             <div className="order-info">
               <p>
                 <strong>注文ID：</strong> {order.id}
@@ -339,56 +390,22 @@ function OrderDetail() {
               )}
             </div>
 
-            {notice && <div className="order-notice">{notice}</div>}
-
-            {isCanceled && (
-              <div className="order-canceled-box">
-                <div className="ocb-head">
-                  <strong>この注文はキャンセルされました</strong>
-                  <span className="ocb-badge">キャンセル済み</span>
-                </div>
-                <p>
-                  {Number(order.refund_amount || 0) > 0
-                    ? `${formatPrice(order.refund_amount)}円がPayPayに返金されました。`
-                    : "0円購入のため返金はありません（使用ポイントは返還済みです）。"}
-                </p>
-                {Number(order.points_used || 0) > 0 && (
-                  <p className="ocb-sub">使用した {Number(order.points_used || 0)}pt は返還済みです。</p>
-                )}
-                {order.cancel_reason && <p className="ocb-sub">理由：{order.cancel_reason}</p>}
-              </div>
-            )}
-
-            {pendingRequest && (
-              <div className="order-request-box is-pending">
-                <div className="orb-head">
-                  <strong>キャンセル申請中</strong>
-                  <span className="orb-badge">お店の確認待ち</span>
-                </div>
-                <p>お店が内容を確認しています。返金が完了するまでお待ちください。</p>
-                {pendingRequest.reason && <p className="orb-sub">申請理由：{pendingRequest.reason}</p>}
-              </div>
-            )}
-
-            {cancelReq?.status === "rejected" && !isCanceled && (
-              <div className="order-request-box is-rejected">
-                <div className="orb-head">
-                  <strong>キャンセル申請は却下されました</strong>
-                  <span className="orb-badge">却下</span>
-                </div>
-                <p>お店が申請を確認しました。ご不明な点はお問い合わせください。</p>
-                {cancelReq.admin_note && <p className="orb-sub">お店からのメモ：{cancelReq.admin_note}</p>}
-              </div>
+            {!canRequest && isPaid && !pendingRequest && !cancelEligibility.allowed && (
+              <p className="order-cancel-note">
+                {cancelEligibility.reason} ご不明な点はお問い合わせください。
+              </p>
             )}
 
             {canRequest && (
               <div className="order-request-box">
                 <div className="orb-head">
                   <strong>{cancelReq?.status === "rejected" ? "もう一度キャンセルを申請する" : "キャンセルを申請する"}</strong>
-                  <span className="orb-badge is-ok">発送前のみ</span>
+                  <span className="orb-badge is-ok">{isPickup ? "注文から2日以内" : "発送前まで"}</span>
                 </div>
                 <p className="orb-desc">
-                  発送前の注文はキャンセルを申請できます。お店が確認して、PayPayへ返金します。
+                  {isPickup
+                    ? "注文から2日以内であればキャンセルを申請できます。お店が内容を確認して、返金のお手続きをします。"
+                    : "発送前であればキャンセルを申請できます。お店が内容を確認して、返金のお手続きをします。"}
                 </p>
                 <textarea
                   className="orb-textarea"

@@ -13,6 +13,7 @@ type OrderRow = {
 
   // ✅ 追加（ordersにある想定）
   status?: string | null;
+  paid_at?: string | null;
   paypay_status?: string | null;
   paypayStatus?: string | null;
 };
@@ -41,6 +42,9 @@ export default function AdminUserOrders() {
     const st = getStatus(o);
 
     if (st === "CANCELED" || st === "CANCELLED") {
+      if (!o.paid_at) {
+        return { label: "未払い取消", className: "is-unknown" as const };
+      }
       return { label: "キャンセル済み", className: "is-canceled" as const };
     }
 

@@ -382,3 +382,14 @@
   background: #f8fafc;
   border-color: #cbd5e1;
 }
+
+.order-cancel-note {
+  margin: 0 0 14px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 12.5px;
+  line-height: 1.7;
+}

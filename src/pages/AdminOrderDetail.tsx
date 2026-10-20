@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import { appDialog } from "../lib/appDialog";
+import { isUnpaidCanceled } from "../lib/orderCancel";
 import "./AdminOrderDetail.css";
 import { findProductImage } from "../data/products";
 import Loading from "../components/Loading";
@@ -19,6 +20,7 @@ type OrderRow = {
 
   // ✅ キャンセル・返金
   status?: string | null;
+  paid_at?: string | null;
   canceled_at?: string | null;
   cancel_reason?: string | null;
   refund_id?: string | null;
@@ -322,9 +324,9 @@ export default function AdminOrderDetail() {
   const handleCancelOrder = async (fromRequest: boolean) => {
     if (!order || cancelBusy) return;
 
-    const isPayPay = Number(order.total || 0) > 0;
-    const refundText = isPayPay
-      ? `PayPayで ${formatPrice(order.total)}円 を全額返金します。`
+    const hasPayment = Number(order.total || 0) > 0;
+    const refundText = hasPayment
+      ? `${formatPrice(order.total)}円を全額返金します（返金方法は決済方法に準じます）。`
       : "0円購入のため返金はありません（使用ポイントは戻します）。";
 
     const pointText =
@@ -371,9 +373,9 @@ export default function AdminOrderDetail() {
           code === "ALREADY_SHIPPED"
             ? "発送済みの注文はキャンセルできません。"
             : code === "REFUND_FAILED"
-              ? "PayPayの返金に失敗しました。時間をおいて再度お試しください。"
+              ? "返金処理に失敗しました。時間をおいて再度お試しください。"
               : code === "REFUND_UNAVAILABLE"
-                ? "この注文はPayPay以外の決済のため、自動返金できません。"
+                ? "この決済方法は自動返金に対応していません。"
                 : code === "CANCEL_IN_PROGRESS"
                   ? "別の操作でキャンセル処理中です。少し待ってから更新してください。"
                   : code === "DB_APPLY_FAILED"
@@ -399,7 +401,7 @@ export default function AdminOrderDetail() {
       await appDialog.alert({
         message:
           Number(json.refundAmount || 0) > 0
-            ? `${formatPrice(json.refundAmount)}円をPayPayで返金しました。\n注文をキャンセル済みにしました。`
+            ? `${formatPrice(json.refundAmount)}円を返金しました。\n注文をキャンセル済みにしました。`
             : "注文をキャンセルしました。\n使用ポイントは返還しました。",
       });
     } catch (e) {
@@ -450,6 +452,8 @@ export default function AdminOrderDetail() {
   const isCanceled = statusLower === "canceled";
   const isPaid = statusLower === "paid";
   const isShipped = String(order?.shipping_status || "") === "shipped";
+  const isPickup = order?.fulfillment_type !== "shipping";
+  const unpaidCanceled = isUnpaidCanceled(order || {});
   const canCancel = isPaid && !isShipped;
   const pendingRequest = cancelReq?.status === "requested" ? cancelReq : null;
 
@@ -475,16 +479,20 @@ export default function AdminOrderDetail() {
               {notice && <div className="admin-order-notice">{notice}</div>}
 
               {isCanceled ? (
-                <div className="admin-cancel-status is-canceled">
+                <div className={`admin-cancel-status ${unpaidCanceled ? "is-unpaid" : "is-canceled"}`}>
                   <div className="acs-head">
-                    <span className="acs-title">キャンセル済み</span>
+                    <span className="acs-title">{unpaidCanceled ? "未払いで取り消された注文" : "キャンセル済み"}</span>
                     <span className="acs-date">{fmtDateTime(order.canceled_at)}</span>
                   </div>
-                  <p>
-                    {Number(order.refund_amount || 0) > 0
-                      ? `PayPayで ${formatPrice(order.refund_amount)}円 を返金しました。`
-                      : "0円購入のため返金はありません（ポイントは返還済み）。"}
-                  </p>
+                  {unpaidCanceled ? (
+                    <p>お支払い前に取り消された注文です。支払いは発生しておらず、返金もありません。</p>
+                  ) : (
+                    <p>
+                      {Number(order.refund_amount || 0) > 0
+                        ? `${formatPrice(order.refund_amount)}円 を返金しました（返金方法は決済方法に準じます）。`
+                        : "0円購入のため返金はありません（ポイントは返還済み）。"}
+                    </p>
+                  )}
                   {order.cancel_reason && <p>理由：{order.cancel_reason}</p>}
                   {order.refund_id && <p className="acs-sub">返金ID：{order.refund_id}</p>}
                 </div>
@@ -595,12 +603,14 @@ export default function AdminOrderDetail() {
                 <div className={`admin-cancel-box ${pendingRequest ? "is-request" : ""}`}>
                   <div className="acb-head">
                     <h3>{pendingRequest ? "キャンセル申請への対応" : "この注文をキャンセル"}</h3>
-                    {!pendingRequest && <span className="acb-sub">支払済・発送前</span>}
+                    {!pendingRequest && (
+                      <span className="acb-sub">{isPickup ? "支払済・受取前" : "支払済・発送前"}</span>
+                    )}
                   </div>
 
                   <p className="acb-desc">
                     {Number(order.total || 0) > 0
-                      ? `PayPayで ${formatPrice(order.total)}円 を全額返金します。`
+                      ? `${formatPrice(order.total)}円を全額返金します（返金方法は決済方法に準じます）。`
                       : "0円購入のため返金はありません（使用ポイントは戻します）。"}
                     在庫・ロット・クーポン使用回数も自動で戻します。
                   </p>
