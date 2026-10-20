@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import AdminHeader from "../components/AdminHeader";
 import Loading from "../components/Loading";
-import { isUnpaidCanceled } from "../lib/orderCancel";
+import { isUnpaidCanceled, isVisibleOrder } from "../lib/orderCancel";
 import "./AdminOrders.css";
 
 type OrderRow = {
@@ -90,6 +90,7 @@ export default function AdminOrders() {
       .select(
         "id,created_at,user_id,name,email,phone,total,status,paid_at,payment_method,fulfillment_type,shipping_status,refund_amount,canceled_at"
       )
+      .in("status", ["paid", "canceled"])
       .order("created_at", { ascending: false })
       .limit(400);
 
@@ -100,7 +101,8 @@ export default function AdminOrders() {
       return;
     }
 
-    const safeOrders = (orderData ?? []) as OrderRow[];
+    // 未払い・決済失敗は通常一覧に出さない（専用の整理画面でまとめて削除）
+    const safeOrders = ((orderData ?? []) as OrderRow[]).filter(isVisibleOrder);
     setOrders(safeOrders);
 
     // 申請中（未対応）の一覧
@@ -198,9 +200,18 @@ export default function AdminOrders() {
               <h2>注文検索・キャンセル</h2>
               <p>注文ID・お名前・メール・電話番号で検索できます。</p>
             </div>
-            <button type="button" className="aos-refresh" onClick={load} disabled={loading}>
-              更新
-            </button>
+            <div className="aos-head-actions">
+              <button
+                type="button"
+                className="aos-failed-link"
+                onClick={() => nav("/admin-failed-orders")}
+              >
+                決済失敗の整理
+              </button>
+              <button type="button" className="aos-refresh" onClick={load} disabled={loading}>
+                更新
+              </button>
+            </div>
           </div>
 
           {err && <div className="aos-error">{err}</div>}

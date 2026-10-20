@@ -22,6 +22,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     title: "お客様・販促",
     items: [
       { label: "注文検索・キャンセル", path: "/admin-orders", icon: "🔎", desc: "注文検索、キャンセル申請の対応・返金", tone: "warn" },
+      { label: "決済失敗の整理", path: "/admin-failed-orders", icon: "🧹", desc: "未払い・決済失敗の注文をまとめて削除", tone: "danger" },
       { label: "ゲスト購入履歴", path: "/admin-guest-orders", icon: "🧾", desc: "アカウント未登録での購入" },
       { label: "アカウント管理", path: "/admin-users", icon: "👤", desc: "会員情報・購入履歴・ポイント" },
       { label: "クーポン管理", path: "/admin-coupons", icon: "🎟", desc: "割引クーポンの作成・停止" },

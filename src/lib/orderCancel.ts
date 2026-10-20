@@ -51,3 +51,25 @@ export function isUnpaidCanceled(order: {
     !order.paid_at
   );
 }
+
+// 未払い（決済が完了していない）注文かどうか
+export function isUnpaidOrder(order: {
+  status?: string | null;
+  paid_at?: string | null;
+}): boolean {
+  const st = String(order.status || "").toLowerCase();
+  return !order.paid_at && (st === "pending" || st === "failed" || st === "canceled");
+}
+
+// 通常の注文一覧に表示してよい注文かどうか
+// ・支払済み
+// ・返金済みキャンセル（支払いがあったもの）
+export function isVisibleOrder(order: {
+  status?: string | null;
+  paid_at?: string | null;
+}): boolean {
+  const st = String(order.status || "").toLowerCase();
+  if (st === "paid") return true;
+  if (st === "canceled") return !!order.paid_at;
+  return false;
+}

@@ -1185,7 +1185,7 @@ app.post("/api/admin-delete-order", async (req, res) => {
 
     const { data: order, error: orderErr } = await sb
       .from("orders")
-      .select("id,status,paid_at,total,paypay_merchant_payment_id")
+      .select("id,status,paid_at,total,created_at,paypay_merchant_payment_id")
       .eq("id", orderId)
       .maybeSingle();
     if (orderErr || !order) {
@@ -1198,22 +1198,33 @@ app.post("/api/admin-delete-order", async (req, res) => {
     }
 
     // pending は「本当に未払いか」をPayPay側で確認する
-    if (st === "pending" && order.paypay_merchant_payment_id) {
+    // ※ 1時間以上前のpendingはQR期限切れが確実なので、PayPayに問い合わせず削除できる
+    const createdAtMs = order.created_at ? Date.parse(order.created_at) : NaN;
+    const isOldPending =
+      Number.isFinite(createdAtMs) && Date.now() - createdAtMs > 60 * 60 * 1000;
+
+    if (st === "pending" && order.paypay_merchant_payment_id && !isOldPending) {
       const missingPayPay = envMissing(["PAYPAY_API_KEY", "PAYPAY_API_SECRET", "PAYPAY_MERCHANT_ID"]);
       if (missingPayPay.length) {
         return res.status(500).json({ ok: false, status: "ENV_MISSING", missing: missingPayPay });
       }
       configurePayPay();
 
-      let detail;
+      let detail = null;
       try {
         detail = await paypayGetDetails(String(order.paypay_merchant_payment_id));
       } catch (eDetail) {
-        console.error("[ADMIN_DELETE_VERIFY_ERR]", orderId, eDetail?.message || eDetail);
-        return res.status(502).json({ ok: false, status: "CANNOT_VERIFY" });
+        const code = String(
+          eDetail?.detail?.resultInfo?.code || eDetail?.message || eDetail || ""
+        );
+        // 期限切れ・存在しない決済は「未払い」とみなして削除を許可
+        if (!/NOT_FOUND|NOTFOUND|EXPIRED|NO_PAYMENT|CANCEL/i.test(code)) {
+          console.error("[ADMIN_DELETE_VERIFY_ERR]", orderId, code);
+          return res.status(502).json({ ok: false, status: "CANNOT_VERIFY" });
+        }
       }
 
-      if (extractPayPayStatus(detail) === "COMPLETED") {
+      if (detail && extractPayPayStatus(detail) === "COMPLETED") {
         return res.status(409).json({ ok: false, status: "PAID" });
       }
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { isVisibleOrder } from "../lib/orderCancel";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminGuestOrders.css";
 import Loading from "../components/Loading";
@@ -54,6 +55,7 @@ export default function AdminGuestOrders() {
         "id,created_at,name,email,phone,subtotal,discount_amount,total,coupon_code,payment_method,status,paid_at,fulfillment_type,shipping_status"
       )
       .is("user_id", null)
+      .in("status", ["paid", "canceled"])
       .order("created_at", { ascending: false })
       .limit(500);
 
@@ -63,7 +65,8 @@ export default function AdminGuestOrders() {
       setLoading(false);
       return;
     }
-    setRows((data ?? []) as GuestOrder[]);
+    // 未払い・決済失敗は通常の購入履歴に出さない
+    setRows(((data ?? []) as GuestOrder[]).filter(isVisibleOrder));
     setLoading(false);
   };
 

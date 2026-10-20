@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { isVisibleOrder } from "../lib/orderCancel";
 import AdminHeader from "../components/AdminHeader";
 import "./AdminUserOrders.css";
 import Loading from "../components/Loading";
@@ -72,6 +73,7 @@ export default function AdminUserOrders() {
         .from("orders")
         .select("*")
         .eq("user_id", id)
+        .in("status", ["paid", "canceled"])
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -81,7 +83,8 @@ export default function AdminUserOrders() {
         return;
       }
 
-      setOrders((data || []) as OrderRow[]);
+      // 未払い・決済失敗は通常の購入履歴に出さない
+      setOrders(((data || []) as OrderRow[]).filter(isVisibleOrder));
       setLoading(false);
     };
 

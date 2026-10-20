@@ -400,3 +400,33 @@
     padding: 14px;
   }
 }
+
+.aos-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.aos-failed-link {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+  font-size: 12.5px;
+  font-weight: 900;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .aos-head-actions {
+    width: 100%;
+  }
+  .aos-head-actions .aos-refresh,
+  .aos-head-actions .aos-failed-link {
+    flex: 1 1 0;
+  }
+}
