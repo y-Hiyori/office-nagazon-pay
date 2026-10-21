@@ -2267,7 +2267,3 @@ export default function Game() {
     </div>
   );
 }
-      <SiteFooter />
-    </div>
-  );
-}
