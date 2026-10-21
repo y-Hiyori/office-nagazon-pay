@@ -10,6 +10,8 @@ export type SaleLot = {
   sale_mode: SaleMode; // total=合計◯個限定／per_order=1会計◯個まで
   sale_qty: number; // 設定個数（per_order は1会計の上限）
   remaining: number; // total は残り個数／per_order は在庫数
+  sale_starts_at?: string | null;
+  sale_ends_at?: string | null;
 };
 
 // セールの適用期間・反映オンオフを判定する
@@ -42,7 +44,15 @@ export function isSaleLive(
 export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
   const map = new Map<number, SaleLot>();
 
-  const push = (id: number, price: number, mode: SaleMode, sq: number, rem: number) => {
+  const push = (
+    id: number,
+    price: number,
+    mode: SaleMode,
+    sq: number,
+    rem: number,
+    startsAt?: string | null,
+    endsAt?: string | null
+  ) => {
     if (!Number.isFinite(id) || rem <= 0) return;
     map.set(id, {
       product_id: id,
@@ -50,6 +60,8 @@ export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
       sale_mode: mode,
       sale_qty: Math.max(0, Math.floor(sq || 0)),
       remaining: Math.max(0, Math.floor(rem || 0)),
+      sale_starts_at: startsAt ?? null,
+      sale_ends_at: endsAt ?? null,
     });
   };
 
@@ -69,7 +81,15 @@ export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
         const stock = Math.max(0, Math.floor(Number(r?.stock) || 0));
         const remTotal = Math.max(0, Math.floor(Number(r?.sale_remaining) || 0));
         // per_order は在庫がある限り継続／total は残り個数まで
-        push(id, Number(r?.sale_price), mode, sq, mode === "per_order" ? stock : remTotal);
+        push(
+          id,
+          Number(r?.sale_price),
+          mode,
+          sq,
+          mode === "per_order" ? stock : remTotal,
+          r?.sale_starts_at ?? null,
+          r?.sale_ends_at ?? null
+        );
       }
       return map;
     }

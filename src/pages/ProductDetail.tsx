@@ -18,6 +18,7 @@ import SiteHeader from "../components/SiteHeader";
 // ✅ 追加：アプリ内ダイアログ
 import { appDialog } from "../lib/appDialog";
 import Loading from "../components/Loading";
+import SaleCountdown from "../components/SaleCountdown";
 
 const formatYen = (value: number) => (Number(value) || 0).toLocaleString("ja-JP");
 const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
@@ -151,6 +152,12 @@ function ProductDetail() {
   const isSale = originalPriceNum > priceNum;
   const discountYen = isSale ? originalPriceNum - priceNum : 0;
   const discountRate = isSale ? Math.round((discountYen / originalPriceNum) * 100) : 0;
+  const saleComparePrice = Math.max(originalPriceNum, baseUnitPrice);
+  const saleOffYen = Math.max(0, saleComparePrice - saleUnitPrice);
+  const saleOffRate =
+    saleComparePrice > 0 && saleOffYen > 0
+      ? Math.round((saleOffYen / saleComparePrice) * 100)
+      : 0;
   const subtotal =
     saleAppliesQty * saleUnitPrice + normalAppliesQty * baseUnitPrice;
 
@@ -296,6 +303,64 @@ function ProductDetail() {
 
         <h1 className="pdetail-name">{product.name}</h1>
       </div>
+
+      {lotSalePrice != null && !isSoldOut && (
+        <div className="pdetail-saleHero">
+          <div className="psh-top">
+            <span className="psh-tag">期間限定セール</span>
+            {saleLot?.sale_ends_at ? (
+              <SaleCountdown endsAt={saleLot.sale_ends_at} className="psh-time" />
+            ) : (
+              <span className="psh-time">今だけ価格</span>
+            )}
+          </div>
+
+          <div className="psh-main">
+            <div className="psh-price">¥{formatYen(saleUnitPrice)}</div>
+            {saleOffYen > 0 && (
+              <div className="psh-off">
+                {saleOffRate > 0 ? `${saleOffRate}%OFF` : `¥${formatYen(saleOffYen)} OFF`}
+              </div>
+            )}
+          </div>
+
+          {saleComparePrice > 0 && saleOffYen > 0 && (
+            <div className="psh-old">
+              通常価格 <s>¥{formatYen(saleComparePrice)}</s>
+            </div>
+          )}
+
+          <div className="psh-meta">
+            {saleLot?.sale_mode === "per_order"
+              ? `1会計で${saleLimit}個までセール価格`
+              : `限定${saleLot?.sale_qty ?? 0}個・残り${saleLot?.remaining ?? 0}個`}
+            {saleAppliesQty > 0 ? ` ／ いまの数量は${saleAppliesQty}個に適用` : ""}
+          </div>
+
+          {saleLot?.sale_mode !== "per_order" &&
+            (saleLot?.sale_qty ?? 0) > 0 && (
+              <div className="psh-bar" aria-hidden="true">
+                <span
+                  style={{
+                    width: `${Math.max(
+                      0,
+                      Math.min(
+                        100,
+                        Math.round(
+                          ((saleLot?.remaining ?? 0) / Math.max(1, saleLot?.sale_qty ?? 1)) * 100
+                        )
+                      )
+                    )}%`,
+                  }}
+                />
+              </div>
+            )}
+
+          {(saleLot?.sale_mode !== "per_order" && (saleLot?.remaining ?? 0) <= 5) && (
+            <div className="psh-urgent">残りわずか。なくなり次第終了です。</div>
+          )}
+        </div>
+      )}
 
       {isMember && memberPriceNum != null ? (
         <div className="pdetail-pricePanel">

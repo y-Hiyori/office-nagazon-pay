@@ -931,3 +931,112 @@
     padding-bottom: calc(150px + env(safe-area-inset-bottom));
   }
 }
+
+/* ===== 期間限定セールの訴求（v44） ===== */
+.pdetail-saleHero {
+  position: relative;
+  margin: 14px 0 4px;
+  padding: 14px 15px 13px;
+  border-radius: 18px;
+  background:
+    radial-gradient(500px 180px at 100% 0%, rgba(251, 113, 133, 0.18), transparent 60%),
+    linear-gradient(135deg, #fff1f2, #fff7ed);
+  border: 1px solid #fecdd3;
+  box-shadow: 0 12px 28px rgba(190, 18, 60, 0.10);
+  overflow: hidden;
+}
+
+.psh-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.psh-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #be123c;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.psh-time .sale-countdown,
+.psh-time {
+  font-size: 11.5px;
+  font-weight: 900;
+  color: #be123c;
+}
+
+.psh-main {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 9px;
+}
+
+.psh-price {
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 900;
+  color: #9f1239;
+  letter-spacing: -0.02em;
+}
+
+.psh-off {
+  margin-bottom: 2px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: #be123c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.psh-old {
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9f1239;
+}
+
+.psh-old s {
+  opacity: 0.8;
+}
+
+.psh-meta {
+  margin-top: 9px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #7f1d1d;
+  line-height: 1.6;
+}
+
+.psh-bar {
+  height: 7px;
+  margin-top: 9px;
+  border-radius: 999px;
+  background: rgba(190, 18, 60, 0.14);
+  overflow: hidden;
+}
+
+.psh-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #fb7185, #be123c);
+  transition: width .3s ease;
+}
+
+.psh-urgent {
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 900;
+  color: #be123c;
+}

@@ -10,6 +10,7 @@ import { findProductImage } from "../data/products";
 import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
 import Loading from "../components/Loading";
+import SaleCountdown from "../components/SaleCountdown";
 
 const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
 
@@ -20,6 +21,9 @@ type ProductRow = {
   memberPrice: number | null;
   salePrice: number | null;
   saleRemaining: number;
+  saleMode: "total" | "per_order" | null;
+  saleQty: number;
+  saleEndsAt: string | null;
   originalPrice: number | null;
   stock: number;
   imageData: string | null;
@@ -82,6 +86,9 @@ function ProductList() {
           memberPrice: memberPriceOf(p),
           salePrice: null,
           saleRemaining: 0,
+          saleMode: null,
+          saleQty: 0,
+          saleEndsAt: null,
           originalPrice:
             Number.isFinite(originalPriceNum) && originalPriceNum > Number(p.price ?? 0)
               ? originalPriceNum
@@ -103,6 +110,9 @@ function ProductList() {
           if (sl) {
             r.salePrice = sl.sale_price;
             r.saleRemaining = sl.remaining;
+            r.saleMode = sl.sale_mode;
+            r.saleQty = sl.sale_qty;
+            r.saleEndsAt = sl.sale_ends_at ?? null;
           }
         }
       } catch (eSale) {
@@ -198,18 +208,22 @@ function ProductList() {
               const saleLotPrice = p.salePrice != null && p.salePrice >= 0 ? p.salePrice : null;
               const basePrice = isMember && p.memberPrice ? p.memberPrice : p.price;
               const shownPrice = saleLotPrice != null ? saleLotPrice : basePrice;
-              const isSale = !!originalPrice || saleLotPrice != null;
-              const discountYen = originalPrice
-                ? originalPrice - p.price
+              const comparePrice = originalPrice ?? (saleLotPrice != null ? basePrice : null);
+              const isSale = !!comparePrice || saleLotPrice != null;
+              const discountYen = comparePrice
+                ? Math.max(0, comparePrice - shownPrice)
                 : Math.max(0, basePrice - shownPrice);
               const discountRate =
-                isSale && originalPrice ? Math.round((discountYen / originalPrice) * 100) : 0;
+                comparePrice && comparePrice > 0
+                  ? Math.round((discountYen / comparePrice) * 100)
+                  : 0;
 
               // ✅ SALE時は on-sale クラスを付与（価格がワインレッドに）
               const cardClass = [
                 "plist-card",
                 soldOut ? "sold-out" : "",
                 isSale && !soldOut ? "on-sale" : "",
+                saleLotPrice != null && !soldOut ? "has-promo" : "",
               ]
                 .filter(Boolean)
                 .join(" ");
@@ -257,20 +271,36 @@ function ProductList() {
   ) : null}
 
   <div className="plist-price-row">
-    {saleLotPrice != null ? (
-      <span className="plist-lotSaleTag">セール残{p.saleRemaining}</span>
-    ) : null}
     {isMember && p.memberPrice ? (
       <span className="plist-memberTag">会員</span>
     ) : null}
     <div className={isMember && p.memberPrice ? "plist-price is-member" : "plist-price"}>¥{formatPrice(shownPrice)}</div>
-    {isSale ? (
+    {isSale && discountYen > 0 ? (
       <div className="plist-price-save">
         ¥{formatPrice(discountYen)} OFF
       </div>
     ) : null}
   </div>
 </div>
+
+{saleLotPrice != null && !soldOut ? (
+  <div className="plist-promo">
+    <div className="plist-promo-time">
+      {p.saleEndsAt ? (
+        <SaleCountdown endsAt={p.saleEndsAt} />
+      ) : (
+        <span className="plist-promo-now">今だけ価格</span>
+      )}
+    </div>
+    <div className="plist-promo-meta">
+      {p.saleMode === "per_order"
+        ? `1会計で${p.saleQty}個まで`
+        : p.saleRemaining <= 5
+          ? `残りわずか ${p.saleRemaining}個`
+          : `限定 ${p.saleQty}個`}
+    </div>
+  </div>
+) : null}
 
                 </div>
               );
