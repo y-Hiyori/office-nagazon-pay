@@ -11,6 +11,7 @@ type Profile = {
   id: string;
   name: string | null;
   email: string | null;
+  is_admin?: boolean | null;
 };
 
 type WalletRow = {
@@ -37,6 +38,8 @@ export default function AdminUserDetail() {
   const [loading, setLoading] = useState(true);
 
   const [sending, setSending] = useState(false);
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [meId, setMeId] = useState<string | null>(null);
 
   // ✅ ポイント履歴（管理者用RPC）
   const [pointTxs, setPointTxs] = useState<PointTx[]>([]);
@@ -49,9 +52,12 @@ export default function AdminUserDetail() {
     const load = async () => {
       setLoading(true);
 
+      const { data: authData } = await supabase.auth.getUser();
+      setMeId(authData?.user?.id ?? null);
+
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select("id, name, email")
+        .select("id, name, email, is_admin")
         .eq("id", id)
         .single();
 
@@ -138,6 +144,64 @@ const handleSendResetMail = async () => {
   }
 };
 
+  // ✅ 管理者権限の付与・解除
+  const handleToggleAdmin = async () => {
+    if (!profile || adminBusy) return;
+
+    const next = !profile.is_admin;
+
+    if (!next && meId === profile.id) {
+      await appDialog.alert({
+        message: "自分自身の管理者権限は解除できません。別の管理者に依頼してください。",
+      });
+      return;
+    }
+
+    const ok = await appDialog.confirm({
+      title: next ? "管理者にする" : "管理者権限を解除",
+      message: next
+        ? `${profile.name || profile.email || "このアカウント"} を管理者にしますか？\n管理者は商品・注文・売上・お客様情報をすべて操作できます。`
+        : `${profile.name || profile.email || "このアカウント"} の管理者権限を解除しますか？`,
+      okText: next ? "管理者にする" : "解除する",
+      cancelText: "やめる",
+    });
+    if (!ok) return;
+
+    setAdminBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("set_profile_admin", {
+        p_user_id: profile.id,
+        p_is_admin: next,
+      });
+
+      if (error) {
+        await appDialog.alert({ message: `変更できませんでした（${error.message}）` });
+        return;
+      }
+      if (!data?.ok) {
+        const code = String(data?.error || "");
+        const msg =
+          code === "CANNOT_REMOVE_SELF"
+            ? "自分自身の管理者権限は解除できません。"
+            : code === "LAST_ADMIN"
+              ? "最後の管理者のため解除できません。"
+              : "変更できませんでした。";
+        await appDialog.alert({ message: msg });
+        return;
+      }
+
+      setProfile({ ...profile, is_admin: !!data.is_admin });
+      await appDialog.alert({
+        message: next ? "管理者権限を付与しました。" : "管理者権限を解除しました。",
+      });
+    } catch (e) {
+      console.error(e);
+      await appDialog.alert({ message: "変更処理中にエラーが発生しました。" });
+    } finally {
+      setAdminBusy(false);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!id) return;
 
@@ -200,6 +264,36 @@ const handleSendResetMail = async () => {
                     {Number(wallet?.balance ?? 0).toLocaleString("ja-JP")} pt
                   </div>
                 </div>
+              </section>
+
+              <section className="admin-user-detail-card">
+                <div className="admin-user-detail-history-head">
+                  <h3>管理者権限</h3>
+                  <span className={profile.is_admin ? "admin-user-admin-badge is-on" : "admin-user-admin-badge"}>
+                    {profile.is_admin ? "管理者" : "一般ユーザー"}
+                  </span>
+                </div>
+
+                <p className="admin-user-admin-note">
+                  管理者は商品・注文・売上・お客様情報をすべて操作できます。付与する相手を確認してから変更してください。
+                </p>
+
+                <button
+                  type="button"
+                  className={`admin-user-admin-btn ${profile.is_admin ? "is-remove" : "is-add"}`}
+                  onClick={handleToggleAdmin}
+                  disabled={adminBusy || (!!profile.is_admin && meId === profile.id)}
+                >
+                  {adminBusy
+                    ? "変更中..."
+                    : profile.is_admin
+                      ? "管理者権限を解除する"
+                      : "このアカウントを管理者にする"}
+                </button>
+
+                {!!profile.is_admin && meId === profile.id && (
+                  <p className="admin-user-admin-self">自分自身の管理者権限は解除できません。</p>
+                )}
               </section>
 
               {/* ✅ ポイント履歴（管理者がユーザーの増減を確認できる） */}
