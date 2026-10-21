@@ -133,6 +133,13 @@ function ProductList() {
           const bSale = b.salePrice != null && b.salePrice >= 0;
           if (aSale !== bSale) return aSale ? -1 : 1;
 
+          // セール同士は終了が近い順（終了日時なしは後ろ）
+          if (aSale && bSale) {
+            const aEnd = a.saleEndsAt ? Date.parse(a.saleEndsAt) : Number.POSITIVE_INFINITY;
+            const bEnd = b.saleEndsAt ? Date.parse(b.saleEndsAt) : Number.POSITIVE_INFINITY;
+            if (aEnd !== bEnd) return aEnd - bEnd;
+          }
+
           const aNew = !!a.isNew;
           const bNew = !!b.isNew;
           if (aNew !== bNew) return aNew ? -1 : 1;
