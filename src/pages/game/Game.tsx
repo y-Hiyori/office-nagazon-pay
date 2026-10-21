@@ -962,6 +962,7 @@ export default function Game() {
   const baseCanvasCssHRef = useRef<number | null>(null);
   const lastCssWRef = useRef<number>(0);
   const lastDprRef = useRef<number>(1);
+  const narrowModeRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     const apply = (force = false) => {
@@ -969,16 +970,30 @@ export default function Game() {
       const wrap = wrapRef.current;
       if (!canvas || !wrap) return;
 
-      const rect = wrap.getBoundingClientRect();
+      // ✅ 幅は「canvasの実際の親（canvasShell）」で測る。
+      //    gameWrap は左右パディングを含むので、その幅を渡すと canvas が
+      //    親より広くなり、右端が切れて横方向に潰れて描画されていた。
+      const shell = canvas.parentElement;
+      const rect = (shell ?? wrap).getBoundingClientRect();
       const cssW = Math.max(1, rect.width);
 
       const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+
+      // ✅ スマホ幅では HUD が canvas の上に並ぶ（重ねない）ぶん、
+      //    プレイ領域の高さを少しだけ詰めて 1画面に収める
+      const narrow = cssW <= 700;
+      if (narrowModeRef.current !== narrow) {
+        narrowModeRef.current = narrow;
+        baseCanvasCssHRef.current = null;
+      }
 
       const widthChanged = Math.abs(cssW - lastCssWRef.current) > 1;
       const dprChanged = dpr !== lastDprRef.current;
 
       if (force || baseCanvasCssHRef.current == null || widthChanged || dprChanged) {
-        const baseH = baseCanvasCssHRef.current ?? Math.min(window.innerHeight * 0.72, 760);
+        const baseH =
+          baseCanvasCssHRef.current ??
+          Math.min(window.innerHeight * (narrow ? 0.62 : 0.72), 760);
 
         baseCanvasCssHRef.current = baseH;
         lastCssWRef.current = cssW;
@@ -1898,11 +1913,11 @@ export default function Game() {
           <div className="canvasShell">
             <div className="hudBar">
               <div className="hudItem hudDiff">{difficulty.toUpperCase()}</div>
-              <div className="hudItem">TIME: {timeLeft}s</div>
-              <div className="hudItem">
+              <div className="hudItem hudTime">TIME: {timeLeft}s</div>
+              <div className="hudItem hudScore">
                 <ScoreText score={score} />
               </div>
-              <div className="hudItem">
+              <div className="hudItem hudMult">
                 <MultiplierText multiplier={multiplierUi} />
               </div>
               {comboUi >= 2 && (
@@ -2248,6 +2263,10 @@ export default function Game() {
         </div>
       </main>
 
+      <SiteFooter />
+    </div>
+  );
+}
       <SiteFooter />
     </div>
   );
