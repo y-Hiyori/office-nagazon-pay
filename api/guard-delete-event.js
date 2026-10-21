@@ -2,7 +2,7 @@
 // 管理画面からイベントと証拠画像・5秒録画を削除する
 import { getAdminClient } from "./_guard.js";
 
-export const config = { maxDuration: 30 };
+export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -27,46 +27,70 @@ export default async function handler(req, res) {
     if (!profile?.is_admin) return res.status(403).json({ ok: false, error: "NOT_ADMIN" });
 
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-    const eventId = String(body.event_id || "");
-    if (!/^[0-9a-f-]{36}$/i.test(eventId)) {
-      return res.status(400).json({ ok: false, error: "BAD_EVENT_ID" });
-    }
+    const rawIds = Array.isArray(body.event_ids)
+      ? body.event_ids
+      : body.event_id
+        ? [body.event_id]
+        : [];
 
-    const { data: event, error: eErr } = await sb
+    const ids = [
+      ...new Set(
+        rawIds
+          .map((v) => String(v))
+          .filter((v) => /^[0-9a-f-]{36}$/i.test(v))
+      ),
+    ].slice(0, 50);
+
+    if (!ids.length) return res.status(400).json({ ok: false, error: "BAD_EVENT_ID" });
+
+    const { data: events, error: eErr } = await sb
       .from("guard_events")
       .select("id,image_path,video_path")
-      .eq("id", eventId)
-      .maybeSingle();
+      .in("id", ids);
 
     if (eErr) return res.status(500).json({ ok: false, error: "QUERY_FAILED" });
-    if (!event) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    if (!events?.length) return res.status(404).json({ ok: false, error: "NOT_FOUND" });
 
     const paths = [];
-    if (event.image_path) paths.push(event.image_path);
+    const warnings = [];
 
-    if (event.video_path) {
-      const { data: objects } = await sb.storage
-        .from("guard-evidence")
-        .list(event.video_path, { limit: 100 });
-      for (const obj of objects || []) {
-        paths.push(`${event.video_path}/${obj.name}`);
+    for (const event of events) {
+      if (event.image_path) paths.push(event.image_path);
+
+      if (event.video_path) {
+        const { data: objects, error: listErr } = await sb.storage
+          .from("guard-evidence")
+          .list(event.video_path, { limit: 100 });
+        if (listErr) {
+          warnings.push(`list ${event.video_path}: ${listErr.message}`);
+          continue;
+        }
+        for (const obj of objects || []) {
+          paths.push(`${event.video_path}/${obj.name}`);
+        }
       }
     }
 
-    let removed = 0;
-    if (paths.length) {
-      const { error: rmErr } = await sb.storage.from("guard-evidence").remove(paths);
-      if (rmErr) {
-        console.error("evidence remove failed:", rmErr);
-        return res.status(500).json({ ok: false, error: "STORAGE_DELETE_FAILED" });
-      }
-      removed = paths.length;
+    // Storageは100件ずつ削除。1つ失敗してもDB削除は続ける。
+    for (let i = 0; i < paths.length; i += 100) {
+      const chunk = paths.slice(i, i + 100);
+      const { error: rmErr } = await sb.storage.from("guard-evidence").remove(chunk);
+      if (rmErr) warnings.push(`storage remove: ${rmErr.message}`);
     }
 
-    const { error: dErr } = await sb.from("guard_events").delete().eq("id", eventId);
+    const { error: dErr } = await sb
+      .from("guard_events")
+      .delete()
+      .in("id", events.map((e) => e.id));
+
     if (dErr) return res.status(500).json({ ok: false, error: "EVENT_DELETE_FAILED" });
 
-    return res.status(200).json({ ok: true, event_id: eventId, files_deleted: removed });
+    return res.status(200).json({
+      ok: true,
+      deleted: events.length,
+      files_deleted: paths.length,
+      warnings,
+    });
   } catch (e) {
     console.error("GUARD_DELETE_EVENT_ERROR:", e);
     return res.status(500).json({ ok: false, error: String(e?.message || e) });

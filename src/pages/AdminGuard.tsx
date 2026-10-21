@@ -203,6 +203,7 @@ export default function AdminGuard() {
   const [clipLoading, setClipLoading] = useState(false);
   const [candidates, setCandidates] = useState<CandidateOrder[]>([]);
   const [candidateLoading, setCandidateLoading] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<string[]>([]);
 
   const loadSettings = useCallback(async () => {
     const { data, error } = await supabase
@@ -291,6 +292,14 @@ export default function AdminGuard() {
       alive = false;
     };
   }, [events, imageUrls]);
+
+  // 一覧から消えたイベントの選択状態を解除
+  useEffect(() => {
+    setCheckedIds((prev) => {
+      const next = prev.filter((id) => events.some((e) => e.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [events]);
 
   useEffect(() => {
     if (selected) lockScroll("guard-modal");
@@ -418,6 +427,23 @@ export default function AdminGuard() {
     if (filter === "ok") return events.filter((e) => e.status === "ok");
     return events.filter((e) => e.status === "new" || e.status === "suspicious");
   }, [events, filter]);
+
+  const allFilteredChecked =
+    filtered.length > 0 && filtered.every((e) => checkedIds.includes(e.id));
+
+  const toggleChecked = (id: string) => {
+    setCheckedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    if (allFilteredChecked) {
+      setCheckedIds((prev) => prev.filter((id) => !filtered.some((e) => e.id === id)));
+    } else {
+      setCheckedIds((prev) => [...new Set([...prev, ...filtered.map((e) => e.id)])]);
+    }
+  };
 
   const hubDevice = devices.find((d) => d.kind === "hub");
   const cameraDevice = devices.find((d) => d.kind === "camera");
@@ -681,6 +707,73 @@ export default function AdminGuard() {
     }
   };
 
+  const deleteSelected = async () => {
+    if (!checkedIds.length || busy) return;
+
+    const count = checkedIds.length;
+    const ok = await appDialog.confirm({
+      title: `${count}件のイベントを削除`,
+      message:
+        "選択したイベントと証拠画像・5秒録画をまとめて削除します。元に戻せません。\n注文の受け取り状態は変更されません。",
+      okText: "まとめて削除する",
+      cancelText: "やめる",
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    setErr("");
+    setMsg("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setErr("ログイン情報を取得できませんでした。再ログインしてください。");
+        return;
+      }
+
+      const chunks: string[][] = [];
+      for (let i = 0; i < checkedIds.length; i += 20) {
+        chunks.push(checkedIds.slice(i, i + 20));
+      }
+
+      let deleted = 0;
+      for (const chunk of chunks) {
+        const r = await fetch("/api/guard-delete-event", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ event_ids: chunk }),
+        });
+        const j = (await r.json().catch(() => null)) as
+          | { ok?: boolean; deleted?: number; error?: string }
+          | null;
+
+        if (!r.ok || !j?.ok) {
+          setErr(`削除できませんでした：${j?.error || `HTTP ${r.status}`}`);
+          await loadEvents().catch(() => {});
+          return;
+        }
+        deleted += Number(j.deleted || 0);
+      }
+
+      if (selected && checkedIds.includes(selected.id)) {
+        setSelected(null);
+        setHandleNote("");
+      }
+      setCheckedIds([]);
+      setMsg(`${deleted}件のイベントと証拠画像・録画を削除しました。`);
+      await loadEvents().catch(() => {});
+    } catch (e) {
+      setErr(`削除に失敗しました：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openEvent = (ev: GuardEvent) => {
     setSelected(ev);
     setHandleNote(ev.handle_note || "");
@@ -810,12 +903,43 @@ export default function AdminGuard() {
                   <span className="guard-count">{filtered.length}件</span>
                 </div>
 
+                {filtered.length > 0 && (
+                  <div className="guard-bulk">
+                    <label className="guard-bulk-check">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredChecked}
+                        onChange={toggleAll}
+                      />
+                      すべて選択
+                    </label>
+                    <span className="guard-bulk-count">{checkedIds.length}件選択中</span>
+                    <button
+                      type="button"
+                      className="guard-btn is-danger is-mini"
+                      onClick={deleteSelected}
+                      disabled={checkedIds.length === 0 || busy}
+                    >
+                      選択したイベントを削除
+                    </button>
+                    {checkedIds.length > 0 && (
+                      <button
+                        type="button"
+                        className="guard-btn is-mini"
+                        onClick={() => setCheckedIds([])}
+                      >
+                        選択解除
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {filtered.length === 0 ? (
                   <div className="guard-empty is-soft">
                     <h2>イベントはまだありません</h2>
                     <p>
                       端末を設置して「監視中」にすると、棚まわりの動きがここに記録されます。
-                      まずは「設定」タブでTeamsの通知先を登録してください。
+                      まずは「設定」タブで監視と通知の設定を確認してください。
                     </p>
                     <button type="button" className="guard-btn" onClick={() => setTab("settings")}>
                       設定へ
@@ -826,12 +950,25 @@ export default function AdminGuard() {
                     {filtered.map((ev) => {
                       const url = ev.image_path ? imageUrls[ev.image_path] : "";
                       return (
-                        <button
+                        <div
                           key={ev.id}
-                          type="button"
-                          className={`guard-event is-${ev.status}`}
-                          onClick={() => openEvent(ev)}
+                          className={`guard-event-row ${
+                            checkedIds.includes(ev.id) ? "is-checked" : ""
+                          }`}
                         >
+                          <label className="guard-event-check">
+                            <input
+                              type="checkbox"
+                              checked={checkedIds.includes(ev.id)}
+                              onChange={() => toggleChecked(ev.id)}
+                              aria-label="このイベントを選択"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className={`guard-event is-${ev.status}`}
+                            onClick={() => openEvent(ev)}
+                          >
                           <span className="guard-event-thumb">
                             {url ? (
                               <img src={url} alt="証拠画像" loading="lazy" />
@@ -866,7 +1003,8 @@ export default function AdminGuard() {
                           <span className="guard-event-chev" aria-hidden="true">
                             ›
                           </span>
-                        </button>
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
