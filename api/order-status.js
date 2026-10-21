@@ -37,10 +37,6 @@ app.get("/api/order-status", async (req, res) => {
       total: order.total,
       fulfillment_type: order.fulfillment_type || "pickup",
       shipping_status: order.shipping_status || null,
-      pickup_code: order.pickup_code || null,
-      pickup_status: order.pickup_status || null,
-      picked_up_at: order.picked_up_at || null,
-      pickup_code_expires_at: order.pickup_code_expires_at || null,
     });
   } catch (e) {
     console.error(e);

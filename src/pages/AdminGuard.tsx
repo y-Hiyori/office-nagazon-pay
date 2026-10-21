@@ -116,7 +116,7 @@ const STATUS_LABEL: Record<GuardEvent["status"], string> = {
 
 const KIND_LABEL: Record<string, string> = {
   motion: "棚まわりの動き",
-  pickup: "受け取りコード",
+  pickup: "受け取り",
   heartbeat: "通信確認",
   test: "テスト通知",
   manual: "手動記録",

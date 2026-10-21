@@ -1,5 +1,5 @@
 // api/guard-cleanup.js
-// 毎日1回：受け取りコードの期限切れ処理・証拠画像の保存期間切れ削除
+// 毎日1回：証拠画像・5秒録画の保存期間切れ削除
 //   Vercel Cron から呼ばれる（CRON_SECRET を設定すると Authorization: Bearer <CRON_SECRET> が付く）
 import { createHash, timingSafeEqual } from "crypto";
 import { getAdminClient } from "./_guard.js";
@@ -41,9 +41,6 @@ export default async function handler(req, res) {
     }
 
     const retentionDays = Math.max(1, Number(settings.retention_days || 30));
-
-    const { data: expiredCount, error: expErr } = await sb.rpc("guard_expire_pickups");
-    if (expErr) console.error("guard_expire_pickups failed:", expErr);
 
     const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
     const { data: oldEvents, error: qErr } = await sb
@@ -124,7 +121,6 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      expired_pickups: expiredCount ?? 0,
       images_deleted: imagesDeleted,
       videos_deleted: videosDeleted,
       old_events_cleaned: deletedOk ?? 0,

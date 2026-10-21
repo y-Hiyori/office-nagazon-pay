@@ -34,31 +34,13 @@
   写真・5秒録画・購入履歴・対応メモ・通知設定
 ```
 
-### 受け取りコード
-
-決済が `paid` になった店頭受け取りの注文には、DBトリガーが6桁の受け取りコードを自動発行します（発送商品は対象外）。
-購入完了画面と注文詳細に表示され、スタッフが目視確認できます。コードは24時間で期限切れになります。
-
-### 照合の考え方
-
-- カメラは「誰が」ではなく「棚に動きがあった時刻」を記録します。
-- その時刻の前20分以内に、支払い済みで未受け取りの注文があれば「受け取り」とみなします。
-- ない場合は「不審」として写真つきで残します。
-- 完全な犯人特定ではなく、**記録・抑止・再発分析**のための仕組みです。写真と購入履歴を組み合わせて判断してください。
-
 ---
 
 ## 2. 最初にやること（クラウド側）
 
 1. Supabase の SQL Editor で `supabase_v46_guard.sql` を実行します。
 2. アプリを Vercel にデプロイします（`api/guard-event.js` / `api/guard-notify.js` / `api/guard-cleanup.js` が有効になります）。
-3. **既存のVPS（PayPay API）も更新します。** 購入完了画面の受け取りコードは VPS の `/api/order-status` が返すため、`vps/server.cjs` を反映しないと表示されません。
-
-   ```bash
-   ssh opc@161.33.19.160 'cp /home/opc/paypay-api/server.cjs /home/opc/paypay-api/server.cjs.bak_$(date +%Y%m%d)'
-   scp vps/server.cjs opc@161.33.19.160:/home/opc/paypay-api/server.cjs
-   ssh opc@161.33.19.160 'cd /home/opc/paypay-api && node --check server.cjs && sudo systemctl restart nagazonpay.service && curl -s http://127.0.0.1:3000/api/health'
-   ```
+3. VPSのPayPay APIは既存のままでOKです（今回の変更で必須の作業はありません）。
 
 4. Vercel の環境変数を確認します。
 
@@ -258,7 +240,7 @@ firmware/
 クラウド側:
 
 ```
-supabase_v46_guard.sql       … テーブル・RLS・受け取りコード
+supabase_v46_guard.sql       … テーブル・RLS・監視イベント
 api/_guard.js                … 通知・時刻・共通処理
 api/guard-event.js           … 端末からの受信・注文照合
 api/guard-notify.js          … 管理画面のテスト通知

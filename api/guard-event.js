@@ -65,9 +65,9 @@ async function pickOrderForEvent(sb, settings, event, productId, delta) {
 
   const { data, error } = await sb
     .from("orders")
-    .select("id,paid_at,created_at,pickup_code,pickup_code_expires_at,order_items(product_id,quantity)")
+    .select("id,paid_at,created_at,order_items(product_id,quantity)")
     .eq("status", "paid")
-    .eq("pickup_status", "waiting")
+    .is("picked_up_at", null)
     .or("fulfillment_type.is.null,fulfillment_type.neq.shipping")
     .order("paid_at", { ascending: true })
     .limit(40);
@@ -80,8 +80,6 @@ async function pickOrderForEvent(sb, settings, event, productId, delta) {
   const candidates = (data || []).filter((o) => {
     const paid = new Date(o.paid_at || o.created_at || 0).getTime();
     if (!Number.isFinite(paid) || paid < since || paid > now + 60 * 1000) return false;
-    const exp = o.pickup_code_expires_at ? new Date(o.pickup_code_expires_at).getTime() : Infinity;
-    if (Number.isFinite(exp) && exp < now) return false;
     if (productId == null) return true;
     return (o.order_items || []).some(
       (it) =>
@@ -98,7 +96,7 @@ async function pickOrderForEvent(sb, settings, event, productId, delta) {
         picked_up_at: event.occurred_at,
       })
       .eq("id", order.id)
-      .eq("pickup_status", "waiting")
+      .is("picked_up_at", null)
       .select("id,paid_at")
       .maybeSingle();
 
@@ -106,39 +104,6 @@ async function pickOrderForEvent(sb, settings, event, productId, delta) {
   }
 
   return null;
-}
-
-async function findOrderByCode(sb, code, productId) {
-  const clean = String(code || "").replace(/\D/g, "").slice(0, 6);
-  if (clean.length !== 6) return null;
-
-  const { data: order } = await sb
-    .from("orders")
-    .select("id,paid_at,pickup_code,pickup_code_expires_at,order_items(product_id,quantity)")
-    .eq("pickup_code", clean)
-    .eq("status", "paid")
-    .eq("pickup_status", "waiting")
-    .or("fulfillment_type.is.null,fulfillment_type.neq.shipping")
-    .maybeSingle();
-
-  if (!order) return null;
-  if (order.pickup_code_expires_at && new Date(order.pickup_code_expires_at).getTime() < Date.now()) {
-    return null;
-  }
-  if (productId != null) {
-    const ok = (order.order_items || []).some((it) => Number(it.product_id) === Number(productId));
-    if (!ok) return null;
-  }
-
-  const { data: updated } = await sb
-    .from("orders")
-    .update({ pickup_status: "picked_up", picked_up_at: new Date().toISOString() })
-    .eq("id", order.id)
-    .eq("pickup_status", "waiting")
-    .select("id")
-    .maybeSingle();
-
-  return updated ? order : null;
 }
 
 export default async function handler(req, res) {
@@ -373,15 +338,6 @@ export default async function handler(req, res) {
     } else if (!settings.armed) {
       status = "ignored";
       note = note || "監視停止中のため記録のみ";
-    } else if (kind === "pickup") {
-      matchedOrder = await findOrderByCode(sb, body.code, productId);
-      if (matchedOrder) {
-        status = "ok";
-        note = note || "受け取りコードで照合しました";
-      } else {
-        status = "ignored";
-        note = note || "受け取りコードが一致しませんでした";
-      }
     } else {
       matchedOrder = await pickOrderForEvent(sb, settings, { occurred_at: occurredAt }, productId, delta);
       if (matchedOrder) {

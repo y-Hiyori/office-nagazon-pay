@@ -77,7 +77,7 @@ function isLegacyTeamsWebhook(url) {
 function buildTeamsFacts(event, order, imageUrl, url) {
   const kindLabel = {
     motion: "棚まわりの動き",
-    pickup: "受け取りコード",
+    pickup: "受け取り",
     heartbeat: "通信確認",
     test: "テスト通知",
     manual: "手動記録",
@@ -248,7 +248,7 @@ export async function sendAlertEmail(settings, event, order, imageUrl) {
       : event.kind === "motion"
         ? "棚まわりの動き"
         : event.kind === "pickup"
-          ? "受け取りコード"
+          ? "受け取り"
           : event.kind || "-";
 
   const lines = [

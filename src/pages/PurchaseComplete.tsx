@@ -23,13 +23,6 @@ export default function PurchaseComplete() {
   const [orderInfo, setOrderInfo] = useState<{ fulfillmentType: string; shippingStatus: string } | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
-  // ✅ 店頭受け取りコード（決済後に自動発行）
-  const [pickup, setPickup] = useState<{
-    code: string;
-    status: string;
-    expiresAt: string | null;
-  } | null>(null);
-
   // ✅ 初回チェックが終わるまで「確認中画面」に固定する
   const [booting, setBooting] = useState(paidOnArrival ? false : true);
 
@@ -63,14 +56,6 @@ export default function PurchaseComplete() {
       });
     }
 
-    if (j.pickup_code) {
-      setPickup({
-        code: String(j.pickup_code),
-        status: String(j.pickup_status || "waiting"),
-        expiresAt: j.pickup_code_expires_at ? String(j.pickup_code_expires_at) : null,
-      });
-    }
-
     if (st === "paid") {
       setView("paid");
       return { ok: true as const, status: "paid" as const };
@@ -94,9 +79,7 @@ export default function PurchaseComplete() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select(
-        "id,status,paid_at,fulfillment_type,shipping_status,pickup_code,pickup_status,pickup_code_expires_at"
-      )
+      .select("id,status,paid_at,fulfillment_type,shipping_status")
       .eq("id", orderId)
       .eq("user_id", u.user.id)
       .maybeSingle();
@@ -110,23 +93,12 @@ export default function PurchaseComplete() {
       status?: string | null;
       fulfillment_type?: string | null;
       shipping_status?: string | null;
-      pickup_code?: string | null;
-      pickup_status?: string | null;
-      pickup_code_expires_at?: string | null;
     };
 
     setOrderInfo({
       fulfillmentType: String(row.fulfillment_type || "pickup"),
       shippingStatus: String(row.shipping_status || ""),
     });
-
-    if (row.pickup_code) {
-      setPickup({
-        code: String(row.pickup_code),
-        status: String(row.pickup_status || "waiting"),
-        expiresAt: row.pickup_code_expires_at ? String(row.pickup_code_expires_at) : null,
-      });
-    }
 
     const st = String(row.status || "").toLowerCase();
     if (st === "paid") setView("paid");
@@ -245,32 +217,6 @@ export default function PurchaseComplete() {
             )
           ) : (
             <p>商品をお取りください。</p>
-          )}
-
-          {orderInfo?.fulfillmentType !== "shipping" && pickup?.code && (
-            <div className={`complete-pickup ${pickup.status === "picked_up" ? "is-done" : ""}`}>
-              <p className="complete-pickup-label">受け取りコード</p>
-              <p className="complete-pickup-code" aria-label="受け取りコード">
-                {pickup.code}
-              </p>
-              <p className="complete-pickup-note">
-                {pickup.status === "picked_up"
-                  ? "受け取り済みです。"
-                  : "商品を取る前に、この画面をスタッフへ提示してください。"}
-              </p>
-              {pickup.expiresAt && pickup.status !== "picked_up" && (
-                <p className="complete-pickup-exp">
-                  有効期限：
-                  {new Date(pickup.expiresAt).toLocaleString("ja-JP", {
-                    timeZone: "Asia/Tokyo",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              )}
-            </div>
           )}
 
           {earnedPt > 0 ? (
