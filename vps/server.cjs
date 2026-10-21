@@ -264,6 +264,16 @@ app.get("/api/health", (_req, res) => {
 // create-paypay-order
 // フロント（Checkout.tsx）から呼ばれる
 // =====================
+function isSaleLiveRow(p, nowMs = Date.now()) {
+  if (!p) return false;
+  if (p.sale_active === false) return false;
+  const starts = p.sale_starts_at ? Date.parse(p.sale_starts_at) : NaN;
+  if (Number.isFinite(starts) && nowMs < starts) return false;
+  const ends = p.sale_ends_at ? Date.parse(p.sale_ends_at) : NaN;
+  if (Number.isFinite(ends) && nowMs > ends) return false;
+  return true;
+}
+
 app.post("/api/create-paypay-order", async (req, res) => {
   try {
     const missing = envMissing([
@@ -299,35 +309,76 @@ app.post("/api/create-paypay-order", async (req, res) => {
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     const pointsUsed = toIntYen(req.body?.pointsUsed);
 
-    // 決済時点の価格をサーバー側で再計算（会員価格対応・ログイン時のみ会員価格）
+    // 決済時点の価格をサーバー側で再計算（会員価格・セール期間／反映オンオフ対応）
     const pidList = items.map((it) => Number(it.productId)).filter((v) => Number.isFinite(v));
     const priceMap = new Map();
     if (pidList.length) {
-      const { data: prods, error: pErr } = await sb
+      const fullCols =
+        "id,price,member_price,earn_points,sale_price,sale_qty,sale_remaining,sale_mode,sale_active,sale_starts_at,sale_ends_at";
+      let { data: prods, error: pErr } = await sb
         .from("products")
-        .select("id,price,member_price,earn_points")
+        .select(fullCols)
         .in("id", pidList);
+
+      // v44 SQL 未適用の環境でも決済を止めない
+      if (pErr) {
+        const retry = await sb
+          .from("products")
+          .select("id,price,member_price,earn_points")
+          .in("id", pidList);
+        prods = retry.data;
+        pErr = retry.error;
+      }
       if (pErr) console.error("products fetch error:", pErr);
+
+      const nowMs = Date.now();
       for (const pr of prods || []) {
         const base = Number(pr.price ?? 0);
         const mem = Number(pr.member_price ?? 0);
         const isMember = !!userId && Number.isFinite(mem) && mem > 0;
+        const sp = Number(pr.sale_price);
         priceMap.set(Number(pr.id), {
           price: isMember ? mem : base,
           earn: Math.max(0, Math.floor(Number(pr.earn_points || 0))),
+          salePrice: pr.sale_price == null || !Number.isFinite(sp) ? null : Math.max(0, Math.floor(sp)),
+          saleMode: pr.sale_mode === "per_order" ? "per_order" : "total",
+          saleQty: Math.max(0, Math.floor(Number(pr.sale_qty) || 0)),
+          saleRemaining: Math.max(0, Math.floor(Number(pr.sale_remaining) || 0)),
+          saleLive: isSaleLiveRow(pr, nowMs),
         });
       }
     }
 
-    // 注文価格を商品ごとに確定（該当商品は実効価格、それ以外はクライアント値を尊重）
+    // 注文価格を商品ごとに確定（セール分と通常分に分ける）
     let subtotalSum = 0;
     const pricedItems = items.map((it) => {
       const pid = Number(it.productId);
       const e = priceMap.get(pid);
-      const price = e ? e.price : toIntYen(it.price);
+      const normalPrice = e ? e.price : toIntYen(it.price);
       const qty = Math.max(1, Math.floor(Number(it.quantity || 1)));
-      subtotalSum += price * qty;
-      return { ...it, productId: pid, price, quantity: qty };
+
+      const salePrice = e && e.saleLive ? e.salePrice : null;
+      const saleLimit =
+        e && salePrice != null
+          ? e.saleMode === "per_order"
+            ? e.saleQty
+            : e.saleRemaining
+          : 0;
+      const saleUnits = salePrice != null ? Math.min(qty, Math.max(0, saleLimit)) : 0;
+      const normalQty = qty - saleUnits;
+
+      subtotalSum += saleUnits * (salePrice ?? 0) + normalQty * normalPrice;
+
+      return {
+        ...it,
+        productId: pid,
+        price: normalPrice,
+        quantity: qty,
+        salePrice,
+        saleUnits,
+        normalQty,
+        saleMode: saleUnits > 0 && e ? e.saleMode : null,
+      };
     });
 
     subtotal = subtotalSum;
@@ -377,15 +428,55 @@ app.post("/api/create-paypay-order", async (req, res) => {
 
     // 2) order_items（あれば）
     if (items.length) {
-      const payload = pricedItems.map((it) => ({
-        order_id: orderId,
-        product_id: Number(it.productId),
-        product_name: String(it.name || ""),
-        price: it.price,
-        quantity: it.quantity,
-      }));
+      const payload = pricedItems.flatMap((it) => {
+        const base = {
+          order_id: orderId,
+          product_id: Number(it.productId),
+          product_name: String(it.name || ""),
+        };
+        const rows = [];
 
-      const { error: itemsErr } = await sb.from("order_items").insert(payload);
+        if (it.saleUnits > 0 && it.salePrice != null) {
+          rows.push({
+            ...base,
+            price: it.salePrice,
+            quantity: it.saleUnits,
+            is_sale: true,
+            original_price: it.price,
+            sale_mode: it.saleMode,
+          });
+        }
+        if (it.normalQty > 0 || rows.length === 0) {
+          rows.push({
+            ...base,
+            price: it.price,
+            quantity: it.normalQty > 0 ? it.normalQty : it.quantity,
+            is_sale: false,
+            original_price: null,
+            sale_mode: null,
+          });
+        }
+        return rows;
+      });
+
+      let { error: itemsErr } = await sb.from("order_items").insert(payload);
+
+      // v26 未適用の環境向けフォールバック
+      if (itemsErr) {
+        const plain = pricedItems.flatMap((it) => {
+          const base = { order_id: orderId, product_id: Number(it.productId), product_name: String(it.name || "") };
+          const rows = [];
+          if (it.saleUnits > 0 && it.salePrice != null) {
+            rows.push({ ...base, price: it.salePrice, quantity: it.saleUnits });
+          }
+          if (it.normalQty > 0) {
+            rows.push({ ...base, price: it.price, quantity: it.normalQty });
+          }
+          return rows;
+        });
+        const retry = await sb.from("order_items").insert(plain);
+        itemsErr = retry.error;
+      }
       if (itemsErr) {
         console.error("order_items insert error:", itemsErr);
         // 注文だけ残るのが嫌なら消す（ここでは消す）

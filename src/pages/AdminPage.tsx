@@ -15,7 +15,9 @@ import {
   daysLeftOf,
   expiryStatusLabel,
   expiryStatusOf,
+  isSaleLive,
   setProductSale,
+  setProductSaleActive,
   type ExpiryStatus,
 } from "../lib/lots";
 import { appDialog } from "../lib/appDialog";
@@ -36,6 +38,9 @@ type ProductRow = {
   sale_qty?: number | null;
   sale_remaining?: number | null;
   sale_mode?: string | null;
+  sale_starts_at?: string | null;
+  sale_ends_at?: string | null;
+  sale_active?: boolean | null;
   member_price?: number | null;
   cost?: number | null;
   earn_points?: number | null;
@@ -205,6 +210,54 @@ const toInt = (v: any) => {
 
 const yen = (v: any) => toInt(v).toLocaleString("ja-JP");
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// ISO文字列 → datetime-local（ブラウザのローカル時刻）
+const toLocalDateTimeInput = (iso?: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(
+    d.getHours()
+  )}:${pad2(d.getMinutes())}`;
+};
+
+// datetime-local → ISO（空欄はnull）
+const fromLocalDateTimeInput = (v: string): string | null => {
+  const s = v.trim();
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+const SALE_STATE_LABEL: Record<string, string> = {
+  live: "実施中",
+  paused: "停止中",
+  scheduled: "開始前",
+  ended: "期間終了",
+  soldout: "売り切れ",
+  none: "未設定",
+};
+
+const fmtSaleDateTime = (iso?: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const salePeriodText = (starts?: string | null, ends?: string | null): string => {
+  if (!starts && !ends) return "期間指定なし";
+  return `${starts ? fmtSaleDateTime(starts) : "すぐ"} 〜 ${ends ? fmtSaleDateTime(ends) : "無期限"}`;
+};
+
 const draftOf = (l: Lot): LotDraft => ({
   cost: String(toInt(l.cost)),
   expiry_date: l.expiry_date ? String(l.expiry_date).slice(0, 10) : "",
@@ -248,7 +301,10 @@ function AdminPage() {
     price: string;
     qty: string;
     mode: "total" | "per_order";
-  }>({ price: "", qty: "", mode: "total" });
+    startsAt: string;
+    endsAt: string;
+    active: boolean;
+  }>({ price: "", qty: "", mode: "total", startsAt: "", endsAt: "", active: true });
 
   // 在庫を減らす
   const [adjust, setAdjust] = useState<ReduceState | null>(null);
@@ -271,7 +327,7 @@ function AdminPage() {
   const load = async () => {
     setLoading(true);
 
-    const baseCols = "id,name,price,original_price,stock,is_visible,max_per_order,expiry_alert_days,member_price,cost,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,sale_price,sale_qty,sale_remaining,sale_mode";
+    const baseCols = "id,name,price,original_price,stock,is_visible,max_per_order,expiry_alert_days,member_price,cost,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,sale_price,sale_qty,sale_remaining,sale_mode,sale_starts_at,sale_ends_at,sale_active";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let pRes: any = await supabase
       .from("products")
@@ -375,6 +431,28 @@ function AdminPage() {
     const saleMode: "total" | "per_order" = p.sale_mode === "per_order" ? "per_order" : "total";
     const limitNum = toInt(p.max_per_order);
 
+    const saleStartsAt = p.sale_starts_at ?? null;
+    const saleEndsAt = p.sale_ends_at ?? null;
+    const saleActive = p.sale_active !== false;
+    const saleConfigured = salePriceNum != null;
+    const hasSellableQuota =
+      saleMode === "per_order" ? stockNum > 0 : saleRemainingN > 0;
+    const saleLive =
+      saleConfigured && isSaleLive(p) && hasSellableQuota;
+
+    const nowMs = Date.now();
+    const startMs = saleStartsAt ? Date.parse(saleStartsAt) : NaN;
+    const endMs = saleEndsAt ? Date.parse(saleEndsAt) : NaN;
+
+    let saleState: "none" | "live" | "paused" | "scheduled" | "ended" | "soldout" = "none";
+    if (saleConfigured) {
+      if (!saleActive) saleState = "paused";
+      else if (Number.isFinite(startMs) && nowMs < startMs) saleState = "scheduled";
+      else if (Number.isFinite(endMs) && nowMs > endMs) saleState = "ended";
+      else if (!hasSellableQuota) saleState = "soldout";
+      else saleState = "live";
+    }
+
     return {
       lots: ls,
       count: ls.length,
@@ -390,9 +468,12 @@ function AdminPage() {
       missingCost,
       missingExpiry,
       noExpiryOnly: !hasDated && hasNoExpiry,
-      hasSale:
-        salePriceNum != null &&
-        (saleMode === "per_order" ? stockNum > 0 : saleRemainingN > 0),
+      hasSale: saleConfigured,
+      saleLive,
+      saleState,
+      saleActive,
+      saleStartsAt,
+      saleEndsAt,
       salePrice: salePriceNum,
       saleMode,
       saleQtyN,
@@ -417,7 +498,7 @@ function AdminPage() {
     for (const { p, info } of extended) {
       if (info.status === "expired") expired++;
       else if (info.status === "urgent" || info.status === "warn") soon++;
-      if (info.hasSale) sale++;
+      if (info.saleLive) sale++;
       if (info.missingCost || info.missingExpiry) missing++;
       if (info.stockNum <= 0) soldOut++;
       if (p.is_visible !== false) visible++;
@@ -439,7 +520,7 @@ function AdminPage() {
     if (viewMode === "selling")
       list = list.filter(({ p, info }) => p.is_visible !== false && info.stockNum > 0);
     if (viewMode === "hidden") list = list.filter(({ p }) => p.is_visible === false);
-    if (viewMode === "sale") list = list.filter(({ info }) => info.hasSale);
+    if (viewMode === "sale") list = list.filter(({ info }) => info.saleLive);
     if (viewMode === "missing")
       list = list.filter(({ info }) => info.missingCost || info.missingExpiry);
 
@@ -860,6 +941,9 @@ function AdminPage() {
       price: info.salePrice != null ? String(info.salePrice) : "",
       qty: info.saleQtyN > 0 ? String(info.saleQtyN) : "",
       mode: info.saleMode ?? "total",
+      startsAt: toLocalDateTimeInput(info.saleStartsAt),
+      endsAt: toLocalDateTimeInput(info.saleEndsAt),
+      active: info.saleActive,
     });
     setSaleOpen(true);
     if (p.id !== openId) setOpenId(p.id);
@@ -887,23 +971,75 @@ function AdminPage() {
       return;
     }
 
+    const startsAt = fromLocalDateTimeInput(saleDraft.startsAt);
+    const endsAt = fromLocalDateTimeInput(saleDraft.endsAt);
+    if (saleDraft.startsAt.trim() !== "" && !startsAt) {
+      setMsg("開始日時の形式が正しくありません");
+      return;
+    }
+    if (saleDraft.endsAt.trim() !== "" && !endsAt) {
+      setMsg("終了日時の形式が正しくありません");
+      return;
+    }
+    if (startsAt && endsAt && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+      setMsg("終了日時は開始日時より後にしてください");
+      return;
+    }
+
+    const periodText =
+      startsAt || endsAt
+        ? `\n期間：${startsAt ? fmtSaleDateTime(startsAt) : "すぐ"} 〜 ${endsAt ? fmtSaleDateTime(endsAt) : "無期限"}`
+        : "\n期間：すぐ 〜 無期限";
+
     const ok = await appDialog.confirm({
       message:
-        `「${p.name ?? p.id}」を セール価格 ¥${yen(price)}${price === 0 ? "（無料）" : ""} × ${qty}個 で販売しますか？`,
+        `「${p.name ?? p.id}」を セール価格 ¥${yen(price)}${price === 0 ? "（無料）" : ""} × ${qty}個 で販売しますか？` +
+        periodText +
+        (saleDraft.active ? "" : "\n※「反映」はオフのため、設定後もセール価格は適用されません"),
     });
     if (!ok) return;
 
     setBusy(true);
     try {
-      const res = await setProductSale(p.id, price, qty, saleDraft.mode);
+      const res = await setProductSale(p.id, price, qty, saleDraft.mode, {
+        startsAt,
+        endsAt,
+        active: saleDraft.active,
+      });
       if (!res.ok) {
         setMsg("セール設定に失敗しました: " + res.error);
         return;
       }
       setMsg(
-        `セールを設定しました（${p.name ?? p.id}：¥${yen(price)}${price === 0 ? "（無料）" : ""} × ${qty}個）`
+        `セールを設定しました（${p.name ?? p.id}：¥${yen(price)}${price === 0 ? "（無料）" : ""} × ${qty}個${
+          saleDraft.active ? "" : "・停止中"
+        }）`
       );
       setSaleOpen(false);
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleSaleActive = async (p: ProductRow) => {
+    if (busy) return;
+    const next = p.sale_active === false;
+    const ok = await appDialog.confirm({
+      message: next
+        ? `「${p.name ?? p.id}」のセール反映を再開しますか？`
+        : `「${p.name ?? p.id}」のセール反映を一時停止しますか？\n（設定内容は残ります）`,
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      const res = await setProductSaleActive(p.id, next);
+      if (!res.ok) {
+        setMsg("切り替えに失敗しました: " + res.error);
+        return;
+      }
+      setMsg(next ? "セールの反映を再開しました" : "セールの反映を一時停止しました");
       await load();
     } finally {
       setBusy(false);
@@ -1329,7 +1465,7 @@ function AdminPage() {
                       <span className="ap-noimg">画像なし</span>
                     )}
                     {info.stockNum <= 0 && <span className="ap-ribbon">在庫切れ</span>}
-                    {info.hasSale && info.stockNum > 0 && <span className="ap-ribbon sale">セール</span>}
+                    {info.saleLive && <span className="ap-ribbon sale">セール</span>}
                   </div>
 
                   <div className="ap-card-body">
@@ -1636,20 +1772,36 @@ function AdminPage() {
                   <h3 className="ap-section-title">セール設定</h3>
 
                   {openRow.info.hasSale ? (
-                    <div className="ap-sale-info">
+                    <div className={`ap-sale-info is-${openRow.info.saleState}`}>
                       <div>
                         <div className="ap-sale-price">
                           ¥{yen(openRow.info.salePrice ?? 0)}
                           {openRow.info.salePrice === 0 && <span className="ap-sale-free">無料</span>}
+                          <span className={`ap-sale-status is-${openRow.info.saleState}`}>
+                            {SALE_STATE_LABEL[openRow.info.saleState]}
+                          </span>
                           <span className="ap-sale-orig">（通常 ¥{yen(openRow.p.price)}）</span>
                         </div>
                         <div className="ap-sale-sub">
                           {openRow.info.saleMode === "per_order"
-                            ? `1会計 ${openRow.info.saleQtyN}個まで この価格（セール中）`
+                            ? `1会計 ${openRow.info.saleQtyN}個まで この価格`
                             : `合計 ${openRow.info.saleQtyN}個限定（残り ${openRow.info.saleRemainingN}個）`}
+                        </div>
+                        <div className="ap-sale-sub">
+                          {salePeriodText(openRow.info.saleStartsAt, openRow.info.saleEndsAt)}
                         </div>
                       </div>
                       <div className="ap-sale-actions">
+                        {(openRow.info.saleState === "live" || openRow.info.saleState === "paused") && (
+                          <button
+                            className="ap-secondary"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => toggleSaleActive(openRow.p)}
+                          >
+                            {openRow.info.saleState === "live" ? "一時停止" : "再開"}
+                          </button>
+                        )}
                         <button
                           className="ap-secondary"
                           type="button"
@@ -1718,13 +1870,37 @@ function AdminPage() {
                           onChange={(e) => setSaleDraft((d) => ({ ...d, qty: e.target.value }))}
                         />
                       </label>
+                      <label>
+                        <span>開始日時（空欄=すぐ開始）</span>
+                        <input
+                          type="datetime-local"
+                          value={saleDraft.startsAt}
+                          onChange={(e) => setSaleDraft((d) => ({ ...d, startsAt: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        <span>終了日時（空欄=無期限）</span>
+                        <input
+                          type="datetime-local"
+                          value={saleDraft.endsAt}
+                          onChange={(e) => setSaleDraft((d) => ({ ...d, endsAt: e.target.value }))}
+                        />
+                      </label>
+                      <label className="ap-sale-toggle">
+                        <input
+                          type="checkbox"
+                          checked={saleDraft.active}
+                          onChange={(e) => setSaleDraft((d) => ({ ...d, active: e.target.checked }))}
+                        />
+                        <span>セールを反映する（オフにすると停止）</span>
+                      </label>
                       <button
                         className="ap-primary"
                         type="button"
                         disabled={busy}
                         onClick={() => applySale(openRow.p, openRow.info.stockNum)}
                       >
-                        {busy ? <><span className="btn-spinner" />処理中...</> : "この内容でセール開始"}
+                        {busy ? <><span className="btn-spinner" />処理中...</> : "この内容で保存"}
                       </button>
                       <p className="ap-hint">
                         {saleDraft.mode === "per_order"

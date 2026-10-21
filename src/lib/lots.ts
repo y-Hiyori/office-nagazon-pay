@@ -12,6 +12,27 @@ export type SaleLot = {
   remaining: number; // total は残り個数／per_order は在庫数
 };
 
+// セールの適用期間・反映オンオフを判定する
+export function isSaleLive(
+  p: {
+    sale_active?: boolean | null;
+    sale_starts_at?: string | null;
+    sale_ends_at?: string | null;
+  } | null | undefined,
+  nowMs: number = Date.now()
+): boolean {
+  if (!p) return false;
+  if (p.sale_active === false) return false;
+
+  const starts = p.sale_starts_at ? Date.parse(p.sale_starts_at) : NaN;
+  if (Number.isFinite(starts) && nowMs < starts) return false;
+
+  const ends = p.sale_ends_at ? Date.parse(p.sale_ends_at) : NaN;
+  if (Number.isFinite(ends) && nowMs > ends) return false;
+
+  return true;
+}
+
 /**
  * セール中の商品情報を product_id → 情報 で返す
  *   v35：ビュー（product_sale_lots）ではなく products から直接読む
@@ -36,11 +57,12 @@ export async function fetchSaleLots(): Promise<Map<number, SaleLot>> {
     // ---------- ① products から直接読む（本線） ----------
     const direct = await supabase
       .from("products")
-      .select("id,sale_price,sale_mode,sale_qty,sale_remaining,stock")
+      .select("id,sale_price,sale_mode,sale_qty,sale_remaining,stock,sale_active,sale_starts_at,sale_ends_at")
       .not("sale_price", "is", null);
 
     if (!direct.error) {
       for (const r of ((direct.data ?? []) as any[])) {
+        if (!isSaleLive(r)) continue;
         const id = Number(r?.id);
         const mode: SaleMode = r?.sale_mode === "per_order" ? "per_order" : "total";
         const sq = Number(r?.sale_qty) || 0;
@@ -236,7 +258,27 @@ export function saleRemainingOf(p: any): number {
 
 /** いまセール中か */
 export function isOnSale(p: any): boolean {
-  return salePriceOf(p) != null && saleRemainingOf(p) > 0;
+  return isSaleLive(p) && salePriceOf(p) != null && saleRemainingOf(p) > 0;
+}
+
+/** セールの反映オンオフだけ切り替える（売り切れ数を維持） */
+export async function setProductSaleActive(
+  productId: number,
+  active: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc("set_product_sale_active", {
+    p_product_id: productId,
+    p_active: active,
+  });
+  if (!error) return { ok: true };
+
+  console.warn("set_product_sale_active rpc failed, fallback to direct update:", error);
+  const { error: e2 } = await supabase
+    .from("products")
+    .update({ sale_active: active })
+    .eq("id", productId);
+  if (e2) return { ok: false, error: e2.message };
+  return { ok: true };
 }
 
 /**
@@ -247,7 +289,12 @@ export async function setProductSale(
   productId: number,
   salePrice: number | null,
   qty: number,
-  mode: SaleMode = "total"
+  mode: SaleMode = "total",
+  opts: {
+    startsAt?: string | null;
+    endsAt?: string | null;
+    active?: boolean;
+  } = {}
 ): Promise<{ ok: boolean; error?: string }> {
   // 0円は「無料セール」として有効。解除は salePrice=null か qty=0 で行う
   const price = salePrice == null ? null : Math.max(0, Math.floor(salePrice));
@@ -260,6 +307,9 @@ export async function setProductSale(
     p_sale_price: price,
     p_qty: count,
     p_mode: m,
+    p_starts_at: opts.startsAt ?? null,
+    p_ends_at: opts.endsAt ?? null,
+    p_active: opts.active !== false,
   });
 
   if (!error) return { ok: true };
@@ -271,8 +321,24 @@ export async function setProductSale(
     .from("products")
     .update(
       clearing
-        ? { sale_price: null, sale_qty: 0, sale_remaining: 0, sale_mode: m }
-        : { sale_price: price, sale_qty: count, sale_remaining: count, sale_mode: m }
+        ? {
+            sale_price: null,
+            sale_qty: 0,
+            sale_remaining: 0,
+            sale_mode: m,
+            sale_starts_at: null,
+            sale_ends_at: null,
+            sale_active: true,
+          }
+        : {
+            sale_price: price,
+            sale_qty: count,
+            sale_remaining: count,
+            sale_mode: m,
+            sale_starts_at: opts.startsAt ?? null,
+            sale_ends_at: opts.endsAt ?? null,
+            sale_active: opts.active !== false,
+          }
     )
     .eq("id", productId);
 
