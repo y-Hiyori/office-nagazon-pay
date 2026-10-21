@@ -60,7 +60,6 @@ import AdminNoticeEdit from "./pages/AdminNoticeEdit";
 import AdminPoints from "./pages/AdminPoints";
 import AdminCorrections from "./pages/AdminCorrections";
 import AdminGuard from "./pages/AdminGuard";
-import AdminInventory from "./pages/AdminInventory";
 // ✅ 追加：仕入れ原価の登録
 
 // 追加 import
@@ -333,16 +332,6 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminGuard />
-          </AdminRoute>
-        ),
-      },
-
-      // ✅ 棚卸し（在庫差異の記録）
-      {
-        path: "admin-inventory",
-        element: (
-          <AdminRoute>
-            <AdminInventory />
           </AdminRoute>
         ),
       },

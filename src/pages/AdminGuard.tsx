@@ -188,6 +188,7 @@ export default function AdminGuard() {
   const [form, setForm] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<{ total: number; done: number } | null>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -670,6 +671,7 @@ export default function AdminGuard() {
     if (!ok) return;
 
     setBusy(true);
+    setDeleteStatus({ total: 1, done: 0 });
     setErr("");
 
     try {
@@ -696,6 +698,7 @@ export default function AdminGuard() {
         return;
       }
 
+      setDeleteStatus({ total: 1, done: 1 });
       setSelected(null);
       setHandleNote("");
       setMsg("イベントと証拠画像・録画を削除しました。");
@@ -703,6 +706,7 @@ export default function AdminGuard() {
     } catch (e) {
       setErr(`削除に失敗しました：${e instanceof Error ? e.message : String(e)}`);
     } finally {
+      setDeleteStatus(null);
       setBusy(false);
     }
   };
@@ -721,6 +725,7 @@ export default function AdminGuard() {
     if (!ok) return;
 
     setBusy(true);
+    setDeleteStatus({ total: count, done: 0 });
     setErr("");
     setMsg("");
 
@@ -739,6 +744,7 @@ export default function AdminGuard() {
       }
 
       let deleted = 0;
+      let processed = 0;
       for (const chunk of chunks) {
         const r = await fetch("/api/guard-delete-event", {
           method: "POST",
@@ -758,6 +764,8 @@ export default function AdminGuard() {
           return;
         }
         deleted += Number(j.deleted || 0);
+        processed += chunk.length;
+        setDeleteStatus({ total: count, done: Math.min(count, processed) });
       }
 
       if (selected && checkedIds.includes(selected.id)) {
@@ -770,6 +778,7 @@ export default function AdminGuard() {
     } catch (e) {
       setErr(`削除に失敗しました：${e instanceof Error ? e.message : String(e)}`);
     } finally {
+      setDeleteStatus(null);
       setBusy(false);
     }
   };
@@ -920,7 +929,7 @@ export default function AdminGuard() {
                       onClick={deleteSelected}
                       disabled={checkedIds.length === 0 || busy}
                     >
-                      選択したイベントを削除
+                      {deleteStatus ? "削除中…" : "選択したイベントを削除"}
                     </button>
                     {checkedIds.length > 0 && (
                       <button
@@ -1657,10 +1666,23 @@ TOKEN     = ${form.device_token}`}
                 onClick={deleteEvent}
                 disabled={busy}
               >
-                このイベントを削除
+                {deleteStatus ? "削除中…" : "このイベントを削除"}
               </button>
               <span>証拠画像・5秒録画も削除されます（注文の状態は変わりません）</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {deleteStatus && (
+        <div className="guard-loading-overlay" role="status" aria-live="polite">
+          <div className="guard-loading-card">
+            <span className="guard-spinner" aria-hidden="true" />
+            <strong>削除しています…</strong>
+            <span>
+              {deleteStatus.done}/{deleteStatus.total}件
+            </span>
+            <p>証拠画像と5秒録画も削除しています。画面を閉じずにお待ちください。</p>
           </div>
         </div>
       )}
