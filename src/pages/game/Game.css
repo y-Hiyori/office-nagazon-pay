@@ -150,7 +150,8 @@
   max-width: 100%;
   min-width: 0;
 
-  max-height: min(76svh, 640px);
+  /* ✅ svh基準だと canvas より高くなり、カード上下が切れていた（100%＝overlay内に収める） */
+  max-height: min(100%, 640px);
   overflow:auto;
   -webkit-overflow-scrolling: touch;
 
@@ -975,3 +976,98 @@ html{
 }
 .gGotTitle { font-weight: 900; }
 .gGotName { font-size: 13px; color: rgba(255,255,255,0.8); }
+
+/* =========================================================
+   ✅ スマホ：HUD をプレイフィールドに「重ねない」
+   これまでは .hudBar が canvas 上に absolute で乗っていて、
+   狭い画面では TIME / SCORE / x倍率 / COMBO が折り返して
+   2〜3行に増え、その分だけ盤面の上部（ターゲット出現位置）を
+   覆ってしまい、タップも奪われてプレイしづらかった。
+   → 700px以下では HUD を canvas の“上に並べる”通常フローに変更。
+      さらに 2段グリッドにして、COMBO が出ても行が増えない
+      （＝プレイ中に盤面がガタつかない）ようにする。
+========================================================= */
+@media (max-width: 700px){
+  .hudBar{
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+
+    margin: 8px 8px 0;
+    padding: 8px 10px;
+
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "diff  time  combo mute"
+      "score score score mult";
+    align-items: center;
+    gap: 6px 8px;
+
+    border-radius: 14px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    z-index: auto;
+  }
+
+  /* 1段目：難易度 / 残り時間 / COMBO / サウンド */
+  .hudBar .hudDiff{
+    grid-area: diff;
+    font-size: 10.5px;
+    font-weight: 900;
+    letter-spacing: .05em;
+    padding: 4px 8px;
+    align-self: center;
+  }
+  .hudBar .hudTime{
+    grid-area: time;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .hudBar .hudCombo{
+    grid-area: combo;
+    justify-self: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11.5px;
+    padding: 4px 9px;
+  }
+
+  /* 2段目：スコア（主役） / 倍率 */
+  .hudBar .hudScore{
+    grid-area: score;
+    justify-self: start;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    font-size: 18px;
+    font-weight: 950;
+    letter-spacing: .01em;
+    font-variant-numeric: tabular-nums;
+    padding: 5px 11px;
+    background: rgba(255,255,255,0.11);
+    border-color: rgba(255,255,255,0.18);
+  }
+  .hudBar .hudMult{
+    grid-area: mult;
+    justify-self: end;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* サウンド：押しやすい大きさにする */
+  .hudBar .hudMute{
+    grid-area: mute;
+    justify-self: end;
+    min-width: 40px;
+    min-height: 32px;
+    display: grid;
+    place-items: center;
+    padding: 4px 8px;
+  }
+}
