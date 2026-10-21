@@ -54,6 +54,22 @@ type GuardEvent = {
   handle_note: string | null;
 };
 
+type CandidateOrder = {
+  id: string;
+  paid_at: string | null;
+  created_at: string | null;
+  status: string;
+  fulfillment_type: string | null;
+  pickup_status: string | null;
+  total: number | null;
+  name: string | null;
+  email: string | null;
+  order_items: { product_name: string | null; quantity: number | null; price: number | null }[] | null;
+};
+
+const CANDIDATE_SELECT =
+  "id,paid_at,created_at,status,fulfillment_type,pickup_status,total,name,email,order_items(product_name,quantity,price)";
+
 type GuardDevice = {
   id: string;
   name: string;
@@ -149,11 +165,11 @@ function mapForm(s: GuardSettings): FormState {
     roi_h: Number(roi.h ?? 0.64),
     teams_webhook_url: s.teams_webhook_url || "",
     alert_email: s.alert_email || "",
-    retention_days: Number(s.retention_days ?? 30),
+    retention_days: Number(s.retention_days ?? 7),
     notify_on_suspicious: !!s.notify_on_suspicious,
     notify_on_pickup: !!s.notify_on_pickup,
     video_enabled: s.video_enabled !== false,
-    video_retention_days: Number(s.video_retention_days ?? 14),
+    video_retention_days: Number(s.video_retention_days ?? 7),
     clip_seconds: Number(s.clip_seconds ?? 5),
     clip_fps: Number(s.clip_fps ?? 3),
     hub_buzzer_enabled: !!s.hub_buzzer_enabled,
@@ -185,6 +201,8 @@ export default function AdminGuard() {
   const [clipIndex, setClipIndex] = useState(0);
   const [clipPlaying, setClipPlaying] = useState(true);
   const [clipLoading, setClipLoading] = useState(false);
+  const [candidates, setCandidates] = useState<CandidateOrder[]>([]);
+  const [candidateLoading, setCandidateLoading] = useState(false);
 
   const loadSettings = useCallback(async () => {
     const { data, error } = await supabase
@@ -323,6 +341,58 @@ export default function AdminGuard() {
     return () => window.clearInterval(timer);
   }, [clipPlaying, clipFrames.length, selected?.fps]);
 
+  // イベントの前後60分の支払い済み注文を「おそらくの購入履歴」として表示
+  useEffect(() => {
+    let alive = true;
+    setCandidates([]);
+    setCandidateLoading(false);
+    if (!selected) return;
+
+    const base = new Date(selected.occurred_at || selected.received_at).getTime();
+    if (!Number.isFinite(base)) return;
+
+    const from = new Date(base - 60 * 60 * 1000).toISOString();
+    const to = new Date(base + 60 * 60 * 1000).toISOString();
+    setCandidateLoading(true);
+
+    (async () => {
+      const { data } = await supabase
+        .from("orders")
+        .select(CANDIDATE_SELECT)
+        .eq("status", "paid")
+        .or("fulfillment_type.is.null,fulfillment_type.neq.shipping")
+        .gte("paid_at", from)
+        .lte("paid_at", to)
+        .order("paid_at", { ascending: false })
+        .limit(10);
+
+      if (!alive) return;
+      let rows = (data || []) as CandidateOrder[];
+
+      if (selected.order_id && !rows.some((o) => o.id === selected.order_id)) {
+        const { data: matched } = await supabase
+          .from("orders")
+          .select(CANDIDATE_SELECT)
+          .eq("id", selected.order_id)
+          .maybeSingle();
+        if (matched) rows = [matched as CandidateOrder, ...rows];
+      }
+
+      if (!alive) return;
+      setCandidates(rows);
+      setCandidateLoading(false);
+    })().catch(() => {
+      if (alive) {
+        setCandidates([]);
+        setCandidateLoading(false);
+      }
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [selected]);
+
   const todayStart = useMemo(() => {
     const ymd = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Tokyo",
@@ -410,13 +480,13 @@ export default function AdminGuard() {
         roi,
         teams_webhook_url: form.teams_webhook_url.trim() || null,
         alert_email: form.alert_email.trim() || null,
-        retention_days: Math.max(1, Math.min(180, Number(form.retention_days) || 30)),
+        retention_days: Math.max(1, Math.min(180, Number(form.retention_days) || 7)),
         notify_on_suspicious: form.notify_on_suspicious,
         notify_on_pickup: form.notify_on_pickup,
         video_enabled: form.video_enabled,
         video_retention_days: Math.max(
           1,
-          Math.min(90, Number(form.video_retention_days) || 14)
+          Math.min(90, Number(form.video_retention_days) || 7)
         ),
         clip_seconds: Math.max(3, Math.min(10, Number(form.clip_seconds) || 5)),
         clip_fps: Math.max(1, Math.min(10, Number(form.clip_fps) || 3)),
@@ -559,6 +629,56 @@ export default function AdminGuard() {
     setHandleNote("");
     setMsg(`「${STATUS_LABEL[status]}」に更新しました。`);
     await loadEvents().catch(() => {});
+  };
+
+  const deleteEvent = async () => {
+    if (!selected || busy) return;
+
+    const ok = await appDialog.confirm({
+      title: "イベントを削除",
+      message:
+        "このイベントと証拠画像・5秒録画を完全に削除します。元に戻せません。\n注文の受け取り状態は変更されません。",
+      okText: "削除する",
+      cancelText: "やめる",
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    setErr("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setErr("ログイン情報を取得できませんでした。再ログインしてください。");
+        return;
+      }
+
+      const r = await fetch("/api/guard-delete-event", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ event_id: selected.id }),
+      });
+      const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+
+      if (!r.ok || !j?.ok) {
+        setErr(`削除できませんでした：${j?.error || `HTTP ${r.status}`}`);
+        return;
+      }
+
+      setSelected(null);
+      setHandleNote("");
+      setMsg("イベントと証拠画像・録画を削除しました。");
+      await loadEvents().catch(() => {});
+    } catch (e) {
+      setErr(`削除に失敗しました：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const openEvent = (ev: GuardEvent) => {
@@ -939,7 +1059,7 @@ export default function AdminGuard() {
                           patchForm("video_retention_days", Number(e.target.value))
                         }
                       />
-                      <small>初期14日。写真は30日保存です。</small>
+                      <small>初期7日（1週間）。写真も7日保存です。</small>
                     </label>
                     <label className="guard-field">
                       <span>録画の長さ（秒）</span>
@@ -987,7 +1107,7 @@ export default function AdminGuard() {
                         value={form.retention_days}
                         onChange={(e) => patchForm("retention_days", Number(e.target.value))}
                       />
-                      <small>毎日1回、期限を過ぎた画像を自動削除します。</small>
+                      <small>初期7日（1週間）。毎日1回、期限を過ぎた画像を自動削除します。</small>
                     </label>
                     <label className="guard-field">
                       <span>動きの感度（3〜80）</span>
@@ -1289,15 +1409,63 @@ TOKEN     = ${form.device_token}`}
               )}
             </dl>
 
-            {selected.order_id && (
-              <button
-                type="button"
-                className="guard-btn is-ghost"
-                onClick={() => navigate(`/admin-order-detail/${selected.order_id}`)}
-              >
-                注文詳細を開く
-              </button>
-            )}
+            <section className="guard-candidates">
+              <div className="guard-candidates-head">
+                <h3>おそらくの購入履歴</h3>
+                <span>前後60分</span>
+              </div>
+
+              {candidateLoading ? (
+                <p className="guard-candidate-loading">購入履歴を照合中…</p>
+              ) : candidates.length === 0 ? (
+                <div className="guard-candidate-empty">
+                  <strong>購入履歴なし → 不審</strong>
+                  <p>前後60分に、支払い済みの店頭受け取り注文がありません。</p>
+                </div>
+              ) : (
+                <div className="guard-candidate-list">
+                  {candidates.map((o) => {
+                    const matched = o.id === selected.order_id;
+                    const items = (o.order_items || [])
+                      .map((i) => `${i.product_name || "商品"}×${i.quantity || 1}`)
+                      .join("、");
+                    return (
+                      <div key={o.id} className={`guard-candidate ${matched ? "is-matched" : ""}`}>
+                        <div className="guard-candidate-top">
+                          <span className="guard-candidate-time">{fmt(o.paid_at)}</span>
+                          <span className={`guard-candidate-badge ${matched ? "is-matched" : ""}`}>
+                            {matched ? "照合済み" : "候補"}
+                          </span>
+                        </div>
+                        <div className="guard-candidate-main">
+                          <span className="guard-candidate-name">
+                            {o.name || o.email || "購入者不明"}
+                          </span>
+                          <span className="guard-candidate-items">{items || "明細なし"}</span>
+                        </div>
+                        <div className="guard-candidate-foot">
+                          <span>{o.total == null ? "-" : `${Number(o.total).toLocaleString("ja-JP")}円`}</span>
+                          <span>{o.pickup_status === "picked_up" ? "受け取り済み" : "受け取り待ち"}</span>
+                          <button
+                            type="button"
+                            className="guard-btn is-mini"
+                            onClick={() => navigate(`/admin-order-detail/${o.id}`)}
+                          >
+                            注文詳細
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {selected.status === "suspicious" && candidates.length > 0 && (
+                <p className="guard-candidate-note">
+                  候補はありますが、20分の照合範囲外か、すでに受け取り済みのため「不審」になっています。
+                </p>
+              )}
+            </section>
 
             <label className="guard-field">
               <span>対応メモ（任意）</span>
@@ -1342,6 +1510,18 @@ TOKEN     = ${form.device_token}`}
               >
                 要確認のまま
               </button>
+            </div>
+
+            <div className="guard-modal-delete">
+              <button
+                type="button"
+                className="guard-btn is-danger"
+                onClick={deleteEvent}
+                disabled={busy}
+              >
+                このイベントを削除
+              </button>
+              <span>証拠画像・5秒録画も削除されます（注文の状態は変わりません）</span>
             </div>
           </div>
         </div>
