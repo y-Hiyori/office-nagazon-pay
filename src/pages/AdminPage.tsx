@@ -27,6 +27,7 @@ type ProductRow = {
   id: number;
   name: string | null;
   price: number | null;
+  original_price?: number | null;
   stock: number | null;
   is_visible?: boolean | null;
   max_per_order?: number | null;
@@ -121,6 +122,7 @@ type ReduceState = {
 type ProductEdit = {
   name: string;
   price: string;
+  originalPrice: string;
   memberPrice: string;
   earnPoints: string;
   cost: string;
@@ -269,7 +271,7 @@ function AdminPage() {
   const load = async () => {
     setLoading(true);
 
-    const baseCols = "id,name,price,stock,is_visible,max_per_order,expiry_alert_days,member_price,cost,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,sale_price,sale_qty,sale_remaining,sale_mode";
+    const baseCols = "id,name,price,original_price,stock,is_visible,max_per_order,expiry_alert_days,member_price,cost,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,sale_price,sale_qty,sale_remaining,sale_mode";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let pRes: any = await supabase
       .from("products")
@@ -941,6 +943,7 @@ function AdminPage() {
     setEditDraft({
       name: p.name ?? "",
       price: p.price == null ? "" : String(toInt(p.price)),
+      originalPrice: p.original_price == null ? "" : String(toInt(p.original_price)),
       memberPrice: p.member_price == null ? "" : String(toInt(p.member_price)),
       earnPoints: p.earn_points == null ? "" : String(toInt(p.earn_points)),
       cost: p.cost == null ? "" : String(toInt(p.cost)),
@@ -986,6 +989,19 @@ function AdminPage() {
       return;
     }
 
+    let originalPriceNum: number | null = null;
+    if (editDraft.originalPrice.trim() !== "") {
+      originalPriceNum = Number(editDraft.originalPrice);
+      if (!Number.isFinite(originalPriceNum) || originalPriceNum < 0) {
+        setEditErr("通常価格は0円以上で入力してください");
+        return;
+      }
+      if (originalPriceNum <= priceNum) {
+        setEditErr("通常価格は販売価格より大きい金額を入力してください");
+        return;
+      }
+    }
+
     const leadMinNum = editDraft.leadMin.trim() === "" ? null : toInt(editDraft.leadMin);
     const leadMaxNum = editDraft.leadMax.trim() === "" ? null : toInt(editDraft.leadMax);
     if (editDraft.isShipping) {
@@ -1027,6 +1043,7 @@ function AdminPage() {
     const payload: Record<string, any> = {
       name,
       price: priceNum,
+      original_price: originalPriceNum,
       member_price: editDraft.memberPrice.trim() === "" ? null : Math.max(0, toInt(editDraft.memberPrice)),
       earn_points: Math.max(0, toInt(editDraft.earnPoints || 0)),
       cost: editDraft.cost.trim() === "" ? null : Math.max(0, toInt(editDraft.cost)),
@@ -1426,6 +1443,18 @@ function AdminPage() {
                           min={0}
                           value={editDraft.price}
                           onChange={(e) => patchEdit({ price: e.target.value })}
+                        />
+                      </label>
+
+                      <label>
+                        <span>通常価格（円・SALE表示する時だけ）</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="例: 200"
+                          value={editDraft.originalPrice}
+                          onChange={(e) => patchEdit({ originalPrice: e.target.value })}
                         />
                       </label>
 

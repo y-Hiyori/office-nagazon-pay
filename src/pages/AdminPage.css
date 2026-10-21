@@ -1813,3 +1813,36 @@
   .ap-chips::-webkit-scrollbar { display: none; }
   .ap-chips > * { flex: 0 0 auto; }
 }
+
+/* ===== セール設定：スマホで入力欄が画面外に出ないように ===== */
+.ap-sale-form label {
+  min-width: 0;
+}
+
+.ap-sale-form input,
+.ap-sale-form select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ap-sale-form select {
+  min-height: 44px;
+  padding: 10px 11px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+@media (max-width: 620px) {
+  .ap-sale-form {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .ap-sale-form .ap-primary {
+    width: 100%;
+  }
+}
