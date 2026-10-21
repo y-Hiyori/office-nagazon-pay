@@ -20,6 +20,12 @@ type OrderRow = {
   fulfillment_type?: string | null;
   shipping_status?: string | null;
 
+  // ✅ 店頭受け取り
+  pickup_code?: string | null;
+  pickup_status?: string | null;
+  picked_up_at?: string | null;
+  pickup_code_expires_at?: string | null;
+
   // ✅ キャンセル・返金
   status?: string | null;
   canceled_at?: string | null;
@@ -320,6 +326,45 @@ function OrderDetail() {
                 </div>
               )}
             </div>
+
+            {statusLower === "paid" &&
+              order?.fulfillment_type !== "shipping" &&
+              order?.pickup_code && (
+                <div
+                  className={`order-pickup ${
+                    order.pickup_status === "picked_up" ? "is-done" : ""
+                  }`}
+                >
+                  <div className="order-pickup-head">
+                    <span className="order-pickup-label">受け取りコード</span>
+                    <span className="order-pickup-badge">
+                      {order.pickup_status === "picked_up"
+                        ? "受け取り済み"
+                        : order.pickup_status === "expired"
+                          ? "期限切れ"
+                          : "受け取り待ち"}
+                    </span>
+                  </div>
+                  <p className="order-pickup-code">{order.pickup_code}</p>
+                  <p className="order-pickup-note">
+                    {order.pickup_status === "picked_up"
+                      ? "商品の受け取りが記録されています。"
+                      : "商品を取る前に、この画面をスタッフへ提示してください。"}
+                  </p>
+                  {order.pickup_code_expires_at && order.pickup_status !== "picked_up" && (
+                    <p className="order-pickup-exp">
+                      有効期限：
+                      {new Date(order.pickup_code_expires_at).toLocaleString("ja-JP", {
+                        timeZone: "Asia/Tokyo",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  )}
+                </div>
+              )}
 
             <h3 className="items-title">購入した商品</h3>
 

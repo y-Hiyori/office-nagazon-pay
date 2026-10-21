@@ -1,5 +1,5 @@
 // src/data/products.ts
-import img1 from "./商品画像/じゃがりこサラダ.jpg";
+import img1 from "./商品画像/jagariko_salad.jpg";
 import img6 from "./商品画像/ラムネ.webp";
 import img7 from "./商品画像/めいらくアイス.jpg";
 import img10 from "./商品画像/大粒ラムネ.jpg";

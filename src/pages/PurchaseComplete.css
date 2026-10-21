@@ -148,3 +148,50 @@
 .complete-ship-notice p{margin:2px 0;}
 .complete-ship-notice p:first-child{font-weight:800;}
 .complete-ship-notice.is-shipped{background:#e8f8ee;border-color:#b6e0c4;color:#1c6a3a;}
+
+/* ✅ 店頭受け取りコード */
+.complete-pickup {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fffaf3;
+  border: 1px solid #f1ddb5;
+  text-align: center;
+}
+.complete-pickup.is-done {
+  background: #f3faf5;
+  border-color: #b7e0c4;
+}
+.complete-pickup p {
+  margin: 2px 0;
+  font-size: 12px;
+  color: #8a5a00;
+  line-height: 1.6;
+}
+.complete-pickup.is-done p {
+  color: #1d6b3a;
+}
+.complete-pickup .complete-pickup-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.complete-pickup .complete-pickup-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  line-height: 1.25;
+  color: #1d1d1f;
+  margin: 4px 0 6px;
+}
+.complete-pickup .complete-pickup-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: #515154;
+}
+.complete-pickup .complete-pickup-exp {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #86868b;
+}

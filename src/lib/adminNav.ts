@@ -11,6 +11,14 @@ export type AdminNavGroup = { title: string; note?: string; items: AdminNavItem[
 
 export const ADMIN_NAV: AdminNavGroup[] = [
   {
+    title: "防犯・在庫",
+    note: "店頭の見守りと棚卸し",
+    items: [
+      { label: "見守りダッシュボード", path: "/admin-guard", icon: "🛡", desc: "不審な動き・証拠写真・Teams通知の設定", tone: "main" },
+      { label: "棚卸し・在庫差異", path: "/admin-inventory", icon: "🧮", desc: "実数を入力して在庫との差異を記録・分析", tone: "warn" },
+    ],
+  },
+  {
     title: "商品・在庫",
     items: [
       { label: "商品管理", path: "/admin-page", icon: "📦", desc: "商品の追加・編集、在庫・ロット、セール", tone: "main" },

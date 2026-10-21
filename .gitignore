@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 .vercel
 .env*
+
+# 端末ファームウェア（Wi-Fiパスワード・端末トークンを含む）
+firmware/*/src/config.h
+firmware/*/.pio
+firmware/*/.vscode
