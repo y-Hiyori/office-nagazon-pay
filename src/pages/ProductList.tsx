@@ -128,6 +128,11 @@ function ProductList() {
 
           if (aSold !== bSold) return aSold ? 1 : -1;
 
+          // ✅ セール中（実際にセール価格が適用中）の商品を優先
+          const aSale = a.salePrice != null && a.salePrice >= 0;
+          const bSale = b.salePrice != null && b.salePrice >= 0;
+          if (aSale !== bSale) return aSale ? -1 : 1;
+
           const aNew = !!a.isNew;
           const bNew = !!b.isNew;
           if (aNew !== bNew) return aNew ? -1 : 1;
