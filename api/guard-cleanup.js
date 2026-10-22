@@ -1,5 +1,5 @@
 // api/guard-cleanup.js
-// 毎日1回：証拠画像・5秒録画の保存期間切れ削除
+// 毎日1回：証拠画像・8秒録画の保存期間切れ削除
 //   Vercel Cron から呼ばれる（CRON_SECRET を設定すると Authorization: Bearer <CRON_SECRET> が付く）
 import { createHash, timingSafeEqual } from "crypto";
 import { getAdminClient } from "./_guard.js";
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
 
     if (qErr) console.error("old events query failed:", qErr);
 
-    // 5秒録画は写真より短い期間（初期14日）で削除
+    // 8秒録画は写真より短い期間（初期14日）で削除
     const videoRetentionDays = Math.max(1, Number(settings.video_retention_days || 14));
     const videoCutoff = new Date(
       Date.now() - videoRetentionDays * 24 * 60 * 60 * 1000

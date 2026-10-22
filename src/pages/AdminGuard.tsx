@@ -189,8 +189,8 @@ function mapForm(s: GuardSettings): FormState {
     notify_on_pickup: !!s.notify_on_pickup,
     video_enabled: s.video_enabled !== false,
     video_retention_days: Number(s.video_retention_days ?? 7),
-    clip_seconds: Number(s.clip_seconds ?? 5),
-    clip_fps: Number(s.clip_fps ?? 3),
+    clip_seconds: Number(s.clip_seconds ?? 8),
+    clip_fps: 2,
     hub_buzzer_enabled: !!s.hub_buzzer_enabled,
     ai_review_enabled: !!s.ai_review_enabled,
     device_token: s.device_token || "",
@@ -328,7 +328,7 @@ export default function AdminGuard() {
     return () => unlockScroll("guard-modal");
   }, [selected]);
 
-  // 5秒録画のフレームを署名付きURLで読み込む
+  // 8秒録画のフレームを署名付きURLで読み込む
   useEffect(() => {
     let alive = true;
     setClipFrames([]);
@@ -535,8 +535,8 @@ export default function AdminGuard() {
           1,
           Math.min(90, Number(form.video_retention_days) || 7)
         ),
-        clip_seconds: Math.max(3, Math.min(10, Number(form.clip_seconds) || 5)),
-        clip_fps: Math.max(1, Math.min(10, Number(form.clip_fps) || 3)),
+        clip_seconds: Math.max(3, Math.min(8, Number(form.clip_seconds) || 8)),
+        clip_fps: 2,
         hub_buzzer_enabled: form.hub_buzzer_enabled,
         ai_review_enabled: form.ai_review_enabled,
         updated_at: new Date().toISOString(),
@@ -685,7 +685,7 @@ export default function AdminGuard() {
     const ok = await appDialog.confirm({
       title: "イベントを削除",
       message:
-        "このイベントと証拠画像・5秒録画を完全に削除します。元に戻せません。\n注文の受け取り状態は変更されません。",
+        "このイベントと証拠画像・8秒録画を完全に削除します。元に戻せません。\n注文の受け取り状態は変更されません。",
       okText: "削除する",
       cancelText: "やめる",
     });
@@ -739,7 +739,7 @@ export default function AdminGuard() {
     const ok = await appDialog.confirm({
       title: `${count}件のイベントを削除`,
       message:
-        "選択したイベントと証拠画像・5秒録画をまとめて削除します。元に戻せません。\n注文の受け取り状態は変更されません。",
+        "選択したイベントと証拠画像・8秒録画をまとめて削除します。元に戻せません。\n注文の受け取り状態は変更されません。",
       okText: "まとめて削除する",
       cancelText: "やめる",
     });
@@ -1182,7 +1182,7 @@ export default function AdminGuard() {
                 <section className="guard-section">
                   <h2>録画とアラート</h2>
                   <p className="guard-section-note">
-                    商品が取られた瞬間の5秒録画を保存します。支払い済みでも録画されます。
+                    商品が取られた瞬間を含む8秒録画を保存します。支払い済みでも録画されます。
                   </p>
 
                   <label className="guard-switch">
@@ -1195,7 +1195,7 @@ export default function AdminGuard() {
                       <span />
                     </span>
                     <span className="guard-switch-text">
-                      {form.video_enabled ? "5秒録画を保存する" : "録画しない（静止画のみ）"}
+                      {form.video_enabled ? "8秒録画を保存する" : "録画しない（静止画のみ）"}
                     </span>
                   </label>
 
@@ -1234,22 +1234,22 @@ export default function AdminGuard() {
                       <input
                         type="number"
                         min={3}
-                        max={10}
+                        max={8}
                         value={form.clip_seconds}
                         onChange={(e) => patchForm("clip_seconds", Number(e.target.value))}
                       />
-                      <small>初期5秒（直前3秒＋直後2秒）。</small>
+                      <small>初期8秒（直前3秒＋直後5秒）。商品が取られた瞬間を逃しにくくします。</small>
                     </label>
                     <label className="guard-field">
                       <span>フレームレート（fps）</span>
                       <input
                         type="number"
-                        min={1}
-                        max={10}
-                        value={form.clip_fps}
-                        onChange={(e) => patchForm("clip_fps", Number(e.target.value))}
+                        min={2}
+                        max={2}
+                        value={2}
+                        readOnly
                       />
-                      <small>初期3fps。大きいほど滑らかですが容量が増えます。</small>
+                      <small>2fps固定（8秒で16枚）。容量とPSRAMの制約に合わせています。</small>
                     </label>
                   </div>
 
@@ -1479,7 +1479,7 @@ TOKEN     = ${form.device_token}`}
                   <p>
                     <strong>カメラ：</strong>棚の斜め上から、棚全体と手元が写る位置に置きます。
                     磁石で金属板に固定できます。連続稼働にはUSB給電が必要です。
-                    USB給電できるなら5秒間隔にできます。
+                    USB給電が必須です。8秒クリップで連続稼働します。
                   </p>
                   <p>
                     <strong>ハブ：</strong>レジ横に置き、画面に「防犯カメラ作動中」と表示します。
@@ -1541,7 +1541,7 @@ TOKEN     = ${form.device_token}`}
                 <span>録画を読み込み中…</span>
               ) : clipFrames.length > 0 ? (
                 <div className="guard-clip">
-                  <img src={clipFrames[clipIndex]} alt="5秒録画のフレーム" />
+                  <img src={clipFrames[clipIndex]} alt="8秒録画のフレーム" />
                   <div className="guard-clip-bar">
                     <button
                       type="button"
@@ -1747,7 +1747,7 @@ TOKEN     = ${form.device_token}`}
               >
                 {deleteStatus ? "削除中…" : "このイベントを削除"}
               </button>
-              <span>証拠画像・5秒録画も削除されます（注文の状態は変わりません）</span>
+              <span>証拠画像・8秒録画も削除されます（注文の状態は変わりません）</span>
             </div>
           </div>
         </div>
@@ -1761,7 +1761,7 @@ TOKEN     = ${form.device_token}`}
             <span>
               {deleteStatus.done}/{deleteStatus.total}件
             </span>
-            <p>証拠画像と5秒録画も削除しています。画面を閉じずにお待ちください。</p>
+            <p>証拠画像と8秒録画も削除しています。画面を閉じずにお待ちください。</p>
           </div>
         </div>
       )}

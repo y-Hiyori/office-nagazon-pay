@@ -1,5 +1,5 @@
 // api/guard-delete-event.js
-// 管理画面からイベントと証拠画像・5秒録画を削除する
+// 管理画面からイベントと証拠画像・8秒録画を削除する
 import { getAdminClient } from "./_guard.js";
 
 export const config = { maxDuration: 60 };

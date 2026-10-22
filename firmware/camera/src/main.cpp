@@ -3,7 +3,7 @@
 //
 //   - 営業時間中はカメラを連続稼働
 //   - 常に直前3秒分のJPEGをPSRAMのリングバッファに保持
-//   - 棚の局所的な変化を検知したら、直前3秒＋直後2秒の5秒クリップを送信
+//   - 棚の局所的な変化を検知したら、直前3秒＋直後5秒の8秒クリップ（2fps）を送信
 //   - 3秒待って「商品が減ったままか」を確認。手が入って出ただけなら破棄
 //   - 支払い済み/未払いに関係なく録画。未払いのときだけAPIがメール通知
 #include <Arduino.h>
@@ -45,11 +45,11 @@
 #define LED_PIN      2
 
 // ---- クリップ設定 ----
-#define CAPTURE_FPS        3
+#define CAPTURE_FPS        2
 #define FRAME_INTERVAL_MS  (1000 / CAPTURE_FPS)
 #define PRE_FRAMES         (3 * CAPTURE_FPS)   // 直前3秒
-#define CLIP_MAX_FRAMES    15                  // 最大15枚（5秒）
-#define DETECT_EVERY_N     3                   // 3枚に1回だけ画像差分を計算
+#define CLIP_MAX_FRAMES    16                  // 最大16枚（2fpsで8秒）
+#define DETECT_EVERY_N     2                   // 2枚に1回（1秒ごと）だけ画像差分を計算
 #define SETTLE_MS          3000                // 録画後に商品が減ったままか確認するまで
 #define VERIFY_MS          5000                // 1回目の確認後、もう5秒待って「静止」を確認
 #define SETTLE_STABLE_RATIO 0.05f              // 2枚の確認フレームの変化がこれ以下なら静止
@@ -97,8 +97,8 @@ static bool g_videoEnabled = true;
 static int g_threshold = 18;
 static int g_openMin = 480;
 static int g_closeMin = 1020;
-static int g_clipSeconds = 5;
-static int g_clipFps = 3;
+static int g_clipSeconds = 8;
+static int g_clipFps = CAPTURE_FPS;
 static uint8_t g_roiX = 12;
 static uint8_t g_roiY = 18;
 static uint8_t g_roiW = 76;
@@ -546,7 +546,7 @@ static bool postClip() {
       body, cap,
       "{\"token\":\"%s\",\"device\":\"camera\",\"kind\":\"motion\",\"occurred_at\":\"%s\","
       "\"battery_pct\":%d,\"rssi\":%d,\"firmware\":\"%s\",\"fps\":%d,"
-      "\"note\":\"5s clip (paid/unpaid)\",\"image_b64\":\"",
+      "\"note\":\"8s clip (paid/unpaid)\",\"image_b64\":\"",
       DEVICE_TOKEN, iso, readBatteryPct(), WiFi.RSSI(), FIRMWARE_VERSION, g_clipFps);
 
   memcpy(body + n, g_b64, olen);
@@ -615,8 +615,9 @@ static bool sendHeartbeat() {
   g_threshold = constrain((int)(res["motion_threshold"] | 18), 3, 80);
   g_openMin = parseHHMM((const char *)(res["store_open"] | "08:00"));
   g_closeMin = parseHHMM((const char *)(res["store_close"] | "17:00"));
-  g_clipSeconds = constrain((int)(res["clip_seconds"] | 5), 3, 10);
-  g_clipFps = constrain((int)(res["clip_fps"] | 3), 1, 10);
+  g_clipSeconds = constrain((int)(res["clip_seconds"] | 8), 3, 8);
+  // 撮影は2fps固定。サーバー/再生側のfpsも実撮影に合わせる。
+  g_clipFps = CAPTURE_FPS;
 
   JsonObject roi = res["roi"].as<JsonObject>();
   if (!roi.isNull()) {
@@ -741,23 +742,34 @@ static void verifySecond() {
     return;
   }
 
-  // 商品が減ったまま静止している → 確定。ここで初めて基準を更新する。
-  memcpy(g_baseline, ref, sizeof(g_baseline));
-  g_hasBaseline = true;
-
-  ensureWiFi();
+  // 商品が減ったまま静止している → 確定。送信成功後に基準を更新する。
   bool ok = false;
-  if (g_videoEnabled) {
-    ok = postClip();
-  }
-  if (!ok) {
-    int thumb = pickThumbIndex();
-    if (thumb >= 0) {
-      ok = postSingle(g_clip[thumb], g_clipLen[thumb], g_eventAt,
-                      g_videoEnabled ? "clip upload failed" : "photo");
+  for (int attempt = 0; attempt < 3 && !ok; attempt++) {
+    ensureWiFi();
+    if (WiFi.status() == WL_CONNECTED) {
+      if (g_videoEnabled) {
+        ok = postClip();
+      }
+      if (!ok) {
+        int thumb = pickThumbIndex();
+        if (thumb >= 0) {
+          ok = postSingle(g_clip[thumb], g_clipLen[thumb], g_eventAt,
+                          g_videoEnabled ? "clip upload failed" : "photo");
+        }
+      }
+    }
+    if (!ok) {
+      Serial.printf("upload retry %d/3\n", attempt + 1);
+      delay(3000);
     }
   }
-  if (!ok) Serial.println("event upload failed");
+  if (ok) {
+    memcpy(g_baseline, ref, sizeof(g_baseline));
+    g_hasBaseline = true;
+  } else {
+    // 送れなかった時は基準を更新しない。次の検知でもう一度送信を試みる。
+    Serial.println("upload failed; keep baseline for re-detection");
+  }
 
   resetEvent();
 }
@@ -802,7 +814,10 @@ static void handleIdleFrame(camera_fb_t *fb) {
   pushRing(fb);
   g_frameNo++;
   if (!g_armed) return;  // 監視OFF中もカメラは温め続けるが、判定・録画はしない
-  if (millis() > 5000 && g_frameNo % DETECT_EVERY_N == 0) {
+  // 直前3秒分が溜まるまで判定しない。起動直後やON直後の
+  // 短いプリロールで「決定的な瞬間」を逃さないため。
+  if (g_ringCount < PRE_FRAMES) return;
+  if (g_frameNo % DETECT_EVERY_N == 0) {
     detectMotion(fb);
   }
 }

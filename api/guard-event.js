@@ -282,7 +282,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 5秒録画（フレーム連番）を保存
+    // 8秒録画（フレーム連番）を保存
     let videoPath = null;
     let frameCount = 0;
     let videoFps = null;
@@ -325,7 +325,7 @@ export default async function handler(req, res) {
         frameCount = uploaded;
         videoFps = Math.max(
           1,
-          Math.min(10, intOrNull(body.fps) || Number(settings.clip_fps) || 3)
+          Math.min(10, intOrNull(body.fps) || Number(settings.clip_fps) || 2)
         );
       } else {
         // 欠けた連番を残さない

@@ -14,7 +14,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     title: "見守り",
     note: "店頭の防犯カメラ",
     items: [
-      { label: "見守りダッシュボード", path: "/admin-guard", icon: "🛡", desc: "不審な動き・購入履歴・証拠写真・5秒録画", tone: "main" },
+      { label: "見守りダッシュボード", path: "/admin-guard", icon: "🛡", desc: "不審な動き・購入履歴・証拠写真・8秒録画", tone: "main" },
     ],
   },
   {
