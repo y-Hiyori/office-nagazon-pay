@@ -51,24 +51,31 @@
 #define CLIP_MAX_FRAMES    15                  // 最大15枚（5秒）
 #define DETECT_EVERY_N     3                   // 3枚に1回だけ画像差分を計算
 #define SETTLE_MS          3000                // 録画後に商品が減ったままか確認するまで
+#define VERIFY_MS          5000                // 1回目の確認後、もう5秒待って「静止」を確認
+#define SETTLE_STABLE_RATIO 0.05f              // 2枚の確認フレームの変化がこれ以下なら静止
+#define SETTLE_STABLE_MEAN  5.0f
 #define WIFI_RETRY_MS      30000
-#define HEARTBEAT_MS       60000
+#define HEARTBEAT_MS       15000
+#define DISARMED_HEARTBEAT_MS 10000
 #define FRAME_MAX_BYTES    70000
 #define MOTION_MIN_RATIO   0.015f
 #define MOTION_MAX_RATIO   0.90f
 #define MOTION_BBOX_MAX    0.85f
 // 確定判定は「商品が1つ減った」ような小さな塊だけに絞る
-#define CONFIRM_MAX_RATIO  0.55f
-#define CONFIRM_BBOX_MAX   0.75f
-#define GLOBAL_REBASE_TICKS 30
+#define CONFIRM_MAX_RATIO  0.60f
+#define CONFIRM_BBOX_MAX   0.60f
+#define CONFIRM_BBOX_W_MAX 0.60f
+#define CONFIRM_BBOX_H_MAX 0.70f
+#define GLOBAL_REBASE_TICKS 60
 
 #define REF_W 32
 #define REF_H 24
 
-enum GuardState { ST_IDLE, ST_RECORDING, ST_SETTLE };
+enum GuardState { ST_IDLE, ST_RECORDING, ST_SETTLE, ST_VERIFY };
 
-RTC_DATA_ATTR uint8_t g_baseline[REF_W * REF_H];
-RTC_DATA_ATTR bool g_hasBaseline = false;
+static uint8_t g_baseline[REF_W * REF_H];
+static bool g_hasBaseline = false;
+static uint8_t g_verifyRef[REF_W * REF_H];
 RTC_DATA_ATTR uint32_t g_bootCount = 0;
 
 static uint8_t *g_ring[PRE_FRAMES];
@@ -106,12 +113,15 @@ static GuardState g_state = ST_IDLE;
 static int g_globalCount = 0;
 static time_t g_eventAt = 0;
 static uint32_t g_settleAt = 0;
+static uint32_t g_verifyAt = 0;
 static uint32_t g_recordingDeadline = 0;
 static int g_targetFrames = PRE_FRAMES;
 
 struct DiffStats {
   float ratio;
   float bbox;
+  float bboxW;
+  float bboxH;
   float mean;
   bool motion;
   bool global;
@@ -172,6 +182,8 @@ static bool connectWiFi() {
 
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(false);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   uint32_t start = millis();
@@ -280,9 +292,8 @@ static bool buildReference(camera_fb_t *fb, uint8_t *out) {
   return true;
 }
 
-static DiffStats compareReference(const uint8_t *ref) {
-  DiffStats st = {0, 0, 0, false, false, false};
-  if (!g_hasBaseline) return st;
+static DiffStats diffRefs(const uint8_t *a, const uint8_t *b) {
+  DiffStats st = {0, 0, 0, 0, 0, false, false, false};
 
   int changed = 0;
   long sum = 0;
@@ -292,7 +303,7 @@ static DiffStats compareReference(const uint8_t *ref) {
   for (int y = 0; y < REF_H; y++) {
     for (int x = 0; x < REF_W; x++) {
       int i = y * REF_W + x;
-      int d = abs((int)ref[i] - (int)g_baseline[i]);
+      int d = abs((int)a[i] - (int)b[i]);
       sum += d;
       if (d > g_threshold) {
         changed++;
@@ -308,16 +319,30 @@ static DiffStats compareReference(const uint8_t *ref) {
   st.mean = (float)sum / (float)total;
 
   if (changed > 0) {
-    st.bbox = (float)((maxX - minX + 1) * (maxY - minY + 1)) / (float)total;
+    int bw = maxX - minX + 1;
+    int bh = maxY - minY + 1;
+    st.bbox = (float)(bw * bh) / (float)total;
+    st.bboxW = (float)bw / (float)REF_W;
+    st.bboxH = (float)bh / (float)REF_H;
   }
 
   st.global = st.ratio > MOTION_MAX_RATIO;
-  st.motion =
-      !st.global && st.ratio >= MOTION_MIN_RATIO && st.bbox <= MOTION_BBOX_MAX;
+  st.motion = !st.global && st.ratio >= MOTION_MIN_RATIO &&
+              st.bbox <= MOTION_BBOX_MAX;
+  // 「商品が1つ減った」ような、小さくまとまった変化だけを確定候補にする。
+  // 人が立っている・手が画面を覆うような大きな塊はここで落とす。
   st.confirm = !st.global && st.ratio >= MOTION_MIN_RATIO &&
-               st.ratio <= CONFIRM_MAX_RATIO && st.bbox <= CONFIRM_BBOX_MAX;
+               st.ratio <= CONFIRM_MAX_RATIO &&
+               st.bbox <= CONFIRM_BBOX_MAX &&
+               st.bboxW <= CONFIRM_BBOX_W_MAX &&
+               st.bboxH <= CONFIRM_BBOX_H_MAX;
 
   return st;
+}
+
+static DiffStats compareReference(const uint8_t *ref) {
+  if (!g_hasBaseline) return DiffStats{0, 0, 0, 0, 0, false, false, false};
+  return diffRefs(ref, g_baseline);
 }
 
 static void pushRing(camera_fb_t *fb) {
@@ -581,6 +606,10 @@ static bool sendHeartbeat() {
   JsonDocument res;
   if (deserializeJson(res, response)) return false;
 
+  bool wasArmed = g_armed;
+  int oldThreshold = g_threshold;
+  uint8_t oldRoiX = g_roiX, oldRoiY = g_roiY, oldRoiW = g_roiW, oldRoiH = g_roiH;
+
   g_armed = res["armed"] | true;
   g_videoEnabled = res["video_enabled"] | true;
   g_threshold = constrain((int)(res["motion_threshold"] | 18), 3, 80);
@@ -595,6 +624,27 @@ static bool sendHeartbeat() {
     g_roiY = (uint8_t)constrain((int)((roi["y"] | 0.18f) * 100.0f), 0, 95);
     g_roiW = (uint8_t)constrain((int)((roi["w"] | 0.76f) * 100.0f), 5, 100);
     g_roiH = (uint8_t)constrain((int)((roi["h"] | 0.64f) * 100.0f), 5, 100);
+  }
+
+  bool detectionChanged =
+      oldThreshold != g_threshold || oldRoiX != g_roiX || oldRoiY != g_roiY ||
+      oldRoiW != g_roiW || oldRoiH != g_roiH;
+
+  if (wasArmed != g_armed || detectionChanged) {
+    // OFF→ON、ROI/感度変更で古い基準のまま誤検知しないよう、基準を作り直す。
+    g_state = ST_IDLE;
+    g_clipCount = 0;
+    g_ringCount = 0;
+    g_ringHead = 0;
+    g_frameNo = 0;
+    g_globalCount = 0;
+    g_hasBaseline = false;
+    g_lastFrame = millis();
+    if (wasArmed != g_armed) {
+      Serial.printf("monitoring %s; baseline reset\n", g_armed ? "resumed" : "paused");
+    } else {
+      Serial.println("detection settings changed; baseline reset");
+    }
   }
 
   Serial.printf("settings armed=%d video=%d th=%d roi=%d,%d,%d,%d clip=%ds@%dfps\n",
@@ -613,38 +663,101 @@ static void resetEvent() {
   g_lastFrame = millis();
 }
 
-static void finishEvent() {
+static void verifyFirst() {
   camera_fb_t *fb = esp_camera_fb_get();
-  bool confirmed = false;
-  uint8_t ref[REF_W * REF_H];
+  if (!fb) {
+    Serial.println("verify1: no frame");
+    resetEvent();
+    return;
+  }
 
-  if (fb && buildReference(fb, ref)) {
-    DiffStats st = compareReference(ref);
-    confirmed = st.confirm;
+  uint8_t ref[REF_W * REF_H];
+  bool built = buildReference(fb, ref);
+  esp_camera_fb_return(fb);
+
+  if (!built) {
+    Serial.println("verify1: ref build failed");
+    resetEvent();
+    return;
+  }
+
+  if (!g_hasBaseline) {
     memcpy(g_baseline, ref, sizeof(g_baseline));
     g_hasBaseline = true;
-    Serial.printf("settle ratio=%.2f bbox=%.2f confirmed=%d\n", st.ratio, st.bbox, confirmed);
+    Serial.println("verify1: baseline initialized");
+    resetEvent();
+    return;
   }
 
-  if (fb) esp_camera_fb_return(fb);
+  DiffStats st = compareReference(ref);
+  Serial.printf("verify1 ratio=%.2f bbox=%.2f/%.2fx%.2f confirmed=%d global=%d\n",
+                st.ratio, st.bbox, st.bboxW, st.bboxH, st.confirm, st.global);
 
-  if (confirmed) {
-    ensureWiFi();
-    bool ok = false;
-    if (g_videoEnabled) {
-      ok = postClip();
-    }
-    if (!ok) {
-      int thumb = pickThumbIndex();
-      if (thumb >= 0) {
-        ok = postSingle(g_clip[thumb], g_clipLen[thumb], g_eventAt,
-                        g_videoEnabled ? "clip upload failed" : "photo");
-      }
-    }
-    if (!ok) Serial.println("event upload failed");
-  } else {
-    Serial.println("transient change discarded");
+  if (!st.confirm) {
+    // 手が入っただけ・人が通っただけ・照明変化。基準は変えない。
+    // 商品が本当に無くなっていれば、人が離れたあとに再検知される。
+    Serial.println("verify1: not confirmed; keep baseline");
+    resetEvent();
+    return;
   }
+
+  memcpy(g_verifyRef, ref, sizeof(g_verifyRef));
+  g_state = ST_VERIFY;
+  g_verifyAt = millis() + VERIFY_MS;
+}
+
+static void verifySecond() {
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) {
+    Serial.println("verify2: no frame");
+    resetEvent();
+    return;
+  }
+
+  uint8_t ref[REF_W * REF_H];
+  bool built = buildReference(fb, ref);
+  esp_camera_fb_return(fb);
+
+  if (!built) {
+    Serial.println("verify2: ref build failed");
+    resetEvent();
+    return;
+  }
+
+  DiffStats st = compareReference(ref);
+  DiffStats stable = diffRefs(g_verifyRef, ref);
+  bool still = stable.ratio <= SETTLE_STABLE_RATIO && stable.mean <= SETTLE_STABLE_MEAN;
+  bool confirmed = st.confirm && still;
+
+  Serial.printf("verify2 ratio=%.2f bbox=%.2f/%.2fx%.2f confirmed=%d move=%.2f/%.1f still=%d\n",
+                st.ratio, st.bbox, st.bboxW, st.bboxH, st.confirm,
+                stable.ratio, stable.mean, still);
+
+  if (!confirmed) {
+    // まだ人が動いている／手が残っている。基準は変えない。
+    // 商品が無くなっていれば、人が離れたあとに再検知される。
+    Serial.println("verify2: moving/transient; keep baseline");
+    resetEvent();
+    return;
+  }
+
+  // 商品が減ったまま静止している → 確定。ここで初めて基準を更新する。
+  memcpy(g_baseline, ref, sizeof(g_baseline));
+  g_hasBaseline = true;
+
+  ensureWiFi();
+  bool ok = false;
+  if (g_videoEnabled) {
+    ok = postClip();
+  }
+  if (!ok) {
+    int thumb = pickThumbIndex();
+    if (thumb >= 0) {
+      ok = postSingle(g_clip[thumb], g_clipLen[thumb], g_eventAt,
+                      g_videoEnabled ? "clip upload failed" : "photo");
+    }
+  }
+  if (!ok) Serial.println("event upload failed");
 
   resetEvent();
 }
@@ -688,6 +801,7 @@ static void sleepUntilOpen() {
 static void handleIdleFrame(camera_fb_t *fb) {
   pushRing(fb);
   g_frameNo++;
+  if (!g_armed) return;  // 監視OFF中もカメラは温め続けるが、判定・録画はしない
   if (millis() > 5000 && g_frameNo % DETECT_EVERY_N == 0) {
     detectMotion(fb);
   }
@@ -724,11 +838,6 @@ void setup() {
 
   sendHeartbeat();
 
-  if (!g_armed) {
-    Serial.println("monitoring off");
-    sleepSeconds(60);
-  }
-
   time_t now = time(nullptr);
   if (!withinHours(now, now > 1700000000)) {
     Serial.println("outside store hours");
@@ -739,6 +848,9 @@ void setup() {
     Serial.println("PSRAM allocation failed");
     sleepSeconds(60);
   }
+
+  // 露出が落ち着いてから基準を取る（起動直後の暗いフレームを避ける）
+  delay(1500);
 
   if (!g_hasBaseline) {
     camera_fb_t *fb = esp_camera_fb_get();
@@ -757,18 +869,19 @@ void setup() {
 void loop() {
   uint32_t now = millis();
 
-  if (now - g_lastHeartbeat >= HEARTBEAT_MS) {
-    g_lastHeartbeat = now;
-    ensureWiFi();
-    if (WiFi.status() == WL_CONNECTED) sendHeartbeat();
-  }
-
   ensureWiFi();
 
   time_t tnow = time(nullptr);
   bool timeOk = tnow > 1700000000;
-  if (!g_armed || !withinHours(tnow, timeOk)) {
+  if (!withinHours(tnow, timeOk)) {
     sleepUntilOpen();
+  }
+
+  // OFF中は深いスリープにせず、10秒ごとに設定を確認してすぐONへ戻れるようにする。
+  uint32_t hbInterval = g_armed ? HEARTBEAT_MS : DISARMED_HEARTBEAT_MS;
+  if (now - g_lastHeartbeat >= hbInterval) {
+    g_lastHeartbeat = now;
+    if (WiFi.status() == WL_CONNECTED) sendHeartbeat();
   }
 
   if (g_state == ST_IDLE || g_state == ST_RECORDING) {
@@ -786,7 +899,11 @@ void loop() {
     }
   } else if (g_state == ST_SETTLE) {
     if ((int32_t)(now - g_settleAt) >= 0) {
-      finishEvent();
+      verifyFirst();
+    }
+  } else if (g_state == ST_VERIFY) {
+    if ((int32_t)(now - g_verifyAt) >= 0) {
+      verifySecond();
     }
   }
 

@@ -1395,3 +1395,63 @@
   line-height: 1.6;
   color: #86868b;
 }
+
+.guard-ai-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f7f7f9;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.guard-ai-result strong {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.guard-ai-result span {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.guard-ai-result small {
+  flex: 1 1 100%;
+  color: #6e6e73;
+  font-size: 11px;
+}
+
+.guard-ai-result.is-suspicious {
+  border-color: #f0c2bd;
+  background: #fff5f4;
+}
+
+.guard-ai-result.is-suspicious strong {
+  background: #a3291f;
+}
+
+.guard-ai-result.is-normal {
+  border-color: #b9e0c4;
+  background: #f1fbf4;
+}
+
+.guard-ai-result.is-normal strong {
+  background: #2f7d4a;
+}
+
+.guard-ai-result.is-off {
+  color: #6e6e73;
+  background: #fafafa;
+}

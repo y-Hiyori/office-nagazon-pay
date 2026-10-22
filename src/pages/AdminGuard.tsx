@@ -28,8 +28,22 @@ type GuardSettings = {
   clip_seconds: number;
   clip_fps: number;
   hub_buzzer_enabled: boolean;
+  ai_review_enabled: boolean;
   device_token: string;
   updated_at: string;
+};
+
+type AiReview = {
+  ok?: boolean;
+  skipped?: boolean;
+  item_removed?: boolean;
+  person_present?: boolean;
+  scene_change?: boolean;
+  confidence?: number;
+  reason?: string;
+  error?: string;
+  status?: number | null;
+  detail?: string | null;
 };
 
 type GuardEvent = {
@@ -49,7 +63,11 @@ type GuardEvent = {
   frame_count: number | null;
   fps: number | null;
   note: string | null;
-  meta: { product_name?: string | null; source?: string | null } | null;
+  meta: {
+    product_name?: string | null;
+    source?: string | null;
+    ai?: AiReview | null;
+  } | null;
   handled_at: string | null;
   handle_note: string | null;
 };
@@ -103,12 +121,13 @@ type FormState = {
   clip_seconds: number;
   clip_fps: number;
   hub_buzzer_enabled: boolean;
+  ai_review_enabled: boolean;
   device_token: string;
 };
 
 const STATUS_LABEL: Record<GuardEvent["status"], string> = {
   new: "未確認",
-  ok: "照合済み",
+  ok: "正常",
   suspicious: "不審",
   resolved: "解決済み",
   ignored: "対象外",
@@ -156,7 +175,7 @@ function mapForm(s: GuardSettings): FormState {
     armed: !!s.armed,
     store_open: hhmm(s.store_open),
     store_close: hhmm(s.store_close),
-    match_window_min: Number(s.match_window_min ?? 20),
+    match_window_min: Number(s.match_window_min ?? 5),
     suspicious_cooldown_sec: Number(s.suspicious_cooldown_sec ?? 60),
     motion_threshold: Number(s.motion_threshold ?? 18),
     roi_x: Number(roi.x ?? 0.12),
@@ -173,6 +192,7 @@ function mapForm(s: GuardSettings): FormState {
     clip_seconds: Number(s.clip_seconds ?? 5),
     clip_fps: Number(s.clip_fps ?? 3),
     hub_buzzer_enabled: !!s.hub_buzzer_enabled,
+    ai_review_enabled: !!s.ai_review_enabled,
     device_token: s.device_token || "",
   };
 }
@@ -474,7 +494,7 @@ export default function AdminGuard() {
       return;
     }
     setSettings((s) => (s ? { ...s, armed: next } : s));
-    setMsg(next ? "監視をONにしました。" : "監視をOFFにしました（記録のみ）。");
+    setMsg(next ? "監視をONにしました。" : "監視をOFFにしました（録画・送信を停止）。");
   };
 
   const saveSettings = async (e: FormEvent) => {
@@ -498,7 +518,7 @@ export default function AdminGuard() {
         armed: form.armed,
         store_open: form.store_open,
         store_close: form.store_close,
-        match_window_min: Math.max(1, Math.min(180, Number(form.match_window_min) || 20)),
+        match_window_min: Math.max(1, Math.min(180, Number(form.match_window_min) || 5)),
         suspicious_cooldown_sec: Math.max(
           0,
           Math.min(600, Number(form.suspicious_cooldown_sec) || 0)
@@ -518,6 +538,7 @@ export default function AdminGuard() {
         clip_seconds: Math.max(3, Math.min(10, Number(form.clip_seconds) || 5)),
         clip_fps: Math.max(1, Math.min(10, Number(form.clip_fps) || 3)),
         hub_buzzer_enabled: form.hub_buzzer_enabled,
+        ai_review_enabled: form.ai_review_enabled,
         updated_at: new Date().toISOString(),
       })
       .eq("id", 1);
@@ -897,7 +918,7 @@ export default function AdminGuard() {
                       ["all", "すべて"],
                       ["unhandled", "未対応"],
                       ["suspicious", "不審"],
-                      ["ok", "照合済み"],
+                      ["ok", "正常"],
                     ] as const
                   ).map(([key, label]) => (
                     <button
@@ -1026,7 +1047,7 @@ export default function AdminGuard() {
                 <section className="guard-section">
                   <h2>監視</h2>
                   <p className="guard-section-note">
-                    監視OFFでも記録は残りますが、照合・通知は行いません。
+                    監視OFF中は録画・送信を停止します。ONに戻すと約10秒で再開します。
                   </p>
 
                   <label className="guard-switch">
@@ -1039,7 +1060,7 @@ export default function AdminGuard() {
                       <span />
                     </span>
                     <span className="guard-switch-text">
-                      {form.armed ? "監視する" : "監視しない（記録のみ）"}
+                      {form.armed ? "監視する" : "監視しない（録画停止）"}
                     </span>
                   </label>
 
@@ -1233,8 +1254,8 @@ export default function AdminGuard() {
                   </div>
 
                   <p className="guard-hint">
-                    連続録画はカメラをUSB給電しているときだけ有効です。バッテリーのみの場合は
-                    15秒間隔の静止画モードになります。
+                    連続録画にはUSB給電が必要です。内蔵バッテリーは予備なので、
+                    本番はUSBアダプタか大容量モバイルバッテリーに接続してください。
                   </p>
                 </section>
 
@@ -1324,6 +1345,33 @@ export default function AdminGuard() {
                   <p className="guard-hint">
                     カメラの画角のうち、棚と手元が写る範囲を0〜1の割合で指定します。
                     端末はこの設定を通信時に受け取ります。
+                  </p>
+                </section>
+
+                <section className="guard-section">
+                  <h2>AI判定（任意）</h2>
+                  <p className="guard-section-note">
+                    無料のGoogle Gemini APIキーをVercelの環境変数
+                    <code> GEMINI_API_KEY </code>
+                    に設定した場合だけ動きます。キーが無い場合は従来の判定のままです。
+                  </p>
+                  <label className="guard-switch">
+                    <input
+                      type="checkbox"
+                      checked={form.ai_review_enabled}
+                      onChange={(e) => patchForm("ai_review_enabled", e.target.checked)}
+                    />
+                    <span className="guard-switch-track" aria-hidden="true">
+                      <span />
+                    </span>
+                    <span className="guard-switch-text">
+                      {form.ai_review_enabled ? "AI判定を使う" : "AI判定を使わない"}
+                    </span>
+                  </label>
+                  <p className="guard-hint">
+                    AIが「商品は減っていない（人・手・影）」と高確度で判断したイベントは
+                    「対象外」にして、不審の誤検知を減らします。画像をGoogleへ送信するため、
+                    学校の許可がある場合だけONにしてください（既定OFF）。
                   </p>
                 </section>
 
@@ -1430,7 +1478,7 @@ TOKEN     = ${form.device_token}`}
                   <h2>設置のヒント</h2>
                   <p>
                     <strong>カメラ：</strong>棚の斜め上から、棚全体と手元が写る位置に置きます。
-                    磁石で金属板に固定できます。バッテリー駆動の場合は15秒間隔の検知になります。
+                    磁石で金属板に固定できます。連続稼働にはUSB給電が必要です。
                     USB給電できるなら5秒間隔にできます。
                   </p>
                   <p>
@@ -1556,6 +1604,37 @@ TOKEN     = ${form.device_token}`}
               )}
             </dl>
 
+            {selected.meta?.ai && (
+              <div
+                className={`guard-ai-result ${
+                  selected.meta.ai.ok
+                    ? selected.meta.ai.item_removed
+                      ? "is-suspicious"
+                      : "is-normal"
+                    : "is-off"
+                }`}
+              >
+                <strong>AI判定</strong>
+                {selected.meta.ai.ok ? (
+                  <span>
+                    {selected.meta.ai.item_removed ? "商品が減った" : "商品の減少なし"}
+                    ・確度 {Math.round(Number(selected.meta.ai.confidence || 0) * 100)}%
+                  </span>
+                ) : (
+                  <span>
+                    {selected.meta.ai.reason === "NO_GEMINI_KEY"
+                      ? "未実行（Gemini APIキー未設定）"
+                      : selected.meta.ai.skipped
+                        ? "未実行（フレーム不足）"
+                        : "AI判定に失敗（従来判定を使用）"}
+                  </span>
+                )}
+                {selected.meta.ai.reason && selected.meta.ai.ok && (
+                  <small>{selected.meta.ai.reason}</small>
+                )}
+              </div>
+            )}
+
             <section className="guard-candidates">
               <div className="guard-candidates-head">
                 <h3>おそらくの購入履歴</h3>
@@ -1609,7 +1688,7 @@ TOKEN     = ${form.device_token}`}
 
               {selected.status === "suspicious" && candidates.length > 0 && (
                 <p className="guard-candidate-note">
-                  候補はありますが、20分の照合範囲外か、すでに受け取り済みのため「不審」になっています。
+                  候補はありますが、設定した照合範囲外か、すでに受け取り済みのため「不審」になっています。
                 </p>
               )}
             </section>

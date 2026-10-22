@@ -11,6 +11,7 @@ import {
   normalizeTime,
   notifyGuard,
 } from "./_guard.js";
+import { reviewGuardFrames } from "./_guard-ai.js";
 
 export const config = { maxDuration: 30 };
 
@@ -59,7 +60,7 @@ function asBool(v, fallback = false) {
 }
 
 async function pickOrderForEvent(sb, settings, event, productId, delta) {
-  const windowMs = Math.max(1, Number(settings.match_window_min || 20)) * 60 * 1000;
+  const windowMs = Math.max(1, Number(settings.match_window_min || 5)) * 60 * 1000;
   const since = Date.now() - windowMs;
   const now = Date.now();
 
@@ -287,6 +288,15 @@ export default async function handler(req, res) {
     let videoFps = null;
 
     const frames = Array.isArray(body.frames_b64) ? body.frames_b64.slice(0, 25) : [];
+
+    // AI判定は、フレームのStorage保存と並行して走らせる（失敗しても従来判定に戻す）。
+    const aiPromise = settings.ai_review_enabled
+      ? reviewGuardFrames(frames, body.image_b64).catch((e) => ({
+          ok: false,
+          error: String(e?.message || e),
+        }))
+      : Promise.resolve(null);
+
     if (settings.video_enabled && frames.length >= 4) {
       const folder = `${ymdJst(new Date(occurredAt))}/${eventId}`;
       let uploaded = 0;
@@ -328,6 +338,8 @@ export default async function handler(req, res) {
       }
     }
 
+    const ai = await aiPromise;
+
     let status = "new";
     let matchedOrder = null;
     let note = body.note ? String(body.note).slice(0, 500) : null;
@@ -337,7 +349,7 @@ export default async function handler(req, res) {
       note = note || "テスト通知";
     } else if (!settings.armed) {
       status = "ignored";
-      note = note || "監視停止中のため記録のみ";
+      note = note || "監視停止中のため対象外";
     } else {
       matchedOrder = await pickOrderForEvent(sb, settings, { occurred_at: occurredAt }, productId, delta);
       if (matchedOrder) {
@@ -346,9 +358,27 @@ export default async function handler(req, res) {
       } else if (!isWithinStoreHours(settings, new Date())) {
         status = "ignored";
         note = note || "営業時間外のため記録のみ";
+      } else if (
+        ai?.ok &&
+        ai.item_removed === false &&
+        Number(ai.confidence) >= 0.6 &&
+        (ai.person_present || ai.scene_change)
+      ) {
+        // カメラ側で「変化が残った」と確定していても、AIが
+        // 「商品は減っていない（人・手・影）」と高確度で言う場合は誤検知扱い。
+        status = "ignored";
+        note = `AI判定: ${ai.reason || "商品の減少なし"}（確度 ${Math.round(
+          Number(ai.confidence) * 100
+        )}%）`;
       } else {
         status = "suspicious";
-        note = note || "支払い済みの注文と照合できませんでした";
+        if (ai?.ok && ai.item_removed) {
+          note = `支払いと照合できません。AI: ${
+            ai.reason || "商品が取られた"
+          }（確度 ${Math.round(Number(ai.confidence) * 100)}%）`;
+        } else {
+          note = note || "支払い済みの注文と照合できませんでした";
+        }
       }
     }
 
@@ -378,7 +408,7 @@ export default async function handler(req, res) {
         video_path: videoPath,
         frame_count: frameCount || null,
         fps: videoFps,
-        meta: { ...meta, notified: false, notify_suppressed: notifySuppressed },
+        meta: { ...meta, ai, notified: false, notify_suppressed: notifySuppressed },
       })
       .eq("id", eventId);
 
@@ -413,6 +443,7 @@ export default async function handler(req, res) {
         .update({
           meta: {
             ...meta,
+            ai,
             notified: true,
             notify_suppressed: false,
             notify_result: {

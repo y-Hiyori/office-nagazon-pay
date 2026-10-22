@@ -98,7 +98,7 @@ function buildTeamsFacts(event, order, imageUrl, url) {
           : event.status === "suspicious"
             ? "不審（支払いと照合できません）"
             : event.status === "ok"
-              ? "照合済み"
+              ? "正常（照合済み）"
               : event.status || "-",
     },
     {
