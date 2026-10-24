@@ -198,7 +198,23 @@ static bool tryWifiProfile(const GuardWifiProfile &p) {
   while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
     delay(120);
   }
-  return WiFi.status() == WL_CONNECTED;
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.printf("WiFi failed: %s status=%d\n", p.ssid, (int)WiFi.status());
+    return false;
+  }
+  return true;
+}
+
+static void scanWifiOnce() {
+  Serial.println("WiFi scan (2.4GHz):");
+  int n = WiFi.scanNetworks(false, true);
+  Serial.printf("  %d networks\n", n);
+  for (int i = 0; i < n; i++) {
+    Serial.printf("  ssid=%s rssi=%d ch=%d enc=%d\n",
+                  WiFi.SSID(i).c_str(), WiFi.RSSI(i),
+                  WiFi.channel(i), (int)WiFi.encryptionType(i));
+  }
+  WiFi.scanDelete();
 }
 
 static bool connectWiFi() {
@@ -208,6 +224,8 @@ static bool connectWiFi() {
   WiFi.setSleep(false);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(false);
+
+  scanWifiOnce();
 
   for (const auto &p : WIFI_PROFILES) {
     Serial.printf("WiFi try: %s (auth=%u)\n", p.ssid, (unsigned)p.auth);
