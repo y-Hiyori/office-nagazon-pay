@@ -58,30 +58,55 @@ static String urlEncode(const String &s) {
   return out;
 }
 
-static bool connectWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return true;
-
+static bool tryWifiProfile(const GuardWifiProfile &p) {
+  WiFi.disconnect(true);
+  delay(100);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(true);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(false);
+
+  if (p.auth == 1 || p.auth == 2) {
+    WiFi.begin(p.ssid, (wpa2_auth_method_t)p.auth,
+               p.identity, p.username, p.password, p.ca_cert);
+  } else {
+    WiFi.begin(p.ssid, p.password);
+  }
 
   uint32_t start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
     M5.update();
     delay(150);
   }
+  return WiFi.status() == WL_CONNECTED;
+}
 
-  if (WiFi.status() != WL_CONNECTED) return false;
+static bool connectWiFi() {
+  if (WiFi.status() == WL_CONNECTED) return true;
 
-  configTime(9 * 3600, 0, "ntp.nict.jp", "pool.ntp.org");
-  for (int i = 0; i < 16 && time(nullptr) < 1700000000; i++) {
-    M5.update();
-    delay(200);
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(true);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(false);
+
+  for (const auto &p : WIFI_PROFILES) {
+    Serial.printf("WiFi try: %s (auth=%u)\n", p.ssid, (unsigned)p.auth);
+    if (tryWifiProfile(p)) {
+      configTime(9 * 3600, 0, "ntp.nict.jp", "pool.ntp.org");
+      for (int i = 0; i < 16 && time(nullptr) < 1700000000; i++) {
+        M5.update();
+        delay(200);
+      }
+      g_ip = WiFi.localIP().toString();
+      g_rssi = WiFi.RSSI();
+      Serial.printf("WiFi connected: %s ip=%s mac=%s\n",
+                    p.ssid, g_ip.c_str(), WiFi.macAddress().c_str());
+      return true;
+    }
   }
 
-  g_ip = WiFi.localIP().toString();
-  g_rssi = WiFi.RSSI();
-  return true;
+  Serial.println("WiFi: all profiles failed");
+  return false;
 }
 
 static int postJson(const String &payload, String &response) {

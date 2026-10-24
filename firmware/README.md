@@ -78,8 +78,32 @@
 
 - PlatformIO Core を入れます（VS Code の PlatformIO 拡張でも可）。
 - `src/config.example.h` を `src/config.h` にコピーし、Wi-Fi・API URL・端末トークンを書き換えます。
-- **Wi-Fi は 2.4GHz の WPA2-Personal（パスワード方式）のみ**です。5GHz専用SSIDや、ID/パスワードが必要な企業認証Wi-Fi（eduroam等）には接続できません。必要なら2.4GHzの別SSIDやモバイルルーターを用意してください。
-- `config.h` は `.gitignore` 済みです。トークンをコミットしないでください。
+- **Wi-Fi は 2.4GHz** の WPA2-Personal（SSID+パスワード）または WPA2-Enterprise（PEAP/MSCHAPv2・TTLS/PAP）に対応しています。5GHz専用SSID、WPA3専用、Webポータル認証、プロキシ必須のネットワークには直接接続できません。
+- `config.h` の `WIFI_PROFILES` に複数のWiFiを上から順に書けます。学校WiFiを先、Atermを予備にしてください。
+- `config.h` は `.gitignore` 済みです。トークン・WiFiパスワードをコミットしないでください。
+
+#### 学校WiFiの設定例
+
+```cpp
+// auth: 0=WPA2-Personal, 1=PEAP/MSCHAPv2, 2=TTLS/PAP
+static const GuardWifiProfile WIFI_PROFILES[] = {
+  // 学校のIoT用SSID（2.4GHz）
+  {"School-2.4G", "SCHOOL_PASSWORD", nullptr, nullptr, 0, nullptr},
+
+  // eduroam等（PEAP/MSCHAPv2）
+  {"eduroam", "EAP_PASSWORD", "user@school.ac.jp", "user@school.ac.jp", 1, nullptr},
+
+  // 予備（今のテスト用ルーター）
+  {"aterm-0adeee-a", "ATERM_PASSWORD", nullptr, nullptr, 0, nullptr},
+};
+```
+
+- **eduroam** は学校の案内に従って `identity` / `username` / パスワードを入れてください。`identity` は匿名ID（例 `anonymous@school.ac.jp`）の場合があります。
+- CA証明書が必要な場合は、PEMを `ca_cert` に渡します。不要な場合でも接続できることがありますが、学校の規定に従ってください。
+- **MACアドレス登録**が必要な場合は、シリアルに `WiFi connected: ... mac=...` と出るので、そのMACを学校の管理者に登録してもらいます。
+- **Webポータル認証**のネットワークはESP32から直接通れません。Aterm等の旅行ルーターをポータルに一度ログインさせ、カメラ/ハブはそのルーターのWPA2に接続する運用にしてください（今の構成と同じです）。
+- 学校WiFiが **5GHz専用 / WPA3専用 / プロキシ必須** の場合は、2.4GHzのIoT用SSIDを用意してもらうか、旅行ルーター経由にしてください。
+- 学校WiFiを追加したら、カメラとハブの **両方** の `config.h` を同じ内容にして書き込みます。
 
 ### M5Stack Basic（店頭ハブ）
 

@@ -177,6 +177,30 @@ static bool withinHours(time_t now, bool timeOk) {
   return m >= g_openMin || m <= g_closeMin;
 }
 
+static bool tryWifiProfile(const GuardWifiProfile &p) {
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(false);
+
+  if (p.auth == 1 || p.auth == 2) {
+    // WPA2-Enterprise (PEAP/MSCHAPv2 or TTLS/PAP)
+    WiFi.begin(p.ssid, (wpa2_auth_method_t)p.auth,
+               p.identity, p.username, p.password, p.ca_cert);
+  } else {
+    // WPA2-Personal (or open when password is empty)
+    WiFi.begin(p.ssid, p.password);
+  }
+
+  uint32_t start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+    delay(120);
+  }
+  return WiFi.status() == WL_CONNECTED;
+}
+
 static bool connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) return true;
 
@@ -184,21 +208,24 @@ static bool connectWiFi() {
   WiFi.setSleep(false);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(false);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
 
-  uint32_t start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
-    delay(120);
+  for (const auto &p : WIFI_PROFILES) {
+    Serial.printf("WiFi try: %s (auth=%u)\n", p.ssid, (unsigned)p.auth);
+    if (tryWifiProfile(p)) {
+      Serial.printf("WiFi connected: %s ip=%s mac=%s\n",
+                    p.ssid, WiFi.localIP().toString().c_str(),
+                    WiFi.macAddress().c_str());
+
+      if (time(nullptr) < 1700000000) {
+        configTime(9 * 3600, 0, "ntp.nict.jp", "pool.ntp.org");
+        for (int i = 0; i < 20 && time(nullptr) < 1700000000; i++) delay(200);
+      }
+      return true;
+    }
   }
 
-  if (WiFi.status() != WL_CONNECTED) return false;
-
-  if (time(nullptr) < 1700000000) {
-    configTime(9 * 3600, 0, "ntp.nict.jp", "pool.ntp.org");
-    for (int i = 0; i < 20 && time(nullptr) < 1700000000; i++) delay(200);
-  }
-
-  return true;
+  Serial.println("WiFi: all profiles failed");
+  return false;
 }
 
 static void ensureWiFi() {
