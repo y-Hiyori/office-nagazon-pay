@@ -942,6 +942,18 @@ async function finalizePaidOrder(sb, order) {
   }
   if (!paidOk) return orderId;
 
+  // クーポン使用回数・1人あたり上限の記録（注文ID単位で冪等）
+  // これが無いと PayPay 決済のクーポンが used_count に反映されない
+  try {
+    const rC = await sb.rpc("coupon_redeem_for_order", { p_order_id: orderId });
+    if (rC.error) console.error("[COUPON_REDEEM_ERR]", rC.error.message);
+    else if (rC.data && rC.data.ok === false) {
+      console.error("[COUPON_REDEEM_NG]", JSON.stringify(rC.data));
+    }
+  } catch (eC) {
+    console.error("[COUPON_REDEEM_ERR]", eC && eC.message);
+  }
+
   // ポイント使用（ポイント購入済み注文）
   if (Number(order.points_used || 0) > 0) {
     try {

@@ -173,6 +173,8 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
         .select("id, score, difficulty")
         .eq("is_guest", true)
         .eq("display_name", displayName)
+        .order("score", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (selErr) return { ok: false, error: selErr.message };
@@ -194,12 +196,16 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
 
       // ベスト更新の時だけ score & difficulty 更新（= ベストの難易度として保持）
       if (score > best) {
-        const { error: updErr } = await supabase
+        const { data: updated, error: updErr } = await supabase
           .from("game_scores")
           .update({ score, difficulty })
-          .eq("id", existing.id);
+          .eq("id", existing.id)
+          .select("id");
 
         if (updErr) return { ok: false, error: updErr.message };
+        if (!updated || updated.length === 0) {
+          return { ok: false, error: "guest score update was blocked" };
+        }
         return { ok: true, mode: "guest_best_update" };
       }
 
@@ -215,7 +221,8 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
       .from("game_scores")
       .select("id, score, display_name, difficulty")
       .eq("user_id", userId)
-      .eq("is_guest", false)
+      .order("score", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (selErr) return { ok: false, error: selErr.message };
@@ -251,12 +258,16 @@ export async function submitGameScore(args: SubmitArgs): Promise<SubmitResult> {
     if (score <= best) return { ok: true, mode: "user_skip" };
 
     // ベスト更新：score & difficulty を更新（difficultyは“ベストの難易度”）
-    const { error: updErr } = await supabase
+    const { data: updated, error: updErr } = await supabase
       .from("game_scores")
       .update({ score, difficulty, display_name: displayName })
-      .eq("id", existing.id);
+      .eq("id", existing.id)
+      .select("id");
 
     if (updErr) return { ok: false, error: updErr.message };
+    if (!updated || updated.length === 0) {
+      return { ok: false, error: "score update was blocked" };
+    }
     return { ok: true, mode: "user_best_update" };
   } catch (e: unknown) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

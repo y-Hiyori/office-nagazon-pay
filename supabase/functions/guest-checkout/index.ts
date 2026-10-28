@@ -217,6 +217,16 @@ serve(async (req: Request) => {
       .eq("id", orderId);
     if (pErr) console.error("guest order paid update failed:", pErr);
 
+    // ⑤ クーポン使用回数の記録（ブラウザ側の呼び出しが失敗しても必ず数える）
+    if (coupon) {
+      try {
+        const { error: cRedeemErr } = await sb.rpc("coupon_redeem_for_order", { p_order_id: orderId });
+        if (cRedeemErr) console.error("coupon_redeem_for_order failed:", cRedeemErr);
+      } catch (eCoupon) {
+        console.error("coupon_redeem_for_order exception:", eCoupon);
+      }
+    }
+
     return json({ ok: true, orderId, token });
   } catch (e: unknown) {
     return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);
