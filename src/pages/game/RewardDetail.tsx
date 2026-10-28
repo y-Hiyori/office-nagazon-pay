@@ -54,7 +54,7 @@ function formatDateTime(s?: string | null) {
 async function fetchIssuedTokenByApi(args: {
   rewardId: string;
   deviceId: string;
-}): Promise<{ ok: true; token: string | null } | { ok: false; error: string }> {
+}): Promise<{ ok: true; token: string | null; couponCode: string | null; displayMode: string | null } | { ok: false; error: string }> {
   try {
     const { data, error } = await supabase.functions.invoke("coupon-issued", {
       body: { reward_id: args.rewardId, device_id: args.deviceId },
@@ -66,7 +66,9 @@ async function fetchIssuedTokenByApi(args: {
     if (!ok) return { ok: false, error: String(obj?.error ?? "coupon-issued failed") };
 
     const token = typeof obj?.token === "string" ? obj.token : null;
-    return { ok: true, token };
+    const couponCode = typeof obj?.coupon_code === "string" ? obj.coupon_code : null;
+    const displayMode = typeof obj?.display_mode === "string" ? obj.display_mode : null;
+    return { ok: true, token, couponCode, displayMode };
   } catch (e: unknown) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -81,6 +83,8 @@ export default function RewardDetail() {
 
   const [issued, setIssued] = useState<IssuedState>({ status: "checking" });
   const [issuedErr, setIssuedErr] = useState<string | null>(null);
+  const [issuedCode, setIssuedCode] = useState("");
+  const [issuedDisplayMode, setIssuedDisplayMode] = useState<string | null>(null);
   const [inWindow, setInWindow] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -98,7 +102,7 @@ export default function RewardDetail() {
       const { data, error } = await supabase
         .from("coupon_rewards")
         .select(
-          "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to,difficulty,coupon_code,display_mode"
+          "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to,difficulty,display_mode"
         )
         .eq("id", rewardId)
         .maybeSingle();
@@ -153,8 +157,15 @@ export default function RewardDetail() {
         return;
       }
 
-      if (res.token) setIssued({ status: "has", token: res.token });
-      else setIssued({ status: "none" });
+      if (res.token) {
+        setIssued({ status: "has", token: res.token });
+        setIssuedCode((res.couponCode ?? "").trim());
+        setIssuedDisplayMode(res.displayMode);
+      } else {
+        setIssued({ status: "none" });
+        setIssuedCode("");
+        setIssuedDisplayMode(null);
+      }
     };
 
     void run();
@@ -166,7 +177,7 @@ export default function RewardDetail() {
   const achieved = issued.status === "has";
 
   const copyCode = async () => {
-    const code = ui.status === "ready" ? (ui.reward.coupon_code ?? "").trim() : "";
+    const code = issuedCode.trim();
     if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
@@ -250,9 +261,9 @@ export default function RewardDetail() {
                   {achieved ? (
                     <div className="rewardGetBox">
                       <div className="rewardGetLabel">獲得したクーポン</div>
-                      {(ui.reward.display_mode ?? "qr") === "code" && ui.reward.coupon_code?.trim() ? (
+                      {(issuedDisplayMode ?? ui.reward.display_mode ?? "qr") === "code" && issuedCode.trim() ? (
                         <>
-                          <div className="rewardGetCode">{ui.reward.coupon_code.trim()}</div>
+                          <div className="rewardGetCode">{issuedCode.trim()}</div>
                           <button type="button" className="rBtn" onClick={() => void copyCode()}>
                             {copied ? "コピーしました ✓" : "コードをコピー"}
                           </button>

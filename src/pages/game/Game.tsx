@@ -273,7 +273,7 @@ async function fetchActiveRewards(): Promise<
   const { data, error } = await supabase
     .from("coupon_rewards")
     .select(
-      "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to,difficulty,coupon_code",
+      "id,is_active,store_name,store_info,product_name,score_threshold,coupon_title,description,valid_from,valid_to,difficulty",
     )
     .eq("is_active", true)
     .order("score_threshold", { ascending: true });

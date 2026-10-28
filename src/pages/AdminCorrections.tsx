@@ -163,7 +163,7 @@ export default function AdminCorrections() {
     try {
       const since = new Date(Date.now() - days * 86400000).toISOString();
       const [pR, lR, sR, dR, gR] = await Promise.all([
-        supabase.from("products").select("id,name,cost").order("id"),
+        supabase.from("products_admin").select("id,name,cost").order("id"),
         supabase.from("product_lots").select("id,product_id,cost,remaining,lot_label,expiry_date,created_at").order("created_at", { ascending: false }),
         supabase
           .from("order_lot_consumptions")

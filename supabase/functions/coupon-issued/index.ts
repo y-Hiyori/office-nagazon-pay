@@ -66,7 +66,7 @@ serve(async (req: Request) => {
 
     const { data, error } = await supabase
       .from("coupon_issuances")
-      .select("token, used_confirmed_at, issued_at")
+      .select("token, used_confirmed_at, issued_at, reward_id")
       .eq("ip_hash", deviceHash)
       .eq("reward_id", rewardId)
       .order("issued_at", { ascending: false })
@@ -77,6 +77,19 @@ serve(async (req: Request) => {
 
     if (!data?.token) return json({ ok: true, found: false }, 200);
 
+    // クーポンコードは「発行済みの人」にだけ返す（coupon_rewards は公開読み取りのため）
+    let couponCode: string | null = null;
+    let displayMode: string | null = null;
+    if (data.reward_id) {
+      const { data: reward } = await supabase
+        .from("coupon_rewards")
+        .select("coupon_code, display_mode")
+        .eq("id", String(data.reward_id))
+        .maybeSingle();
+      couponCode = typeof reward?.coupon_code === "string" ? reward.coupon_code : null;
+      displayMode = typeof reward?.display_mode === "string" ? reward.display_mode : null;
+    }
+
     return json(
       {
         ok: true,
@@ -84,6 +97,8 @@ serve(async (req: Request) => {
         token: String(data.token),
         used_confirmed_at: data.used_confirmed_at ?? null,
         issued_at: data.issued_at ?? null,
+        coupon_code: couponCode,
+        display_mode: displayMode,
       },
       200
     );

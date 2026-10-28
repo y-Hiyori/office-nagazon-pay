@@ -22,7 +22,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
   const refresh = async () => {
     const { data, error } = await supabase
       .from("products")
-      .select("*")
+      .select("id,stock,name,price,created_at,is_visible,original_price,member_price,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,max_per_order,expiry_alert_days,sale_price,sale_qty,sale_remaining,sale_mode,sale_starts_at,sale_ends_at,sale_active")
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -30,7 +30,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
       return;
     }
 
-    setProducts(data as Product[]);
+    setProducts(data as unknown as Product[]);
   };
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
     const { data, error } = await supabase
       .from("products")
       .insert([insertData])
-      .select();
+      .select("id,stock,name,price,created_at,is_visible,original_price,member_price,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,max_per_order,expiry_alert_days,sale_price,sale_qty,sale_remaining,sale_mode,sale_starts_at,sale_ends_at,sale_active");
 
     if (error) {
       console.error("Insert Error:", error);
@@ -57,7 +57,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
     }
 
     if (data && data.length > 0) {
-      setProducts((prev) => [...prev, data[0] as Product]);
+      setProducts((prev) => [...prev, data[0] as unknown as Product]);
     }
   };
 
@@ -76,7 +76,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
         imageData: p.imageData, // imageData カラム消してたらここも消す
       })
       .eq("id", p.id)
-      .select();
+      .select("id,stock,name,price,created_at,is_visible,original_price,member_price,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,max_per_order,expiry_alert_days,sale_price,sale_qty,sale_remaining,sale_mode,sale_starts_at,sale_ends_at,sale_active");
 
     if (error) {
       console.error("Update Error:", error);
@@ -85,7 +85,7 @@ export const ProductProvider = ({ children }: { children: React.ReactNode }) => 
 
     if (data && data.length > 0) {
       setProducts((prev) =>
-        prev.map((item) => (item.id === p.id ? (data[0] as Product) : item))
+        prev.map((item) => (item.id === p.id ? (data[0] as unknown as Product) : item))
       );
     }
   };

@@ -348,7 +348,7 @@ export default function AdminSales() {
       const costByName = new Map<string, number>();
       try {
         const { data: prodRows, error: prodErr } = await supabase
-          .from("products")
+          .from("products_admin")
           .select("id,name,cost");
         if (prodErr) {
           console.error("products cost load error:", prodErr);

@@ -396,11 +396,9 @@ function Checkout() {
       }
     }
 
-    if (data.min_subtotal != null && base < data.min_subtotal) {
+    if (data.min_subtotal != null && subtotal < data.min_subtotal) {
       clearCoupon();
-      setCouponMsg(
-        `対象商品の小計が${formatPrice(data.min_subtotal)}円以上で使えます。`
-      );
+      setCouponMsg(`小計が${formatPrice(data.min_subtotal)}円以上で使えます。`);
       return;
     }
 
@@ -578,278 +576,57 @@ function Checkout() {
         const token0yen =
           (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-        const paymentMethod = pointsUsed > 0 ? "points" : "coupon";
-
-        // ✅ ゲスト（アカウント未登録）：匿名ユーザーは RLS で orders に書けないため
-        //   Supabase Edge Function（service role）で注文作成・在庫減算・paid反映まで行う
-        if (!user) {
-          const { data: guestResult, error: guestErr } = await supabase.functions.invoke(
-            "guest-checkout",
-            {
-              body: {
-                token: token0yen,
-                total: 0,
-                subtotal,
-                discountYen,
-                coupon: appliedCoupon,
-                fulfillmentType,
-                buyer: {
-                  name: guestInfo.name.trim(),
-                  email: guestInfo.email.trim(),
-                  phone: guestInfo.phone.trim(),
-                  postalCode: guestInfo.postalCode.trim(),
-                  address: guestInfo.address.trim(),
-                  building: guestInfo.building.trim(),
-                },
-                items: itemsForStorage.map((it) => ({
-                  productId: it.productId,
-                  name: it.name,
-                  price: it.price,
-                  quantity: it.quantity,
-                })),
+        // 0円購入は、ゲスト／会員を問わずサーバー側（service role）で完結させる。
+        // 価格・セール・クーポン・ポイント残高を Edge Function が再計算するため、
+        // 画面の金額を書き換えても不正な注文は作れない。
+        const { data: zeroResult, error: zeroErr } = await supabase.functions.invoke(
+          "guest-checkout",
+          {
+            body: {
+              token: token0yen,
+              coupon: appliedCoupon,
+              fulfillmentType,
+              buyer: {
+                name: guestInfo.name.trim(),
+                email: guestInfo.email.trim(),
+                phone: guestInfo.phone.trim(),
+                postalCode: guestInfo.postalCode.trim(),
+                address: guestInfo.address.trim(),
+                building: guestInfo.building.trim(),
               },
-            }
-          );
-
-          if (guestErr || !guestResult?.ok) {
-            console.error("guest-checkout error:", guestErr, guestResult);
-            await appDialog.alert({
-              title: "エラー",
-              message: String(guestResult?.error || guestErr?.message || "注文の作成に失敗しました"),
-            });
-            return;
+              items: itemsForStorage.map((it) => ({
+                productId: it.productId,
+                name: it.name,
+                quantity: it.quantity,
+              })),
+            },
           }
+        );
 
-          const guestOrderId = String(guestResult.orderId || "");
-
-          // ✅ v36：入荷ロットも消費（原価の記録／在庫とロットの一致）
-          if (guestOrderId) {
-            const { error: eLot0 } = await supabase.rpc("consume_lots_for_order", {
-              p_order_id: guestOrderId,
-            });
-            if (eLot0) {
-              console.error("consume_lots_for_order (guest) failed:", eLot0);
-              const r2 = await supabase.rpc("consume_lots_for_order", { p_order_id: guestOrderId });
-              if (r2.error) {
-                console.error("consume_lots_for_order (guest) retry failed:", r2.error);
-                await appDialog.alert({
-                  title: "入荷ロットの記録に失敗しました",
-                  message: "購入は完了していますが、入荷ロット（原価）の記録に失敗しました。管理者に連絡してください。",
-                });
-              }
-            }
-          }
-
-          // ✅ クーポンの使用を記録（ゲストでも同じ）
-          if (appliedCoupon && guestOrderId) {
-            const { error: eCoupon } = await supabase.rpc("coupon_redeem_for_order", {
-              p_order_id: guestOrderId,
-            });
-            if (eCoupon) console.error("coupon_redeem_for_order (guest) failed:", eCoupon);
-          }
-
-          // ✅ ゲスト購入（0円）でも、アカウント購入と同じく購入者本人へ購入完了メールを送る
-          //   注文には guest-checkout が email / name を保存済みなので、既存API（send-buyer-order-email）がそのまま使える
-          await fetch("/api/send-buyer-order-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: guestOrderId, token: token0yen }),
-          }).catch((err) => console.error("send-buyer-order-email (guest) failed:", err));
-
-          // ✅ 発送商品 → 管理者へ購入者情報メール（お問い合わせテンプレを再利用）
-          if (needsShipping) {
-            await fetch("/api/send-admin-shipping-email", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ orderId: guestOrderId, token: token0yen }),
-            }).catch((err) => console.error("send-admin-shipping-email (guest) failed:", err));
-          }
-
-          if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
-          navigate(
-            `/purchase-complete/${guestOrderId}?orderId=${encodeURIComponent(
-              guestOrderId
-            )}&token=${encodeURIComponent(token0yen)}&paid=1`,
-            { replace: true }
-          );
+        if (zeroErr || !zeroResult?.ok) {
+          console.error("zero-yen checkout error:", zeroErr, zeroResult);
+          const code = String(zeroResult?.error || "");
+          const message =
+            code === "insufficient points"
+              ? "ポイント残高が足りません。内容をご確認ください。"
+              : code === "stock insufficient" || code === "max per order exceeded"
+                ? "在庫または購入上限をご確認ください。"
+                : code.includes("coupon")
+                  ? "クーポンの利用条件をご確認ください。"
+                  : String(zeroResult?.error || zeroErr?.message || "注文の作成に失敗しました");
+          await appDialog.alert({ title: "エラー", message });
           return;
         }
 
-        const { data: orderRow, error: orderErr } = await supabase
-          .from("orders")
-          .insert({
-            user_id: user.id,
-            total: 0,
-            payment_method: paymentMethod,
-            subtotal,
-            discount_amount: discountYen,
-            coupon_code: appliedCoupon,
-            points_used: pointsUsed,
-            status: "pending",
-            paypay_return_token: token0yen,
-            email: buyerEmail || null,
-            name: buyerName || null,
-            phone: guestInfo.phone.trim() || null,
-            postal_code: guestInfo.postalCode.trim() || null,
-            address: guestInfo.address.trim() || null,
-            building: guestInfo.building.trim() || null,
-            fulfillment_type: fulfillmentType,
-            shipping_status: fulfillmentType === "shipping" ? "preparing" : null,
-          })
-          .select("id")
-          .single();
+        const zeroOrderId = String(zeroResult.orderId || "");
 
-        if (orderErr || !orderRow) {
-          console.error(orderErr);
-          await appDialog.alert({
-            title: "エラー",
-            message: "注文の作成に失敗しました",
-          });
-          return;
-        }
-
-        // ✅ セール分と通常分を別明細に分けて保存（セールで買ったことが履歴に残る）
-        const orderItemsPayload = itemsForStorage.flatMap((it) => {
-          const base = {
-            order_id: orderRow.id,
-            product_id: Number(it.productId),
-            product_name: it.name,
-          };
-          const rows: any[] = [];
-          if (it.saleQty > 0) {
-            rows.push({
-              ...base,
-              price: it.salePrice,
-              quantity: it.saleQty,
-              is_sale: true,
-              original_price: it.price,
-              sale_mode: it.saleMode,
-            });
-          }
-          if (it.normalQty > 0 || rows.length === 0) {
-            rows.push({
-              ...base,
-              price: it.price,
-              quantity: it.normalQty > 0 ? it.normalQty : it.quantity,
-              is_sale: false,
-              original_price: null,
-              sale_mode: null,
-            });
-          }
-          return rows;
-        });
-
-        let itemsErr: any = null;
-        {
-          const attempt = await supabase.from("order_items").insert(orderItemsPayload);
-          itemsErr = attempt.error;
-          if (itemsErr) {
-            // v26 SQL 未実行でも注文できるようにフォールバック
-            const plain = itemsForStorage.flatMap((it) => {
-              const base = {
-                order_id: orderRow.id,
-                product_id: Number(it.productId),
-                product_name: it.name,
-              };
-              const rows: any[] = [];
-              if (it.saleQty > 0 && it.salePrice !== it.price) {
-                rows.push({ ...base, price: it.salePrice, quantity: it.saleQty });
-              }
-              const rest = it.normalQty > 0 ? it.normalQty : it.saleQty > 0 ? 0 : it.quantity;
-              if (rest > 0) rows.push({ ...base, price: it.price, quantity: rest });
-              return rows;
-            });
-            const retry = await supabase.from("order_items").insert(plain);
-            itemsErr = retry.error;
-          }
-        }
-        if (itemsErr) {
-          console.error(itemsErr);
-          await appDialog.alert({
-            title: "エラー",
-            message: "注文商品の保存に失敗しました",
-          });
-          return;
-        }
-
-        // ✅ 0円購入はここでポイント差し引き
-        if (pointsUsed > 0) {
-          const { error: useErr } = await supabase.rpc("points_use_for_order", {
-            p_order_id: orderRow.id,
-            p_points: pointsUsed,
-          });
-          if (useErr) {
-            console.error("points_use_for_order error:", useErr);
-            await appDialog.alert({
-              title: "ポイント使用に失敗しました",
-              message: "ポイント使用に失敗しました（残高不足など）",
-            });
-            return;
-          }
-        }
-
-        // 在庫減算
-        for (const it of itemsForStorage) {
-          const { error } = await supabase.rpc("decrement_stock", {
-            p_product_id: Number(it.productId),
-            p_qty: Number(it.quantity),
-          });
-          if (error) {
-            console.error("decrement_stock error:", error);
-            await appDialog.alert({
-              title: "在庫更新エラー",
-              message: (error.message ?? "").includes("在庫不足")
-                ? `在庫が足りません：${it.name}`
-                : "在庫更新に失敗しました",
-            });
-            return;
-          }
-        }
-
-        // ✅ 入荷ロットも消費（セール分 → 期限が近い順／失敗しても購入は止めない）
-        {
-          const { error: eLot } = await supabase.rpc("consume_lots_for_order", {
-            p_order_id: orderRow.id,
-          });
-          if (eLot) {
-          console.error("consume_lots_for_order failed:", eLot);
-          const r2 = await supabase.rpc("consume_lots_for_order", { p_order_id: orderRow.id });
-          if (r2.error) {
-            console.error("consume_lots_for_order retry failed:", r2.error);
-            await appDialog.alert({
-              title: "入荷ロットの記録に失敗しました",
-              message: "購入は完了していますが、入荷ロット（原価）の記録に失敗しました。管理者に連絡してください。",
-            });
-          }
-        }
-        }
-
-        await supabase
-          .from("orders")
-          .update({ status: "paid", paid_at: new Date().toISOString() })
-          .eq("id", orderRow.id);
-
-        // ✅ アカウント購入（0円）でも、商品に設定された付与ポイントを財布へ反映
-        try {
-          await supabase.rpc("points_award_for_order", { p_order_id: orderRow.id });
-        } catch (e) {
-          console.error("points_award_for_order error:", e);
-        }
-
-        // ✅ クーポンの使用を記録（使用回数・1人あたり上限／同じ注文では二重に数えない）
-        if (appliedCoupon) {
-          const { error: eCoupon } = await supabase.rpc("coupon_redeem_for_order", {
-            p_order_id: orderRow.id,
-          });
-          if (eCoupon) console.error("coupon_redeem_for_order failed:", eCoupon);
-        }
-
+        // ✅ 購入者本人へ購入完了メールを送る（注文には name / email を保存済み）
         if (buyerEmail) {
           await fetch("/api/send-buyer-order-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: orderRow.id, token: token0yen }),
-          }).catch(() => {});
+            body: JSON.stringify({ orderId: zeroOrderId, token: token0yen }),
+          }).catch((err) => console.error("send-buyer-order-email failed:", err));
         }
 
         // ✅ 発送商品 → 管理者へ購入者情報メール（お問い合わせテンプレを再利用）
@@ -857,13 +634,15 @@ function Checkout() {
           await fetch("/api/send-admin-shipping-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: orderRow.id, token: token0yen }),
-          }).catch(() => {});
+            body: JSON.stringify({ orderId: zeroOrderId, token: token0yen }),
+          }).catch((err) => console.error("send-admin-shipping-email failed:", err));
         }
 
         if (!buyNow && typeof (cart as any).clearCart === "function") (cart as any).clearCart();
         navigate(
-          `/purchase-complete/${orderRow.id}?orderId=${encodeURIComponent(orderRow.id)}&token=${encodeURIComponent(token0yen)}&paid=1`,
+          `/purchase-complete/${zeroOrderId}?orderId=${encodeURIComponent(
+            zeroOrderId
+          )}&token=${encodeURIComponent(token0yen)}&paid=1`,
           { replace: true }
         );
         return;
@@ -882,13 +661,19 @@ function Checkout() {
       const orderIdForPayPay =
         (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+      // 会員判定・ポイント残高はサーバー側でトークンから確定させる
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token ?? "";
+
       const res = await fetch("/api/create-paypay-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           orderId: orderIdForPayPay,
           total: payableTotal,
-          userId: user?.id ?? null,
           subtotal,
           discountYen,
           coupon: appliedCoupon,
@@ -913,25 +698,14 @@ function Checkout() {
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
         console.error("create-paypay-order failed:", res.status, errText);
-        throw new Error("PayPay注文作成に失敗しました");
+        let serverMsg = "";
+        try {
+          serverMsg = String(JSON.parse(errText)?.message || "");
+        } catch {}
+        throw new Error(serverMsg || "PayPay注文作成に失敗しました");
       }
 
       const data = await res.json();
-
-      // ✅ PayPay併用時：ポイント使用額を確実に注文へ記録する
-      //    VPS側の注文作成に依存せず、トークン検証付きRPCで保存する
-      if (pointsUsed > 0 && data?.orderId && data?.token) {
-        try {
-          const { error: ptsErr } = await supabase.rpc("set_order_points_used", {
-            p_order_id: String(data.orderId),
-            p_token: String(data.token),
-            p_points: Number(pointsUsed),
-          });
-          if (ptsErr) console.error("set_order_points_used error:", ptsErr);
-        } catch (ePts) {
-          console.error("set_order_points_used failed:", ePts);
-        }
-      }
 
       // ✅ PayPayへ飛ぶURLはここ（redirectUrlじゃない）
       const paypayUrl: string | null = data?.paypay?.url ?? data?.redirectUrl ?? null;
@@ -958,7 +732,10 @@ function Checkout() {
       console.error(e);
       await appDialog.alert({
         title: "決済エラー",
-        message: "決済の開始に失敗しました。時間をおいてお試しください。",
+        message:
+          e instanceof Error && e.message && e.message !== "PayPay注文作成に失敗しました"
+            ? e.message
+            : "決済の開始に失敗しました。時間をおいてお試しください。",
       });
     } finally {
       if (!redirecting) setIsProcessing(false);

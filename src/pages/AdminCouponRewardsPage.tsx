@@ -98,7 +98,7 @@ export default function AdminCouponRewardsPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("coupon_rewards").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("coupon_rewards_admin").select("*").order("created_at", { ascending: false });
 
     if (error) {
       console.error(error);

@@ -274,6 +274,98 @@ function isSaleLiveRow(p, nowMs = Date.now()) {
   return true;
 }
 
+// Authorization: Bearer <Supabaseのアクセストークン> から本人を確定する
+async function getUserFromRequest(sb, req) {
+  const header = String(req.headers.authorization || "");
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
+  if (!token) return null;
+  try {
+    const { data, error } = await sb.auth.getUser(token);
+    if (error) return null;
+    return data?.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// クーポンをサーバー側で検証して割引額を返す（クライアントの金額は信用しない）
+async function computeCouponDiscount(sb, opts) {
+  const code = String(opts.code || "").trim().toUpperCase();
+  if (!code) return { ok: true, discount: 0 };
+
+  const nowIso = new Date().toISOString();
+  const { data: c, error } = await sb
+    .from("coupons")
+    .select(
+      "code, discount_type, discount_value, max_discount_yen, min_subtotal, is_active, starts_at, ends_at, usage_limit, used_count, audience, per_user_limit, target_scope"
+    )
+    .eq("code", code)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!c) return { ok: false, error: "クーポンが見つかりません。" };
+  if (!c.is_active) return { ok: false, error: "このクーポンは現在使えません。" };
+  if (c.starts_at && nowIso < c.starts_at) return { ok: false, error: "クーポンの開始前です。" };
+  if (c.ends_at && nowIso > c.ends_at) return { ok: false, error: "クーポンの期限が切れています。" };
+  if (c.usage_limit != null && Number(c.used_count || 0) >= Number(c.usage_limit)) {
+    return { ok: false, error: "このクーポンは上限回数に達しました。" };
+  }
+
+  const aud = String(c.audience || "all");
+  if (aud === "member" && !opts.userId) return { ok: false, error: "このクーポンは会員専用です。" };
+  if (aud === "guest" && opts.userId) return { ok: false, error: "このクーポンはゲスト専用です。" };
+
+  if (c.per_user_limit != null && Number(c.per_user_limit) > 0) {
+    const limit = Number(c.per_user_limit);
+    if (opts.userId) {
+      const { count } = await sb
+        .from("coupon_redemptions")
+        .select("id", { count: "exact", head: true })
+        .eq("code", code)
+        .eq("user_id", opts.userId);
+      if (Number(count || 0) >= limit) {
+        return { ok: false, error: "このクーポンはご利用回数の上限に達しています。" };
+      }
+    }
+    if (opts.email) {
+      const { count } = await sb
+        .from("coupon_redemptions")
+        .select("id", { count: "exact", head: true })
+        .eq("code", code)
+        .ilike("email", opts.email);
+      if (Number(count || 0) >= limit) {
+        return { ok: false, error: "このクーポンはご利用回数の上限に達しています。" };
+      }
+    }
+  }
+
+  if (c.min_subtotal != null && opts.subtotal < Number(c.min_subtotal)) {
+    return { ok: false, error: `小計${Number(c.min_subtotal).toLocaleString("ja-JP")}円以上で使えます。` };
+  }
+
+  let base = opts.subtotal;
+  if (String(c.target_scope || "all") === "products") {
+    const { data: tgt, error: tErr } = await sb
+      .from("coupon_products")
+      .select("product_id")
+      .eq("code", code);
+    if (tErr) throw tErr;
+    const ids = new Set((tgt || []).map((t) => Number(t.product_id)));
+    base = (opts.items || [])
+      .filter((it) => ids.has(Number(it.productId)))
+      .reduce((sum, it) => sum + Number(it.lineTotal || 0), 0);
+    if (base <= 0) return { ok: false, error: "対象商品がカートにありません。" };
+  }
+
+  const v = toIntYen(c.discount_value);
+  let discount =
+    String(c.discount_type || "yen") === "percent" ? Math.floor((base * v) / 100) : v;
+  if (c.max_discount_yen != null) discount = Math.min(discount, toIntYen(c.max_discount_yen));
+  discount = Math.min(discount, base);
+
+  return { ok: true, discount: Math.max(0, discount) };
+}
+
 app.post("/api/create-paypay-order", async (req, res) => {
   try {
     const missing = envMissing([
@@ -290,13 +382,11 @@ app.post("/api/create-paypay-order", async (req, res) => {
     configurePayPay();
     const sb = supabaseAdmin();
 
-    // body（Checkout.tsx から来る想定）
-    let total = toIntYen(req.body?.total);
-    const userId = String(req.body?.userId || "").trim();
+    // 本人確認：Authorization のトークンから確定（body の userId は信用しない）
+    const authUser = await getUserFromRequest(sb, req);
+    const userId = authUser?.id ?? null;
 
-    let subtotal = toIntYen(req.body?.subtotal);
-    let discountYen = toIntYen(req.body?.discountYen);
-    const coupon = (req.body?.coupon ?? null) ? String(req.body.coupon) : null;
+    const coupon = (req.body?.coupon ?? null) ? String(req.body.coupon).trim().toUpperCase() : null;
 
     const buyerEmail = (req.body?.buyerEmail ?? null) ? String(req.body.buyerEmail) : null;
     const buyerName = (req.body?.buyerName ?? null) ? String(req.body.buyerName) : null;
@@ -307,14 +397,16 @@ app.post("/api/create-paypay-order", async (req, res) => {
     const fulfillmentType = String(req.body?.fulfillmentType || "").trim() === "shipping" ? "shipping" : "pickup";
 
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
-    const pointsUsed = toIntYen(req.body?.pointsUsed);
+    if (items.length === 0) {
+      return res.status(400).json({ ok: false, status: "ITEMS_EMPTY" });
+    }
 
     // 決済時点の価格をサーバー側で再計算（会員価格・セール期間／反映オンオフ対応）
     const pidList = items.map((it) => Number(it.productId)).filter((v) => Number.isFinite(v));
     const priceMap = new Map();
     if (pidList.length) {
       const fullCols =
-        "id,price,member_price,earn_points,sale_price,sale_qty,sale_remaining,sale_mode,sale_active,sale_starts_at,sale_ends_at";
+        "id,price,member_price,earn_points,sale_price,sale_qty,sale_remaining,sale_mode,sale_active,sale_starts_at,sale_ends_at,stock,is_visible,max_per_order";
       let { data: prods, error: pErr } = await sb
         .from("products")
         .select(fullCols)
@@ -324,12 +416,15 @@ app.post("/api/create-paypay-order", async (req, res) => {
       if (pErr) {
         const retry = await sb
           .from("products")
-          .select("id,price,member_price,earn_points")
+          .select("id,price,member_price,earn_points,stock,is_visible,max_per_order")
           .in("id", pidList);
         prods = retry.data;
         pErr = retry.error;
       }
-      if (pErr) console.error("products fetch error:", pErr);
+      if (pErr) {
+        console.error("products fetch error:", pErr);
+        return res.status(500).json({ ok: false, status: "PRODUCTS_FETCH_FAILED" });
+      }
 
       const nowMs = Date.now();
       for (const pr of prods || []) {
@@ -345,48 +440,114 @@ app.post("/api/create-paypay-order", async (req, res) => {
           saleQty: Math.max(0, Math.floor(Number(pr.sale_qty) || 0)),
           saleRemaining: Math.max(0, Math.floor(Number(pr.sale_remaining) || 0)),
           saleLive: isSaleLiveRow(pr, nowMs),
+          stock: Math.max(0, Math.floor(Number(pr.stock) || 0)),
+          visible: pr.is_visible !== false,
+          maxPer: Math.max(0, Math.floor(Number(pr.max_per_order) || 0)),
         });
       }
     }
 
+    for (const it of items) {
+      const pid = Number(it.productId);
+      const e = priceMap.get(pid);
+      if (!e || e.visible === false) {
+        return res.status(400).json({ ok: false, status: "PRODUCT_NOT_FOUND", productId: pid });
+      }
+      const qty = Math.max(1, Math.floor(Number(it.quantity || 1)));
+      if (e.maxPer > 0 && qty > e.maxPer) {
+        return res.status(400).json({ ok: false, status: "MAX_PER_ORDER", productId: pid, max: e.maxPer });
+      }
+      if (e.stock < qty) {
+        return res.status(400).json({ ok: false, status: "STOCK_INSUFFICIENT", productId: pid });
+      }
+    }
+
     // 注文価格を商品ごとに確定（セール分と通常分に分ける）
-    let subtotalSum = 0;
+    let subtotal = 0;
     const pricedItems = items.map((it) => {
       const pid = Number(it.productId);
       const e = priceMap.get(pid);
-      const normalPrice = e ? e.price : toIntYen(it.price);
+      if (!e) {
+        // 商品が存在しない／取得できない場合はクライアント価格を使わずエラー
+        throw new Error(`PRODUCT_NOT_FOUND:${pid}`);
+      }
       const qty = Math.max(1, Math.floor(Number(it.quantity || 1)));
 
-      const salePrice = e && e.saleLive ? e.salePrice : null;
+      const salePrice = e.saleLive ? e.salePrice : null;
       const saleLimit =
-        e && salePrice != null
+        salePrice != null
           ? e.saleMode === "per_order"
             ? e.saleQty
             : e.saleRemaining
           : 0;
       const saleUnits = salePrice != null ? Math.min(qty, Math.max(0, saleLimit)) : 0;
       const normalQty = qty - saleUnits;
+      const lineTotal = saleUnits * (salePrice ?? 0) + normalQty * e.price;
 
-      subtotalSum += saleUnits * (salePrice ?? 0) + normalQty * normalPrice;
+      subtotal += lineTotal;
 
       return {
         ...it,
         productId: pid,
-        price: normalPrice,
+        price: e.price,
         quantity: qty,
-        salePrice,
+        salePrice: saleUnits > 0 ? salePrice : null,
         saleUnits,
         normalQty,
-        saleMode: saleUnits > 0 && e ? e.saleMode : null,
+        saleMode: saleUnits > 0 ? e.saleMode : null,
+        lineTotal,
       };
     });
 
-    subtotal = subtotalSum;
-    discountYen = Math.min(toIntYen(req.body?.discountYen), subtotal);
-    total = Math.max(subtotal - discountYen - pointsUsed, 0);
+    // クーポン割引もサーバー側で再計算（クライアントの discountYen は使わない）
+    let discountYen = 0;
+    if (coupon) {
+      const cRes = await computeCouponDiscount(sb, {
+        code: coupon,
+        subtotal,
+        items: pricedItems,
+        userId,
+        email: buyerEmail,
+      });
+      if (!cRes.ok) {
+        return res.status(400).json({ ok: false, status: "COUPON_INVALID", message: cRes.error });
+      }
+      discountYen = cRes.discount;
+    }
+
+    // ポイントも残高の範囲内か確認（ゲストは使用不可）
+    let pointsUsed = toIntYen(req.body?.pointsUsed);
+    if (!userId) {
+      pointsUsed = 0;
+    } else if (pointsUsed > 0) {
+      const { data: w } = await sb
+        .from("points_wallet")
+        .select("balance")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const balance = Math.max(0, Math.floor(Number(w?.balance || 0)));
+      if (pointsUsed > balance) {
+        return res.status(400).json({
+          ok: false,
+          status: "POINTS_EXCEEDED",
+          message: "ポイント残高が足りません。画面を更新してもう一度お試しください。",
+        });
+      }
+    }
+    pointsUsed = Math.min(pointsUsed, Math.max(subtotal - discountYen, 0));
+
+    const total = Math.max(subtotal - discountYen - pointsUsed, 0);
 
     // ゲスト（アカウント未登録）も許可：userId は任意。orders.user_id は null になる
-    if (total <= 0) return res.status(400).json({ ok: false, status: "TOTAL_MUST_BE_POSITIVE" });
+    if (total <= 0) {
+      return res.status(400).json({
+        ok: false,
+        status: "TOTAL_MUST_BE_POSITIVE",
+        message: "クーポン・ポイントの適用で0円になりました。もう一度お手続きください。",
+      });
+    }
 
     const token = (globalThis.crypto && globalThis.crypto.randomUUID)
       ? globalThis.crypto.randomUUID()
@@ -405,6 +566,7 @@ app.post("/api/create-paypay-order", async (req, res) => {
         subtotal: subtotal || null,
         discount_amount: discountYen || 0,
         coupon_code: coupon,
+        points_used: pointsUsed,
         paypay_return_token: token,
         paypay_merchant_payment_id: merchantPaymentId,
         email: buyerEmail,

@@ -79,28 +79,8 @@ export default function PayPayReturn() {
           clearPending();
           const resolvedId = String(j?.orderDbId || orderId || "");
 
-          // ✅ 入荷ロットを消費（冪等：二重に減りません）
-          if (resolvedId) {
-            try {
-              const { supabase } = await import("../lib/supabase");
-              const { error: eLot } = await supabase.rpc("consume_lots_for_order", {
-                p_order_id: resolvedId,
-              });
-              if (eLot) {
-                console.error("consume_lots_for_order failed:", eLot);
-                const r2 = await supabase.rpc("consume_lots_for_order", { p_order_id: resolvedId });
-                if (r2.error) console.error("consume_lots_for_order retry failed:", r2.error);
-              }
-
-              // ✅ クーポンの使用を記録（PayPay購入分／同じ注文では二重に数えない）
-              const { error: eCoupon } = await supabase.rpc("coupon_redeem_for_order", {
-                p_order_id: resolvedId,
-              });
-              if (eCoupon) console.error("coupon_redeem_for_order failed:", eCoupon);
-            } catch (eLot) {
-              console.error("consume_lots_for_order exception:", eLot);
-            }
-          }
+          // 入荷ロット消費・クーポン使用回数は VPS の決済確定処理（confirm-paypay-payment）で
+          // service role により実行済み。ここからは画面遷移だけ行う。
           navigate(
             `/purchase-complete/${resolvedId}?orderId=${encodeURIComponent(resolvedId)}&token=${encodeURIComponent(
               token

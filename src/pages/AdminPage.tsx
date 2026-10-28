@@ -330,13 +330,13 @@ function AdminPage() {
     const baseCols = "id,name,price,original_price,stock,is_visible,max_per_order,expiry_alert_days,member_price,cost,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,sale_price,sale_qty,sale_remaining,sale_mode,sale_starts_at,sale_ends_at,sale_active";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let pRes: any = await supabase
-      .from("products")
+      .from("products_admin")
       .select(`${baseCols},sale_price,sale_qty,sale_remaining`)
       .order("id", { ascending: true });
 
     if (pRes.error) {
       setSaleReady(false);
-      pRes = await supabase.from("products").select(baseCols).order("id", { ascending: true });
+      pRes = await supabase.from("products_admin").select(baseCols).order("id", { ascending: true });
     } else {
       setSaleReady(true);
     }

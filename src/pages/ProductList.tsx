@@ -57,7 +57,7 @@ function ProductList() {
 
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("id,stock,name,price,created_at,is_visible,original_price,member_price,earn_points,is_shipping,shipping_lead_min,shipping_lead_max,shipping_lead_unit,max_per_order,expiry_alert_days,sale_price,sale_qty,sale_remaining,sale_mode,sale_starts_at,sale_ends_at,sale_active")
         .order("created_at", { ascending: false });
 
       if (error) {
