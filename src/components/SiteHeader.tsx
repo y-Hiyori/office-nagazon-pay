@@ -59,6 +59,8 @@ export default function SiteHeader({ accountHref = "/account" }: Props) {
   const menuItems: MenuItem[] = useMemo(
     () => [
       { label: "商品一覧", to: "/products" },
+      { label: "お気に入り", to: "/favorites" },
+      { label: "お知らせ", to: "/inbox" },
       { label: "購入履歴", to: "/orders" },
       { label: "アプリの使い方", to: "/how-to" },
       { label: "お問い合わせ", to: "/contact" },

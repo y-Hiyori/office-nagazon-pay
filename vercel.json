@@ -9,6 +9,10 @@
       "dest": "/api/send-contact-email"
     },
     {
+      "src": "/api/send-user-notice",
+      "dest": "/api/send-user-notice"
+    },
+    {
       "src": "/api/auth-email-hook",
       "dest": "/api/auth-email-hook"
     },
@@ -65,5 +69,10 @@
       "path": "/api/guard-cleanup",
       "schedule": "0 18 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/send-user-notice.js": {
+      "maxDuration": 60
+    }
+  }
 }

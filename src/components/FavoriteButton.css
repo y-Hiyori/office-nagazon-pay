@@ -1,0 +1,72 @@
+.fav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.fav-btn svg {
+  width: 20px;
+  min-width: 20px;
+  max-width: none;
+  height: 20px;
+  flex: 0 0 20px;
+  display: block;
+}
+
+.fav-btn:active {
+  transform: scale(0.9);
+}
+
+.fav-btn.is-on svg {
+  animation: favPop 0.28s ease;
+}
+
+@keyframes favPop {
+  0% { transform: scale(0.7); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* 画像の上に重ねる丸ボタン */
+.fav-btn--overlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #6e6e73;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 0;
+}
+
+.fav-btn--overlay.is-on {
+  color: #d6336c;
+}
+
+/* 文字つきボタン */
+.fav-btn--inline {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #1d1d1f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fav-btn--inline.is-on {
+  color: #d6336c;
+  border-color: rgba(214, 51, 108, 0.35);
+  background: #fff0f5;
+}

@@ -180,3 +180,71 @@
   font-size: 18px;
   color: #9ca3af;
 }
+
+/* ===== 複数選んでお知らせ ===== */
+.admin-users-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-users-select-toggle {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-users-select-toggle.on {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+.admin-users-check {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  accent-color: #1e6fd9;
+}
+
+.admin-users-item.is-picked {
+  background: #eef4fd;
+  box-shadow: 0 0 0 2px #1e6fd9 inset;
+}
+
+.admin-users-sendbar {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #111827;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.3);
+}
+
+.admin-users-sendbar button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  background: #8b1e3f;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-users-sendbar button:disabled {
+  opacity: 0.45;
+}

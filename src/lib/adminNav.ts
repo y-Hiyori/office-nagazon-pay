@@ -34,7 +34,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "アカウント管理", path: "/admin-users", icon: "👤", desc: "会員情報・購入履歴・ポイント" },
       { label: "クーポン管理", path: "/admin-coupons", icon: "🎟", desc: "割引クーポンの作成・停止" },
       { label: "ポイント管理", path: "/admin-points", icon: "💰", desc: "ポイントの付与・調整", tone: "danger" },
-      { label: "お知らせ管理", path: "/admin-notices", icon: "📣", desc: "ホームのお知らせ" },
+      { label: "お知らせ管理", path: "/admin-notices", icon: "📣", desc: "ホームのお知らせ（全員向け）" },
+      { label: "会員へお知らせ送信", path: "/admin-user-notice", icon: "✉️", desc: "1人または複数の会員を選んで送る（メール通知つき）", tone: "main" },
     ],
   },
   {

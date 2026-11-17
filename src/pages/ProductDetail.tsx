@@ -19,6 +19,7 @@ import SiteHeader from "../components/SiteHeader";
 import { appDialog } from "../lib/appDialog";
 import Loading from "../components/Loading";
 import SaleCountdown from "../components/SaleCountdown";
+import FavoriteButton from "../components/FavoriteButton";
 import { splitProductName, variantLikePattern } from "../lib/productGroup";
 
 const formatYen = (value: number) => (Number(value) || 0).toLocaleString("ja-JP");
@@ -597,6 +598,8 @@ function ProductDetail() {
               )}
 
               {isSoldOut ? <div className="pdetail-soldLabel">SOLD OUT</div> : null}
+
+              <FavoriteButton productId={product.id} />
             </div>
           </section>
 

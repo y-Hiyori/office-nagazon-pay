@@ -372,6 +372,16 @@ const handleSendResetMail = async () => {
               <section className="admin-user-detail-card">
                 <button
                   className="admin-user-detail-secondary"
+                  onClick={() => navigate(`/admin-user-notice?to=${id}`)}
+                  type="button"
+                >
+                  このユーザーにお知らせを送る
+                </button>
+              </section>
+
+              <section className="admin-user-detail-card">
+                <button
+                  className="admin-user-detail-secondary"
                   onClick={() => navigate(`/admin-user-orders/${id}`)}
                   type="button"
                 >

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import AppDialogHost from "./components/AppDialogHost";
 import PendingPaymentNotice from "./components/PendingPaymentNotice";
+import BottomNav from "./components/BottomNav";
 import { resetScrollLocks } from "./lib/scrollLock";
 
 function App() {
@@ -21,6 +22,9 @@ function App() {
       <main style={{ width: "100%", minHeight: "100vh" }}>
         <Outlet />
       </main>
+
+      {/* ✅ 画面下に浮かぶナビゲーション（お客様向け画面のみ） */}
+      <BottomNav />
 
       {/* ✅ 全ページ共通のアプリ内ダイアログ置き場 */}
       <AppDialogHost />

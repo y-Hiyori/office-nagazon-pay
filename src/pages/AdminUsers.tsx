@@ -17,6 +17,16 @@ function AdminUsers() {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  // ✅ 複数選んでお知らせを送る
+  const [selectMode, setSelectMode] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const togglePick = (uid: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
 
   useEffect(() => {
     const loadProfiles = async () => {
@@ -76,9 +86,21 @@ function AdminUsers() {
       <AdminHeader />
 
       <div className="admin-users-page" style={{ paddingTop: 80 }}>
-        <h2 style={{ margin: "6px 0 12px", fontSize: 21, fontWeight: 800 }}>
-          アカウント管理
-        </h2>
+        <div className="admin-users-titlebar">
+          <h2 style={{ margin: "6px 0 12px", fontSize: 21, fontWeight: 800 }}>
+            アカウント管理
+          </h2>
+          <button
+            type="button"
+            className={`admin-users-select-toggle ${selectMode ? "on" : ""}`}
+            onClick={() => {
+              setSelectMode((v) => !v);
+              setPicked(new Set());
+            }}
+          >
+            {selectMode ? "選択をやめる" : "選んでお知らせ"}
+          </button>
+        </div>
 
         <div className="admin-users-list">
           {sorted.length === 0 ? (
@@ -90,9 +112,21 @@ function AdminUsers() {
               return (
                 <div
                   key={u.id}
-                  className="admin-users-item"
-                  onClick={() => navigate(`/admin-user-detail/${u.id}`)}
+                  className={`admin-users-item ${selectMode && picked.has(u.id) ? "is-picked" : ""}`}
+                  onClick={() =>
+                    selectMode ? togglePick(u.id) : navigate(`/admin-user-detail/${u.id}`)
+                  }
                 >
+                  {selectMode ? (
+                    <input
+                      type="checkbox"
+                      className="admin-users-check"
+                      checked={picked.has(u.id)}
+                      onChange={() => togglePick(u.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`${u.name || "名前なし"}を選ぶ`}
+                    />
+                  ) : null}
                   <div className={`admin-users-icon ${isAdmin ? "admin" : "normal"}`}>
                     👤
                   </div>
@@ -105,12 +139,25 @@ function AdminUsers() {
                     )}
                   </div>
 
-                  <div className="admin-users-arrow">＞</div>
+                  {!selectMode ? <div className="admin-users-arrow">＞</div> : null}
                 </div>
               );
             })
           )}
         </div>
+
+        {selectMode ? (
+          <div className="admin-users-sendbar">
+            <span>{picked.size}人を選択中</span>
+            <button
+              type="button"
+              disabled={picked.size === 0}
+              onClick={() => navigate(`/admin-user-notice?to=${[...picked].join(",")}`)}
+            >
+              お知らせを作成
+            </button>
+          </div>
+        ) : null}
       </div>
     </>
   );

@@ -16,6 +16,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PurchaseComplete from "./pages/PurchaseComplete";
 import PayPayFailed from "./pages/PayPayFailed";
 import NoticeDetail from "./pages/NoticeDetail";
+import Favorites from "./pages/Favorites";
+import Inbox from "./pages/Inbox";
 import Terms from "./pages/Terms";
 import RewardDetail from "./pages/game/RewardDetail";
 import CouponsList from "./pages/game/CouponsList";
@@ -57,6 +59,7 @@ import AdminCoupons from "./pages/AdminCoupons";
 import AdminCouponEdit from "./pages/AdminCouponEdit";
 import AdminNotices from "./pages/AdminNotices";
 import AdminNoticeEdit from "./pages/AdminNoticeEdit";
+import AdminUserNotice from "./pages/AdminUserNotice";
 import AdminPoints from "./pages/AdminPoints";
 import AdminCorrections from "./pages/AdminCorrections";
 import AdminGuard from "./pages/AdminGuard";
@@ -109,6 +112,10 @@ const router = createBrowserRouter([
 
       // ✅ お知らせ詳細（Public）
       { path: "notice/:id", element: <NoticeDetail /> },
+
+      // ✅ お気に入り・お知らせ（ログインしていなくても開ける。中で案内を出す）
+      { path: "favorites", element: <Favorites /> },
+      { path: "inbox", element: <Inbox /> },
 
       // ✅ PayPay戻りでログイン無しでも開ける必要があるのでPublic
       { path: "purchase-complete", element: <PurchaseComplete /> },
@@ -189,6 +196,14 @@ const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AdminAdd />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "admin-user-notice",
+        element: (
+          <AdminRoute>
+            <AdminUserNotice />
           </AdminRoute>
         ),
       },

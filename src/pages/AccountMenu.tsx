@@ -275,6 +275,14 @@ function AccountMenu() {
               購入履歴を見る
             </button>
 
+            <button className="acc-btn" onClick={() => navigate("/favorites")}>
+              お気に入り
+            </button>
+
+            <button className="acc-btn" onClick={() => navigate("/inbox")}>
+              お知らせ
+            </button>
+
             <button className="acc-btn" onClick={() => navigate("/account-edit")}>
               アカウント編集
             </button>

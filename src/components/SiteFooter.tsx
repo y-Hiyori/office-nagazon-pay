@@ -18,6 +18,7 @@ export default function SiteFooter() {
           <div className="site-footer-col">
             <div className="site-footer-head">商品</div>
             <Link className="site-footer-link" to="/products">商品一覧</Link>
+            <Link className="site-footer-link" to="/favorites">お気に入り</Link>
             <Link className="site-footer-link" to="/cart">カート</Link>
             <Link className="site-footer-link" to="/orders">購入履歴</Link>
           </div>

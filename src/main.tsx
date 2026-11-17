@@ -8,13 +8,16 @@ import "./components/Loading.css";
 
 import { ProductProvider } from "./context/ProductContext";
 import { CartProvider } from "./context/CartContext";
+import { UserProvider } from "./context/UserContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <CartProvider>
-      <ProductProvider>
-        <RouterProvider router={router} />
-      </ProductProvider>
-    </CartProvider>
+    <UserProvider>
+      <CartProvider>
+        <ProductProvider>
+          <RouterProvider router={router} />
+        </ProductProvider>
+      </CartProvider>
+    </UserProvider>
   </React.StrictMode>
 );

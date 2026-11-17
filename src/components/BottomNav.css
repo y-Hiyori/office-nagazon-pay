@@ -1,0 +1,123 @@
+/* 画面下に浮かぶナビゲーションバー */
+.bnav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900; /* ヘッダー(1000)・ダイアログ・各画面のモーダルより下 */
+  display: flex;
+  justify-content: center;
+  padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+
+.bnav-bar {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 460px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  padding: 6px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.06),
+    0 14px 34px rgba(15, 23, 42, 0.16);
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic, "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.bnav-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: 6px 2px;
+  border-radius: 16px;
+  color: #6e6e73;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.bnav-item:active {
+  transform: scale(0.96);
+}
+
+.bnav-item.is-active {
+  color: #8b1e3f;
+  background: #f7ecef;
+}
+
+.bnav-icon {
+  position: relative;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+}
+
+.bnav-icon svg {
+  width: 24px;
+  min-width: 24px;
+  max-width: none;
+  height: 24px;
+  display: block;
+}
+
+.bnav-item.is-active .bnav-icon svg {
+  stroke-width: 2.2;
+}
+
+.bnav-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.bnav-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #d92d20;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border: 2px solid #fff;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ナビに最後の内容が隠れないよう余白を作る */
+body.has-bottom-nav {
+  padding-bottom: calc(86px + env(safe-area-inset-bottom));
+}
+
+/* カート画面などの画面下トーストはナビの上に出す */
+body.has-bottom-nav .app-toast {
+  bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 900px) {
+  .bnav {
+    padding-bottom: 18px;
+  }
+  .bnav-bar {
+    max-width: 520px;
+  }
+}

@@ -1,0 +1,35 @@
+.fav-empty {
+  margin: 24px auto;
+  max-width: 420px;
+  padding: 36px 24px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.fav-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+.fav-empty-text {
+  margin: 10px 0 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #6e6e73;
+}
+
+.fav-empty-btn {
+  border: none;
+  padding: 12px 22px;
+  border-radius: 12px;
+  background: #8b1e3f;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}

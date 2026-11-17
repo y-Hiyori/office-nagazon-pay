@@ -1,0 +1,207 @@
+.inbox-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--plist-bg, #fafafa);
+  color: #1d1d1f;
+  font-family:
+    "游ゴシック体", "Yu Gothic", YuGothic, "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.02em;
+}
+
+.inbox-main {
+  flex: 1;
+  padding: 20px 16px 40px;
+}
+
+.inbox-shell {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.inbox-title {
+  margin: 6px 0 16px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.inbox-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.inbox-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #6e6e73;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inbox-tab.is-active {
+  background: #fff;
+  color: #1d1d1f;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.inbox-tab-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #d92d20;
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.inbox-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.inbox-link {
+  border: none;
+  background: none;
+  color: #1e6fd9;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+
+.inbox-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.inbox-item + .inbox-item {
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.inbox-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 15px 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.inbox-row:hover {
+  background: rgba(15, 23, 42, 0.025);
+}
+
+.inbox-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.inbox-item.is-unread .inbox-dot {
+  background: #1e6fd9;
+}
+
+.inbox-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inbox-item-title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.inbox-item.is-unread .inbox-item-title {
+  font-weight: 700;
+}
+
+.inbox-item-sub {
+  font-size: 13px;
+  color: #6e6e73;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inbox-date {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: #a1a1a6;
+  margin-top: 2px;
+}
+
+.inbox-body {
+  padding: 0 16px 18px 34px;
+}
+
+.inbox-body-text {
+  font-size: 14px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-bottom: 14px;
+}
+
+.inbox-empty {
+  padding: 36px 20px;
+  text-align: center;
+  color: #6e6e73;
+  font-size: 14px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+}
+
+.inbox-btn {
+  border: none;
+  padding: 11px 20px;
+  border-radius: 12px;
+  background: #8b1e3f;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inbox-row:focus:not(:focus-visible) {
+  outline: none;
+}

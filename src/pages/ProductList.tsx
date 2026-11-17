@@ -11,6 +11,7 @@ import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
 import Loading from "../components/Loading";
 import SaleCountdown from "../components/SaleCountdown";
+import FavoriteButton from "../components/FavoriteButton";
 import { splitProductName } from "../lib/productGroup";
 
 const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
@@ -327,6 +328,9 @@ function ProductList() {
                       <div className="shipping-label">発送</div>
                     ) : null}
                   </div>
+
+                  {/* ✅ お気に入り（まとめ表示の時は代表の味） */}
+                  {!isGroup ? <FavoriteButton productId={p.id} /> : null}
 
                   {/* ✅ SOLD OUT ラベルは .plist-badges の外へ（中央に大表示） */}
                   {soldOut ? <div className="sold-label">SOLD OUT</div> : null}

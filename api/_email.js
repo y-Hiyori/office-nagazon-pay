@@ -322,3 +322,35 @@ export async function sendEmailJS(templateId, templateParams, opts = {}) {
   const text = await r.text().catch(() => "");
   return { ok: r.ok, status: r.status, detail: text.slice(0, 300) };
 }
+
+/* ---------- 個別お知らせメール ---------- */
+
+// notice: { title, body, link_url }  inboxUrl: アプリのお知らせ画面
+export function buildUserNoticeEmail({ notice, name, inboxUrl }) {
+  const link = String(notice.link_url || "").trim();
+  const linkAbs = link && link.startsWith("/") ? `${appBaseUrl()}${link}` : link;
+
+  const body = notice.body
+    ? `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;background:${COLOR.panel};border:1px solid ${COLOR.line};border-radius:10px;border-collapse:separate;">
+  <tr><td style="padding:18px;font-size:15px;line-height:1.9;color:${COLOR.text};word-break:break-word;">${nl2br(notice.body)}</td></tr>
+</table>`
+    : "";
+
+  const bodyHtml = `
+${paragraph(`${esc(name || "お客様")} 様`)}
+${paragraph("NAGAZON PAY からお知らせが届いています。")}
+${body}
+${linkAbs ? button("詳しく見る", linkAbs) : button("アプリでお知らせを見る", inboxUrl)}
+${linkAbs ? `<p style="margin:12px 0 0;text-align:center;font-size:13px;"><a href="${esc(inboxUrl)}" target="_blank" style="color:${COLOR.blue};">アプリのお知らせ一覧を開く</a></p>` : ""}`;
+
+  return {
+    subject: `【NAGAZON PAY】${notice.title}`,
+    html: layout({
+      preheader: String(notice.body || notice.title).slice(0, 80),
+      eyebrow: "お知らせ",
+      title: notice.title,
+      bodyHtml,
+    }),
+  };
+}
