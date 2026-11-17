@@ -14,6 +14,12 @@ import img18 from "./商品画像/フットチーネグミイタリアングレ�
 import img19 from "./商品画像/フットチーネグミコーラ味.jpg";
 import img20 from "./商品画像/つぶグミ ソーダ.png";
 import img21 from "./商品画像/つぶグミ.jpg";
+import img22 from "./商品画像/potechi_usushio.jpg";
+import img23 from "./商品画像/pocky_chocolate.jpg";
+import img24 from "./商品画像/pocky_fuyu_kuchidoke.jpg";
+import img25 from "./商品画像/alfort_mini.jpg";
+import img26 from "./商品画像/ninjameshi_kariudo_energy.jpg";
+import img27 from "./商品画像/puregumi_minori_berry.jpg";
 
 // 画像だけのマスタ
 export type ProductImageMaster = {
@@ -38,6 +44,12 @@ export const PRODUCT_IMAGES: ProductImageMaster[] = [
   { id: 19, imageData: img19 },
   { id: 20, imageData: img20 },
   { id: 21, imageData: img21 },
+  { id: 22, imageData: img22 },
+  { id: 23, imageData: img23 },
+  { id: 24, imageData: img24 },
+  { id: 25, imageData: img25 },
+  { id: 26, imageData: img26 },
+  { id: 27, imageData: img27 },
 ];
 
 // id から画像パスを取る関数（なければ undefined）

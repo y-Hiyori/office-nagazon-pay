@@ -6,6 +6,7 @@
 //   - paid かつ fulfillment_type='shipping' の時だけ送信
 //   - admin_email_sent_at で二重送信を防止
 import { createClient } from "@supabase/supabase-js";
+import { appBaseUrl, buildAdminEmail, esc, nl2br, sendEmailJS } from "./_email.js";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -103,28 +104,36 @@ export default async function handler(req, res) {
       `${addr || "（未入力）"}${building ? " " + building : ""}`,
     ].join("\n");
 
-    const payload = {
-      service_id: process.env.EMAILJS_SERVICE_ID,
-      template_id: process.env.EMAILJS_CONTACT_TEMPLATE_ID,
-      user_id: process.env.EMAILJS_PUBLIC_KEY,
-      accessToken: process.env.EMAILJS_PRIVATE_KEY,
-      template_params: {
-        contact_name: String(name || "（氏名不明）"),
-        contact_email: String(email || "（メール不明）"),
-        contact_subject: `【発送商品ご注文】NAGAZON 注文番号 ${order.id}`,
-        contact_message: message,
-        contact_order_id: String(order.id),
-      },
-    };
-
-    const r = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    const subject = `【発送商品ご注文】NAGAZON 注文番号 ${order.id}`;
+    const mail = buildAdminEmail({
+      subject,
+      eyebrow: "発送が必要なご注文",
+      title: "発送商品のご注文がありました",
+      lead: "お支払いが完了しています。下記の配送先へ発送の準備をお願いします。",
+      rows: [
+        ["注文番号", `<span style="font-family:Menlo,Consolas,monospace;font-size:12px;">${esc(order.id)}</span>`],
+        ["購入商品", nl2br(itemsText || "（明細なし）")],
+        ["支払合計", `<b>${esc(totalText || "0円")}</b>`],
+        ["氏名", esc(name || "（未入力）")],
+        ["メール", esc(email || "（未入力）")],
+        ["電話", esc(phone || "（未入力）")],
+        ["配送先", `${esc(postal || "（未入力）")}<br>${esc(addr || "（未入力）")}${building ? " " + esc(building) : ""}`],
+      ],
+      actionLabel: "管理画面で注文を開く",
+      actionUrl: `${appBaseUrl()}/admin-order-detail/${order.id}`,
     });
 
-    const text = await r.text();
-    if (!r.ok) return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail: text });
+    const r = await sendEmailJS(process.env.EMAILJS_CONTACT_TEMPLATE_ID, {
+      subject: mail.subject,
+      html: mail.html,
+      contact_name: String(name || "（氏名不明）"),
+      contact_email: String(email || "（メール不明）"),
+      contact_subject: subject,
+      contact_message: message,
+      contact_order_id: String(order.id),
+    });
+
+    if (!r.ok) return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail: r.detail });
 
     await sb
       .from("orders")

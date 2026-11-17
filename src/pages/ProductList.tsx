@@ -11,6 +11,7 @@ import SiteFooter from "../components/SiteFooter";
 import SiteHeader from "../components/SiteHeader";
 import Loading from "../components/Loading";
 import SaleCountdown from "../components/SaleCountdown";
+import { splitProductName } from "../lib/productGroup";
 
 const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
 
@@ -32,6 +33,44 @@ type ProductRow = {
   isNew: boolean;
   isVisible: boolean;
 };
+
+// 一覧の1枚ぶん。同じ種類（「シリーズ名／味」）は1枚にまとめる
+type ProductCard = {
+  rep: ProductRow; // 代表（並び順で先頭＝在庫あり優先）
+  title: string; // 表示名（まとめた時はシリーズ名）
+  variants: ProductRow[]; // まとめた商品（単品なら1件）
+  variantLabels: string[];
+};
+
+function buildCards(rows: ProductRow[]): ProductCard[] {
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const { group, variant } = splitProductName(r.name);
+    if (variant) counts.set(group, (counts.get(group) ?? 0) + 1);
+  }
+
+  const cards: ProductCard[] = [];
+  const byGroup = new Map<string, ProductCard>();
+
+  for (const r of rows) {
+    const { group, variant } = splitProductName(r.name);
+    // 味・種類が2つ以上ある時だけまとめる（1つだけなら通常表示）
+    if (!variant || (counts.get(group) ?? 0) < 2) {
+      cards.push({ rep: r, title: r.name, variants: [r], variantLabels: [] });
+      continue;
+    }
+    const existing = byGroup.get(group);
+    if (existing) {
+      existing.variants.push(r);
+      existing.variantLabels.push(variant);
+      continue;
+    }
+    const card: ProductCard = { rep: r, title: group, variants: [r], variantLabels: [variant] };
+    byGroup.set(group, card);
+    cards.push(card);
+  }
+  return cards;
+}
 
 function ProductList() {
   const navigate = useNavigate();
@@ -156,12 +195,23 @@ function ProductList() {
     loadProducts();
   }, []);
 
-  // ✅ 検索で絞り込み
+  // ✅ 同じ種類をまとめる → 検索で絞り込み（味・種類の名前でもヒットする）
+  const cards = useMemo(() => buildCards(products), [products]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) => (p.name ?? "").toLowerCase().includes(q));
-  }, [products, query]);
+    if (!q) return cards;
+    return cards.filter((c) =>
+      c.variants.some((v) => (v.name ?? "").toLowerCase().includes(q))
+    );
+  }, [cards, query]);
+
+  // 1商品ぶんの表示価格（セール・会員価格を反映）
+  const shownPriceOf = (p: ProductRow) => {
+    const sale = p.salePrice != null && p.salePrice >= 0 ? p.salePrice : null;
+    const base = isMember && p.memberPrice ? p.memberPrice : p.price;
+    return sale != null ? sale : base;
+  };
 
   return (
     <div className="plist-page">
@@ -213,7 +263,15 @@ function ProductList() {
           <div className="plist-empty">該当する商品がありません</div>
         ) : (
           <div className="plist-grid">
-            {filtered.map((p) => {
+            {filtered.map((card) => {
+              const p = card.rep;
+              const isGroup = card.variants.length > 1;
+              // まとめた商品は「買える味の最安値〜」を表示
+              const buyable = card.variants.filter((v) => (v.stock ?? 0) > 0);
+              const priceSource = buyable.length > 0 ? buyable : card.variants;
+              const groupPrices = priceSource.map(shownPriceOf);
+              const groupMinPrice = Math.min(...groupPrices);
+              const priceVaries = isGroup && new Set(groupPrices).size > 1;
               const soldOut = (p.stock ?? 0) <= 0;
               const originalPrice = getOriginalPrice(p);
               // 0円セールも有効
@@ -249,7 +307,7 @@ function ProductList() {
                   {/* ✅ 画像は .plist-media でラップ（正方形 + hoverズーム + SOLDオーバーレイ） */}
                   <div className="plist-media">
                     {p.imageData ? (
-                      <img src={p.imageData} alt={p.name} />
+                      <img src={p.imageData} alt={card.title} />
                     ) : (
                       <div className="plist-noimg">No Image</div>
                     )}
@@ -273,10 +331,17 @@ function ProductList() {
                   {/* ✅ SOLD OUT ラベルは .plist-badges の外へ（中央に大表示） */}
                   {soldOut ? <div className="sold-label">SOLD OUT</div> : null}
 
-                  <div className="plist-name">{p.name}</div>
+                  <div className="plist-name">{card.title}</div>
+
+                  {isGroup ? (
+                    <div className="plist-variants">
+                      <span className="plist-variants-count">{card.variants.length}種類</span>
+                      <span className="plist-variants-names">{card.variantLabels.join("・")}</span>
+                    </div>
+                  ) : null}
 
                   <div className="plist-price-wrap">
-  {isSale && originalPrice ? (
+  {isSale && originalPrice && !priceVaries ? (
     <div className="plist-price-old">
       ¥{formatPrice(originalPrice)}
     </div>
@@ -286,8 +351,8 @@ function ProductList() {
     {isMember && p.memberPrice ? (
       <span className="plist-memberTag">会員</span>
     ) : null}
-    <div className={isMember && p.memberPrice ? "plist-price is-member" : "plist-price"}>¥{formatPrice(shownPrice)}</div>
-    {isSale && discountYen > 0 ? (
+    <div className={isMember && p.memberPrice ? "plist-price is-member" : "plist-price"}>¥{formatPrice(priceVaries ? groupMinPrice : shownPrice)}{priceVaries ? <span className="plist-price-from">〜</span> : null}</div>
+    {isSale && discountYen > 0 && !priceVaries ? (
       <div className="plist-price-save">
         ¥{formatPrice(discountYen)} OFF
       </div>

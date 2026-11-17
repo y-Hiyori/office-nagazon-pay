@@ -1,4 +1,6 @@
 // api/send-contact-email.js
+import { buildAdminEmail, esc, sendEmailJS } from "./_email.js";
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -37,30 +39,39 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, status: "ENV_MISSING", missing: missingEnv });
     }
 
-    // EmailJSへ送信（お問い合わせ = 管理者宛てテンプレ想定）
-    const payload = {
-      service_id: process.env.EMAILJS_SERVICE_ID,
-      template_id: process.env.EMAILJS_CONTACT_TEMPLATE_ID,
-      user_id: process.env.EMAILJS_PUBLIC_KEY,
-      accessToken: process.env.EMAILJS_PRIVATE_KEY,
-      template_params: {
-        contact_name: String(contact_name).trim(),
-        contact_email: String(contact_email).trim(),
-        contact_subject: String(contact_subject).trim(),
-        contact_message: String(contact_message).trim(),
-        contact_order_id: String(contact_order_id || "（未入力）").trim(),
-      },
-    };
+    // EmailJSへ送信（お問い合わせ = 管理者宛てテンプレ）
+    const name = String(contact_name).trim();
+    const email = String(contact_email).trim();
+    const subject = String(contact_subject).trim();
+    const message = String(contact_message).trim();
+    const orderId = String(contact_order_id || "").trim();
 
-    const r = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    const mail = buildAdminEmail({
+      subject: `【お問い合わせ】${subject}`,
+      eyebrow: "お問い合わせ",
+      title: subject,
+      lead: "お問い合わせフォームから新しいメッセージが届きました。",
+      rows: [
+        ["お名前", esc(name)],
+        ["メールアドレス", `<a href="mailto:${esc(email)}" style="color:#1e6fd9;">${esc(email)}</a>`],
+        ["注文番号", esc(orderId || "（未入力）")],
+      ],
+      messageTitle: "お問い合わせ内容",
+      messageText: message,
     });
 
-    const text = await r.text();
+    const r = await sendEmailJS(process.env.EMAILJS_CONTACT_TEMPLATE_ID, {
+      subject: mail.subject,
+      html: mail.html,
+      contact_name: name,
+      contact_email: email,
+      contact_subject: subject,
+      contact_message: message,
+      contact_order_id: orderId || "（未入力）",
+    });
+
     if (!r.ok) {
-      return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail: text });
+      return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail: r.detail });
     }
 
     return res.json({ ok: true });

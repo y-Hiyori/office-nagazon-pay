@@ -19,6 +19,7 @@ import SiteHeader from "../components/SiteHeader";
 import { appDialog } from "../lib/appDialog";
 import Loading from "../components/Loading";
 import SaleCountdown from "../components/SaleCountdown";
+import { splitProductName, variantLikePattern } from "../lib/productGroup";
 
 const formatYen = (value: number) => (Number(value) || 0).toLocaleString("ja-JP");
 const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
@@ -26,6 +27,15 @@ const NEW_PERIOD_MS = 24 * 60 * 60 * 1000;
 type DetailProduct = Product & {
   created_at?: string | null;
   is_visible?: boolean | null;
+};
+
+// 同じ種類の商品（味・種類ちがい）
+type VariantOption = {
+  id: number;
+  label: string;
+  price: number;
+  stock: number;
+  image: string | null;
 };
 
 function ProductDetail() {
@@ -41,6 +51,8 @@ function ProductDetail() {
   const [detailImage, setDetailImage] = useState<string | null>(null);
   // ✅ セール中ロット（同じ商品の一部だけセール価格で売る）
   const [saleLot, setSaleLot] = useState<SaleLot | null>(null);
+  // ✅ 同じ種類の商品（「シリーズ名／味」でまとめた味・種類の一覧）
+  const [variants, setVariants] = useState<VariantOption[]>([]);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -91,6 +103,42 @@ function ProductDetail() {
       });
 
       setDetailImage(detailImg);
+
+      // ✅ 同じ種類（味・種類ちがい）の商品を取得
+      try {
+        const parts = splitProductName(data.name);
+        if (parts.variant) {
+          const { data: sibs } = await supabase
+            .from("products")
+            .select("id,name,price,stock,is_visible,created_at")
+            .like("name", variantLikePattern(parts.group))
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true });
+
+          const opts: VariantOption[] = (sibs ?? [])
+            .filter((v: any) => v.is_visible !== false || Number(v.id) === productId)
+            .map((v: any) => {
+              const vp = splitProductName(v.name);
+              return { v, vp };
+            })
+            .filter(({ vp }) => vp.variant && vp.group === parts.group)
+            .map(({ v, vp }) => ({
+              id: Number(v.id),
+              label: String(vp.variant),
+              price: Number(v.price ?? 0),
+              stock: Number(v.stock ?? 0),
+              image: findProductImage(Number(v.id)) ?? null,
+            }));
+
+          setVariants(opts.length > 1 ? opts : []);
+        } else {
+          setVariants([]);
+        }
+      } catch (eVar) {
+        console.error("variant load failed:", eVar);
+        setVariants([]);
+      }
+
       try {
         const saleMap = await fetchSaleLots();
         setSaleLot(saleMap.get(productId) ?? null);
@@ -172,6 +220,17 @@ function ProductDetail() {
     const n = max > 0 ? max : min;
     return `ご注文から${n}${unit}以内に発送`;
   }, [product]);
+
+  // ✅ まとめ表示の時は「シリーズ名」を見出しに、味・種類は選択欄に出す
+  const nameParts = splitProductName(product?.name);
+  const hasVariants = variants.length > 1;
+  const displayName = hasVariants ? nameParts.group : product?.name ?? "";
+  const currentVariantLabel = hasVariants ? nameParts.variant : null;
+
+  const handleSelectVariant = (variantId: number) => {
+    if (!product || variantId === product.id) return;
+    navigate(`/products/${variantId}`, { replace: true });
+  };
 
   const titleBadge = useMemo(() => {
     if (!product) return null;
@@ -301,8 +360,49 @@ function ProductDetail() {
           ) : null}
         </div>
 
-        <h1 className="pdetail-name">{product.name}</h1>
+        <h1 className="pdetail-name">{displayName}</h1>
       </div>
+
+      {hasVariants && (
+        <div className="pdetail-variants">
+          <div className="pdetail-variantsHead">
+            <span className="pdetail-variantsLabel">味・種類</span>
+            <span className="pdetail-variantsCurrent">{currentVariantLabel}</span>
+          </div>
+          <div className="pdetail-variantList" role="radiogroup" aria-label="味・種類を選ぶ">
+            {variants.map((v) => {
+              const selected = v.id === product.id;
+              const sold = v.stock <= 0;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  className={[
+                    "pdetail-variant",
+                    selected ? "is-selected" : "",
+                    sold ? "is-soldout" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={() => handleSelectVariant(v.id)}
+                >
+                  <span className="pdetail-variantThumb">
+                    {v.image ? <img src={v.image} alt="" /> : null}
+                  </span>
+                  <span className="pdetail-variantText">
+                    <span className="pdetail-variantName">{v.label}</span>
+                    <span className="pdetail-variantSub">
+                      {sold ? "売り切れ" : `¥${formatYen(v.price)}`}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {lotSalePrice != null && !isSoldOut && (
         <div className="pdetail-saleHero">

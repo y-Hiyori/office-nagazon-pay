@@ -9,6 +9,10 @@
       "dest": "/api/send-contact-email"
     },
     {
+      "src": "/api/auth-email-hook",
+      "dest": "/api/auth-email-hook"
+    },
+    {
       "src": "/api/guard-event",
       "dest": "/api/guard-event"
     },

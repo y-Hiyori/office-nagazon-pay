@@ -1040,3 +1040,109 @@
   font-weight: 900;
   color: #be123c;
 }
+
+
+/* ---------- 味・種類の選択 ---------- */
+
+.pdetail-variants {
+  margin: 0 0 20px;
+}
+
+.pdetail-variantsHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pdetail-variantsLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pd-text);
+}
+
+.pdetail-variantsCurrent {
+  font-size: 13px;
+  color: var(--pd-accent);
+  font-weight: 600;
+}
+
+.pdetail-variantList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.pdetail-variant {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 12px;
+  border: 1.5px solid var(--pd-border);
+  background: var(--pd-surface);
+  color: var(--pd-text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pdetail-variant:hover {
+  border-color: rgba(139, 30, 63, 0.4);
+}
+
+.pdetail-variant.is-selected {
+  border-color: var(--pd-accent);
+  background: var(--pd-accent-soft);
+  box-shadow: 0 0 0 3px rgba(139, 30, 63, 0.08);
+}
+
+.pdetail-variantThumb {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f4f4f6;
+}
+
+.pdetail-variantThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pdetail-variantText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.pdetail-variantName {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.pdetail-variantSub {
+  font-size: 12px;
+  color: #6e6e73;
+  font-feature-settings: "tnum" 1;
+}
+
+.pdetail-variant.is-soldout .pdetail-variantThumb {
+  opacity: 0.45;
+}
+
+.pdetail-variant.is-soldout .pdetail-variantName {
+  color: #a1a1a6;
+}
+
+.pdetail-variant.is-soldout .pdetail-variantSub {
+  color: #b42318;
+}

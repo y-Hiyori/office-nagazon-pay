@@ -245,7 +245,7 @@ function AdminAdd() {
 
       <input
         type="text"
-        placeholder="商品名"
+        placeholder="商品名（味ちがいは「シリーズ名／味」でまとめ表示）"
         value={name}
         onChange={(e) => setName(e.target.value)}
       />

@@ -2491,7 +2491,7 @@ function AdminPage() {
                 <span>商品名 必須</span>
                 <input
                   type="text"
-                  placeholder="商品名"
+                  placeholder="商品名（味ちがいは「シリーズ名／味」でまとめ表示）"
                   value={addForm.name}
                   onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
                 />

@@ -1,6 +1,7 @@
 // api/_guard.js
 // 見守り（Nagazon Guard）共通処理：通知・時刻・管理者クライアント
 import { createClient } from "@supabase/supabase-js";
+import { buildAdminEmail } from "./_email.js";
 
 export function getAdminClient() {
   const url = process.env.SUPABASE_URL;
@@ -270,6 +271,16 @@ export async function sendAlertEmail(settings, event, order, imageUrl) {
   const orderId = order?.id || event.order_id || event.id || "-";
   const occurred = formatJst(event.occurred_at || event.received_at);
 
+  const mail = buildAdminEmail({
+    subject,
+    eyebrow: "NAGAZON Guard",
+    title: event.kind === "test" ? "テスト通知" : "不審な動きを検知しました",
+    messageTitle: "検知内容",
+    messageText: message,
+    actionLabel: "管理画面で確認する",
+    actionUrl: guardUrl,
+  });
+
   let sent = 0;
   let failed = 0;
   const details = [];
@@ -289,6 +300,8 @@ export async function sendAlertEmail(settings, event, order, imageUrl) {
           // 件名は注文メール風になるため、専用テンプレートを作る場合は
           // EMAILJS_GUARD_TEMPLATE_ID を設定してください。
           to_email: to,
+          subject: mail.subject,
+          html: mail.html,
           buyer_name: "NAGAZON Guard",
           order_id: `GUARD-${String(orderId).slice(0, 8)}`,
           items_text: message,

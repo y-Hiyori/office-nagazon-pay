@@ -1,5 +1,6 @@
 // api/send-buyer-order-email.js
 import { createClient } from "@supabase/supabase-js";
+import { buildOrderEmail, sendEmailJS } from "./_email.js";
 
 export default async function handler(req, res) {
   // CORS
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
     const { data: order, error: orderErr } = await sb
       .from("orders")
       .select(
-        "id,user_id,status,total,discount_amount,coupon_code,created_at,paypay_return_token,email,name,fulfillment_type,buyer_email_sent_at"
+        "id,user_id,status,total,subtotal,discount_amount,coupon_code,points_used,points_earned,payment_method,created_at,paid_at,paypay_return_token,email,name,fulfillment_type,buyer_email_sent_at"
       )
       .eq("id", orderId)
       .single();
@@ -74,7 +75,7 @@ export default async function handler(req, res) {
     // items
     const { data: items } = await sb
       .from("order_items")
-      .select("product_name,price,quantity")
+      .select("product_name,price,quantity,is_sale")
       .eq("order_id", orderId);
 
     const itemsText = (items || [])
@@ -92,29 +93,20 @@ export default async function handler(req, res) {
         ? `${totalYen.toLocaleString("ja-JP")}円（クーポン:${coupon || "-"} -${disc.toLocaleString("ja-JP")}円）`
         : `${totalYen.toLocaleString("ja-JP")}円`;
 
-    // EmailJS送信
-    const payload = {
-      service_id: process.env.EMAILJS_SERVICE_ID,
-      template_id: process.env.EMAILJS_TEMPLATE_ID,
-      user_id: process.env.EMAILJS_PUBLIC_KEY,
-      accessToken: process.env.EMAILJS_PRIVATE_KEY,
-      template_params: {
-        to_email: toEmail,
-        buyer_name: buyerName || "お客様",
-        order_id: order.id,
-        items_text: itemsText || "（明細なし）",
-        total_text: totalText,
-      },
-    };
-
-    const r = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    // EmailJS送信（デザインは api/_email.js で作って {{{html}}} / {{subject}} として渡す。
+    //   buyer_name などの従来の変数は、テンプレートが旧レイアウトのままでも届くように残している）
+    const mail = buildOrderEmail({ order, items: items || [], buyerName });
+    const r = await sendEmailJS(process.env.EMAILJS_TEMPLATE_ID, {
+      to_email: toEmail,
+      subject: mail.subject,
+      html: mail.html,
+      buyer_name: buyerName || "お客様",
+      order_id: order.id,
+      items_text: itemsText || "（明細なし）",
+      total_text: totalText,
     });
 
-    const text = await r.text();
-    if (!r.ok) return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail: text });
+    if (!r.ok) return res.status(500).json({ ok: false, status: "EMAILJS_FAILED", detail: r.detail });
 
     // 送信済み記録 & email/nameキャッシュ
     await sb
