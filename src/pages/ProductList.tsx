@@ -307,11 +307,33 @@ function ProductList() {
                 >
                   {/* ✅ 画像は .plist-media でラップ（正方形 + hoverズーム + SOLDオーバーレイ） */}
                   <div className="plist-media">
-                    {p.imageData ? (
-                      <img src={p.imageData} alt={card.title} />
-                    ) : (
-                      <div className="plist-noimg">No Image</div>
-                    )}
+                    {(() => {
+                      // まとめた商品は味ごとの写真を並べる（在庫ありを先に・最大4枚）
+                      const imgs = isGroup
+                        ? card.variants.map((v) => v.imageData).filter((x): x is string => !!x)
+                        : [];
+                      if (imgs.length >= 2) {
+                        const shown = imgs.slice(0, 4);
+                        const more = imgs.length - shown.length;
+                        return (
+                          <div className={`plist-collage n${shown.length}`}>
+                            {shown.map((src, i) => (
+                              <div className="plist-collage-cell" key={i}>
+                                <img src={src} alt={i === 0 ? card.title : ""} loading="lazy" />
+                                {more > 0 && i === shown.length - 1 ? (
+                                  <span className="plist-collage-more">+{more}</span>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return p.imageData ? (
+                        <img src={p.imageData} alt={card.title} />
+                      ) : (
+                        <div className="plist-noimg">No Image</div>
+                      );
+                    })()}
                   </div>
 
                   {/* ✅ 通常バッジ（SALE / NEW）は左上に配置 */}
