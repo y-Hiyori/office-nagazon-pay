@@ -1,3 +1,4 @@
 firmware/*/src/config.h
 firmware/*/.pio
 firmware/*/.vscode
+api_disabled
