@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
     const { data: order, error: orderErr } = await sb
-      .from("orders")
+      .from("orders_view")
       .select(
         "id,user_id,status,total,subtotal,discount_amount,coupon_code,email,name,phone,postal_code,address,building,fulfillment_type,paypay_return_token,admin_email_sent_at"
       )

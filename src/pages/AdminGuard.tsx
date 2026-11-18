@@ -228,7 +228,7 @@ export default function AdminGuard() {
 
   const loadSettings = useCallback(async () => {
     const { data, error } = await supabase
-      .from("guard_settings")
+      .from("guard_settings_view")
       .select("*")
       .eq("id", 1)
       .maybeSingle();
@@ -387,7 +387,7 @@ export default function AdminGuard() {
 
     (async () => {
       const { data } = await supabase
-        .from("orders")
+        .from("orders_view")
         .select(CANDIDATE_SELECT)
         .eq("status", "paid")
         .or("fulfillment_type.is.null,fulfillment_type.neq.shipping")
@@ -401,7 +401,7 @@ export default function AdminGuard() {
 
       if (selected.order_id && !rows.some((o) => o.id === selected.order_id)) {
         const { data: matched } = await supabase
-          .from("orders")
+          .from("orders_view")
           .select(CANDIDATE_SELECT)
           .eq("id", selected.order_id)
           .maybeSingle();

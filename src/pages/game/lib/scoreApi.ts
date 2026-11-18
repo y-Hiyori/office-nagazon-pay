@@ -73,7 +73,7 @@ function safeName(v: unknown, max = 12): string {
 
 async function getProfilesName(userId: string): Promise<string | null> {
   const { data, error } = await supabase
-    .from("profiles")
+    .from("profiles_view")
     .select("name")
     .eq("id", userId)
     .maybeSingle();

@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   try {
     const sb = getAdminClient();
-    const { data: settings } = await sb.from("guard_settings").select("*").eq("id", 1).single();
+    const { data: settings } = await sb.from("guard_settings_view").select("*").eq("id", 1).single();
     if (!settings) return res.status(500).json({ ok: false, error: "SETTINGS_NOT_FOUND" });
 
     const bearer = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");

@@ -178,7 +178,7 @@ export default function AdminCorrections() {
           .gte("created_at", since)
           .order("created_at", { ascending: false })
           .limit(1000),
-        supabase.from("admin_correction_logs").select("*").order("created_at", { ascending: false }).limit(300),
+        supabase.from("admin_correction_logs_view").select("*").order("created_at", { ascending: false }).limit(300),
       ]);
       if (pR.error) throw pR.error;
       setProducts((pR.data ?? []) as Product[]);

@@ -78,7 +78,7 @@ export default function PurchaseComplete() {
     }
 
     const { data, error } = await supabase
-      .from("orders")
+      .from("orders_view")
       .select("id,status,paid_at,fulfillment_type,shipping_status")
       .eq("id", orderId)
       .eq("user_id", u.user.id)

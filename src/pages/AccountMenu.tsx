@@ -132,7 +132,7 @@ function AccountMenu() {
       setUser(user);
 
       const { data, error: profileError } = await supabase
-        .from("profiles")
+        .from("profiles_view")
         .select("id, name, email, is_admin")
         .eq("id", user.id)
         .maybeSingle();

@@ -37,7 +37,7 @@ function AdminRoute({ children }: AdminRouteProps) {
 
       // ② 管理者かどうか
       const { data: profile, error: profileError } = await supabase
-        .from("profiles")
+        .from("profiles_view")
         .select("is_admin")
         .eq("id", user.id)
         .single();

@@ -50,7 +50,7 @@ export default function AdminGuestOrders() {
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("orders")
+      .from("orders_view")
       .select(
         "id,created_at,name,email,phone,subtotal,discount_amount,total,coupon_code,payment_method,status,paid_at,fulfillment_type,shipping_status"
       )

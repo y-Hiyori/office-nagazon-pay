@@ -47,11 +47,11 @@ export default async function handler(req, res) {
     // 管理者か確認
     const { data: authData, error: authErr } = await sb.auth.getUser(String(accessToken));
     if (authErr || !authData?.user) return res.status(401).json({ ok: false, status: "UNAUTHORIZED" });
-    const { data: me } = await sb.from("profiles").select("is_admin").eq("id", authData.user.id).maybeSingle();
+    const { data: me } = await sb.from("profiles_view").select("is_admin").eq("id", authData.user.id).maybeSingle();
     if (!me?.is_admin) return res.status(403).json({ ok: false, status: "NOT_ADMIN" });
 
     // 宛先（存在する会員だけ）
-    const { data: profs, error: profErr } = await sb.from("profiles").select("id,name,email").in("id", ids);
+    const { data: profs, error: profErr } = await sb.from("profiles_view").select("id,name,email").in("id", ids);
     if (profErr) throw profErr;
     const targets = profs || [];
     if (!targets.length) return res.status(400).json({ ok: false, status: "NO_RECIPIENTS" });

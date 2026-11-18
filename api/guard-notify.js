@@ -20,14 +20,14 @@ export default async function handler(req, res) {
     if (uErr || !userData?.user) return res.status(401).json({ ok: false, error: "BAD_AUTH" });
 
     const { data: profile } = await sb
-      .from("profiles")
+      .from("profiles_view")
       .select("is_admin")
       .eq("id", userData.user.id)
       .maybeSingle();
 
     if (!profile?.is_admin) return res.status(403).json({ ok: false, error: "NOT_ADMIN" });
 
-    const { data: settings } = await sb.from("guard_settings").select("*").eq("id", 1).single();
+    const { data: settings } = await sb.from("guard_settings_view").select("*").eq("id", 1).single();
     if (!settings) return res.status(500).json({ ok: false, error: "SETTINGS_NOT_FOUND" });
 
     if (!settings.notify_on_suspicious) {

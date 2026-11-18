@@ -65,7 +65,7 @@ async function pickOrderForEvent(sb, settings, event, productId, delta) {
   const now = Date.now();
 
   const { data, error } = await sb
-    .from("orders")
+    .from("orders_view")
     .select("id,paid_at,created_at,order_items(product_id,quantity)")
     .eq("status", "paid")
     .is("picked_up_at", null)
@@ -122,7 +122,7 @@ export default async function handler(req, res) {
     const sb = getAdminClient();
 
     const { data: settings, error: sErr } = await sb
-      .from("guard_settings")
+      .from("guard_settings_view")
       .select("*")
       .eq("id", 1)
       .single();

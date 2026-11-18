@@ -156,7 +156,7 @@ function OrdersList() {
 
       // 2) 注文（paidのみ）
       const { data: ordersData, error: ordersErr } = await supabase
-        .from("orders")
+        .from("orders_view")
         .select("*")
         .eq("user_id", user.id)
         .in("status", ["paid", "canceled"])
@@ -218,7 +218,7 @@ function OrdersList() {
 
       // ✅ キャンセル申請中かどうか
       const { data: reqData } = await supabase
-        .from("order_cancel_requests")
+        .from("order_cancel_requests_view")
         .select("order_id,status")
         .in("order_id", orderIds)
         .eq("status", "requested");

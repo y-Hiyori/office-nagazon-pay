@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     if (authErr || !authData?.user) return res.status(401).json({ ok: false, status: "UNAUTHORIZED" });
 
     const { data: me, error: meErr } = await sb
-      .from("profiles")
+      .from("profiles_view")
       .select("is_admin")
       .eq("id", authData.user.id)
       .maybeSingle();
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
 
     // ✅ 注文の確認
     const { data: order, error: orderErr } = await sb
-      .from("orders")
+      .from("orders_view")
       .select("id,status,fulfillment_type,paypay_return_token")
       .eq("id", String(orderId))
       .single();

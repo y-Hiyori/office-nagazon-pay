@@ -59,7 +59,7 @@ export default function AdminFailedOrders() {
     setErr("");
 
     const { data, error } = await supabase
-      .from("orders")
+      .from("orders_view")
       .select("id,created_at,user_id,name,email,total,status,paid_at,payment_method")
       .in("status", ["pending", "failed", "canceled"])
       .is("paid_at", null)

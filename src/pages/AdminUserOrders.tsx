@@ -70,7 +70,7 @@ export default function AdminUserOrders() {
       setLoading(true);
 
       const { data, error } = await supabase
-        .from("orders")
+        .from("orders_view")
         .select("*")
         .eq("user_id", id)
         .in("status", ["paid", "canceled"])

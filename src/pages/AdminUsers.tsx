@@ -42,7 +42,7 @@ function AdminUsers() {
       const loginUser = authData.user;
 
       const { data: me, error: meError } = await supabase
-        .from("profiles")
+        .from("profiles_view")
         .select("is_admin")
         .eq("id", loginUser.id)
         .single();
@@ -54,7 +54,7 @@ function AdminUsers() {
       }
 
       const { data, error } = await supabase
-        .from("profiles")
+        .from("profiles_view")
         .select("id, name, email, is_admin, created_at")
         .order("created_at", { ascending: true });
 

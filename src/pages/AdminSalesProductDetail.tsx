@@ -154,7 +154,7 @@ export default function AdminSalesProductDetail() {
       try {
         // 1) 対象期間の orders を取得（売上＝支払い完了のみ）
         let q = supabase
-          .from("orders")
+          .from("orders_view")
           .select(
             "id,user_id,created_at,total,status,subtotal,discount_amount,coupon_code,points_used,points_applied,email,name"
           )
@@ -212,7 +212,7 @@ export default function AdminSalesProductDetail() {
         let profileMap = new Map<string, ProfileRow>();
         if (userIds.length > 0) {
           const { data: profiles, error: profError } = await supabase
-            .from("profiles")
+            .from("profiles_view")
             .select("id, name, email")
             .in("id", userIds);
 

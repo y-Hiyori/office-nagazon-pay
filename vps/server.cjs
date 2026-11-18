@@ -328,11 +328,7 @@ async function computeCouponDiscount(sb, opts) {
       }
     }
     if (opts.email) {
-      const { count } = await sb
-        .from("coupon_redemptions")
-        .select("id", { count: "exact", head: true })
-        .eq("code", code)
-        .ilike("email", opts.email);
+      const { count } = { count: Number((await sb.rpc("coupon_email_used_count", { p_code: code, p_email: opts.email })).data || 0) };
       if (Number(count || 0) >= limit) {
         return { ok: false, error: "このクーポンはご利用回数の上限に達しています。" };
       }
@@ -727,7 +723,7 @@ app.post("/api/confirm-paypay-payment", async (req, res) => {
     let order;
     if (orderId) {
       const { data: o, error: oErr } = await sb
-        .from("orders")
+        .from("orders_view")
         .select("id,status,user_id,paypay_merchant_payment_id,paypay_return_token,points_used")
         .eq("id", orderId)
         .single();
@@ -738,7 +734,7 @@ app.post("/api/confirm-paypay-payment", async (req, res) => {
       order = o;
     } else if (qMpid) {
       const { data: o, error: oErr } = await sb
-        .from("orders")
+        .from("orders_view")
         .select("id,status,user_id,paypay_merchant_payment_id,paypay_return_token,points_used")
         .eq("paypay_merchant_payment_id", qMpid)
         .maybeSingle();
@@ -894,7 +890,7 @@ app.post("/api/send-buyer-order-email", async (req, res) => {
     const sb = supabaseAdmin();
 
     const { data: order, error: orderErr } = await sb
-      .from("orders")
+      .from("orders_view")
       .select(
         "id,user_id,status,total,discount_amount,coupon_code,created_at,paypay_return_token,email,name,buyer_email_sent_at"
       )
@@ -919,7 +915,7 @@ app.post("/api/send-buyer-order-email", async (req, res) => {
     // profiles から補完
     if ((!toEmail || !buyerName) && order.user_id) {
       const { data: prof } = await sb
-        .from("profiles")
+        .from("profiles_view")
         .select("email,name")
         .eq("id", order.user_id)
         .maybeSingle();
@@ -1167,7 +1163,7 @@ async function sweepPendingOrders() {
     const sb = supabaseAdmin();
     const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
     const { data: pend, error } = await sb
-      .from("orders")
+      .from("orders_view")
       .select("id,status,user_id,points_used,paypay_merchant_payment_id,paypay_return_token,created_at")
       .eq("status", "pending")
       .gte("created_at", since)
@@ -1227,7 +1223,7 @@ app.post("/api/admin-cancel-order", async (req, res) => {
     }
 
     const { data: me, error: meErr } = await sb
-      .from("profiles")
+      .from("profiles_view")
       .select("is_admin")
       .eq("id", authData.user.id)
       .maybeSingle();
@@ -1236,7 +1232,7 @@ app.post("/api/admin-cancel-order", async (req, res) => {
     }
 
     const { data: order, error: orderErr } = await sb
-      .from("orders")
+      .from("orders_view")
       .select(
         "id,status,total,payment_method,paypay_merchant_payment_id,fulfillment_type,shipping_status,refund_id,refund_amount,points_used,points_earned,points_awarded_at"
       )
@@ -1440,7 +1436,7 @@ app.post("/api/admin-delete-order", async (req, res) => {
     }
 
     const { data: me, error: meErr } = await sb
-      .from("profiles")
+      .from("profiles_view")
       .select("is_admin")
       .eq("id", authData.user.id)
       .maybeSingle();
@@ -1449,7 +1445,7 @@ app.post("/api/admin-delete-order", async (req, res) => {
     }
 
     const { data: order, error: orderErr } = await sb
-      .from("orders")
+      .from("orders_view")
       .select("id,status,paid_at,total,created_at,paypay_merchant_payment_id")
       .eq("id", orderId)
       .maybeSingle();
@@ -1537,7 +1533,7 @@ app.post("/api/cancel-paypay-order", async (req, res) => {
     if (!orderId || !token) return res.status(400).json({ ok: false, status: "MISSING" });
 
     const { data: order, error } = await sb
-      .from("orders")
+      .from("orders_view")
       .select("id,status,user_id,points_used,paypay_merchant_payment_id,paypay_return_token")
       .eq("id", orderId)
       .maybeSingle();
@@ -1576,7 +1572,7 @@ app.post("/api/cancel-paypay-order", async (req, res) => {
       .select("id");
 
     if (!upd || upd.length === 0) {
-      const { data: again } = await sb.from("orders").select("status").eq("id", orderId).maybeSingle();
+      const { data: again } = await sb.from("orders_view").select("status").eq("id", orderId).maybeSingle();
       const st2 = String(again?.status || "").toLowerCase();
       return res.json({ ok: true, status: st2, paid: st2 === "paid", canceled: st2 === "canceled" });
     }
@@ -1609,7 +1605,7 @@ app.get("/api/order-status", async (req, res) => {
     const sb = supabaseAdmin();
 
     const { data: order, error } = await sb
-      .from("orders")
+      .from("orders_view")
       .select("*")
       .eq("id", orderId)
       .single();

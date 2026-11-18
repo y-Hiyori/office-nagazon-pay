@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     if (uErr || !userData?.user) return res.status(401).json({ ok: false, error: "BAD_AUTH" });
 
     const { data: profile } = await sb
-      .from("profiles")
+      .from("profiles_view")
       .select("is_admin")
       .eq("id", userData.user.id)
       .maybeSingle();

@@ -254,7 +254,7 @@ function Checkout() {
       // ✅ アカウント登録済み：プロフィールから取得して反映（自動入力）
       //    ※ プロフィールの値を正として反映（修正後の値を勝手に潰さない）
       const { data: profile } = await supabase
-        .from("profiles")
+        .from("profiles_view")
         .select("name, email")
         .eq("id", user.id)
         .maybeSingle();

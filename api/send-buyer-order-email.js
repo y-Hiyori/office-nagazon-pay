@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
     // orders 取得
     const { data: order, error: orderErr } = await sb
-      .from("orders")
+      .from("orders_view")
       .select(
         "id,user_id,status,total,subtotal,discount_amount,coupon_code,points_used,points_earned,payment_method,created_at,paid_at,paypay_return_token,email,name,fulfillment_type,buyer_email_sent_at"
       )
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
     if ((!toEmail || !buyerName) && order.user_id) {
       const { data: prof } = await sb
-        .from("profiles")
+        .from("profiles_view")
         .select("email,name")
         .eq("id", order.user_id)
         .maybeSingle();

@@ -104,7 +104,7 @@ function OrderDetail() {
       }
 
       const { data: orderData, error: orderErr } = await supabase
-        .from("orders")
+        .from("orders_view")
         .select("*")
         .eq("id", id)
         .eq("user_id", user.id)
@@ -135,7 +135,7 @@ function OrderDetail() {
 
       // ✅ キャンセル申請（最新1件）
       const { data: reqData } = await supabase
-        .from("order_cancel_requests")
+        .from("order_cancel_requests_view")
         .select("id,order_id,reason,status,admin_note,created_at")
         .eq("order_id", id)
         .order("created_at", { ascending: false })

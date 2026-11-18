@@ -72,7 +72,7 @@ export default function AdminPoints() {
     }
 
     const { data, error } = await supabase
-      .from("profiles")
+      .from("profiles_view")
       .select("id,name,email")
       .or(`name.ilike.%${kw}%,email.ilike.%${kw}%`)
       .limit(20);

@@ -593,7 +593,7 @@ export default function AdminSales() {
       let guestCount = 0;
       try {
         const { count } = await supabase
-          .from("orders")
+          .from("orders_view")
           .select("id", { count: "exact", head: true })
           .is("user_id", null)
           .eq("status", "paid")

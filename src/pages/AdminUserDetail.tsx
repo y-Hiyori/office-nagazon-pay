@@ -56,7 +56,7 @@ export default function AdminUserDetail() {
       setMeId(authData?.user?.id ?? null);
 
       const { data: prof, error: profErr } = await supabase
-        .from("profiles")
+        .from("profiles_view")
         .select("id, name, email, is_admin")
         .eq("id", id)
         .single();

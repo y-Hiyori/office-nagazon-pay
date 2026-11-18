@@ -86,7 +86,7 @@ export default function AdminOrders() {
     setErr("");
 
     const { data: orderData, error: orderErr } = await supabase
-      .from("orders")
+      .from("orders_view")
       .select(
         "id,created_at,user_id,name,email,phone,total,status,paid_at,payment_method,fulfillment_type,shipping_status,refund_amount,canceled_at"
       )
@@ -107,7 +107,7 @@ export default function AdminOrders() {
 
     // 申請中（未対応）の一覧
     const { data: reqData, error: reqErr } = await supabase
-      .from("order_cancel_requests")
+      .from("order_cancel_requests_view")
       .select("id,order_id,reason,status,created_at")
       .eq("status", "requested")
       .order("created_at", { ascending: true });

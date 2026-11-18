@@ -52,7 +52,7 @@ export default function AdminUserNotice() {
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase
-        .from("profiles")
+        .from("profiles_view")
         .select("id,name,email,is_admin,created_at")
         .order("created_at", { ascending: false });
       setProfiles((data ?? []) as Profile[]);

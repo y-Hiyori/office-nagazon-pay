@@ -250,11 +250,7 @@ serve(async (req: Request) => {
             return json({ ok: false, error: "coupon per user limit reached" });
           }
         }
-        const { count: emailCount } = await sb
-          .from("coupon_redemptions")
-          .select("id", { count: "exact", head: true })
-          .eq("code", coupon)
-          .ilike("email", bEmail);
+        const { count: emailCount } = { count: Number((await sb.rpc("coupon_email_used_count", { p_code: coupon, p_email: bEmail })).data || 0) };
         if (Number(emailCount || 0) >= limit) {
           return json({ ok: false, error: "coupon per user limit reached" });
         }

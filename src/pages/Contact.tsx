@@ -54,7 +54,7 @@ export default function Contact() {
       if (!user) return;
 
       const { data: profile } = await supabase
-        .from("profiles")
+        .from("profiles_view")
         .select("name, email")
         .eq("id", user.id)
         .single();
